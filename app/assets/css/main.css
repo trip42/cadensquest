@@ -1,0 +1,33 @@
+:root {
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html,
+body,
+#__nuxt {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: #12261f;
+  color: #c9d3bd;
+  font-family: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 13px;
+  overscroll-behavior: none;
+}
+
+button:focus-visible,
+canvas:focus-visible { outline: 2px solid #f0c86a; outline-offset: 2px; }
+
+/* Shared treatment for anything laid over the map: dark enough to read
+   against grass, water or stone without hiding what is under it. */
+.panel {
+  background: rgba(14, 30, 25, 0.72);
+  border: 1px solid rgba(208, 220, 155, 0.16);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+}

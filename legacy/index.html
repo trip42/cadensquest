@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Isometric Field Study</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#top" aria-label="Isometric Field Study home">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>FIELD STUDY <em>/ 01</em></span>
+      </a>
+      <div class="status"><span class="status-dot"></span> RENDERING LIVE TERRAIN</div>
+    </header>
+
+    <section class="intro" id="top">
+      <div class="intro-copy">
+        <p class="eyebrow">A SMALL WORLD, IN MOTION</p>
+        <h1>Isometric<br><span>field study.</span></h1>
+        <p class="lede">A terrain ribbon up to 10 tiles wide, drifting diagonally through open country. It splits around gaps and merges again, and it is described by a simple, editable matrix.</p>
+        <div class="intro-meta">
+          <span><strong>10</strong> columns max</span>
+          <span><strong>04</strong> tiles at its narrowest</span>
+          <span><strong>03</strong> terrain types</span>
+        </div>
+      </div>
+      <div class="scroll-note" aria-hidden="true">
+        <span class="arrow">&#8599;</span>
+        <span>SCROLL<br>TO EXPLORE</span>
+      </div>
+    </section>
+
+    <section class="map-section" aria-labelledby="map-title">
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">LIVE VIEWPORT / 001</p>
+          <h2 id="map-title">North basin</h2>
+        </div>
+        <div class="coordinates" id="coords">TRAVEL 0.00 ROWS</div>
+      </div>
+
+      <div class="map-frame">
+        <div class="frame-label frame-label-top">TERRAIN / ISOMETRIC</div>
+        <div class="frame-label frame-label-bottom">DIRECTION OF TRAVEL <span>&#8599;</span></div>
+        <div class="map-viewport" id="mapViewport" tabindex="0" aria-label="Scrollable isometric terrain map. Drag to pan, scroll to travel, space to pause.">
+          <canvas class="map-canvas" id="mapCanvas"></canvas>
+          <div class="map-vignette"></div>
+        </div>
+      </div>
+
+      <div class="map-controls">
+        <div class="legend" aria-label="Terrain legend">
+          <div class="legend-item"><span class="legend-swatch grass"></span><span>GRASSLAND</span></div>
+          <div class="legend-item"><span class="legend-swatch water"></span><span>WATER</span></div>
+          <div class="legend-item"><span class="legend-swatch dirt"></span><span>DIRT PATH</span></div>
+        </div>
+        <div class="hint"><span class="mouse-icon">&#8961;</span> DRAG TO PAN <span class="divider">|</span> WHEEL TO TRAVEL <span class="divider">|</span> SPACE TO PAUSE</div>
+      </div>
+    </section>
+
+    <section class="data-section" aria-labelledby="data-title">
+      <div class="data-copy">
+        <p class="eyebrow">SOURCE / MAP DATA</p>
+        <h2 id="data-title">A tiny grammar<br>for a living map.</h2>
+        <p>Every visible tile comes from the matrix below &mdash; this listing is generated from the same object the renderer reads. Swap a value in <code>script.js</code>, refresh, and the terrain changes. The renderer repeats the rows to create an endless survey line.</p>
+      </div>
+      <div class="code-panel">
+        <div class="code-top"><span>script.js</span><span id="mapDims">ARRAY / 05 &times; 08</span></div>
+        <pre><code id="mapSource">const worldMap = { width: 5, tiles: [ &hellip; ] };</code></pre>
+      </div>
+    </section>
+
+    <footer class="footer"><span>FIELD STUDY / 01</span><span>BUILT FOR THE HORIZON</span></footer>
+  </main>
+  <script src="script.js"></script>
+</body>
+</html>

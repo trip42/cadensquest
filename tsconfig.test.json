@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "strict": true,
+    "target": "es2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "types": ["node", "vitest/globals"],
+    "lib": ["es2022", "dom"],
+    "noEmit": true,
+    "baseUrl": ".",
+    "paths": { "~/*": ["./app/*"] }
+  },
+  "include": ["test/**/*.ts", "vitest.config.ts", "app/game/**/*.ts"]
+}
