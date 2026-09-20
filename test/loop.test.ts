@@ -9,10 +9,10 @@ import {
   playCard,
   tick,
 } from '~/game/actions';
-import { cardDef } from '~/game/cards/definitions';
+import { cardDef, MOVEMENT_BY_RARITY } from '~/game/cards/definitions';
 import { entityDef } from '~/game/entities/definitions';
 import { entityCell } from '~/game/entities/types';
-import { createGame, enemies, type Game, player, resetUids } from '~/game/state';
+import { createGame, enemies, type Game, player, resetUids, stat } from '~/game/state';
 
 const settle = (game: Game, limit = 4000): void => {
   for (let i = 0; i < limit && isBusy(game.state); i += 1) tick(game, 1 / 60);
@@ -34,8 +34,8 @@ describe('the turn loop', () => {
 
     expect(state.phase).toBe('player');
     expect(state.turn).toBe(1);
-    expect(state.hand).toHaveLength(state.handSize);
-    expect(state.energy).toBe(state.maxEnergy);
+    expect(state.hand).toHaveLength(stat(state, 'handSize'));
+    expect(state.energy).toBe(stat(state, 'maxEnergy'));
     // No allowance any more: every step has to be bought with a card.
     expect(state.movement).toBe(0);
   });
@@ -54,7 +54,11 @@ describe('the turn loop', () => {
     beginTurn(game);
     const { state } = game;
 
-    for (const [defId, expected] of [['strike', 1], ['bolt', 2], ['vault', 3]] as const) {
+    // Read the prices from the table rather than pinning them, so retuning
+    // the balance does not break the rule this test is about.
+    const priced = ['strike', 'bolt', 'vault'] as const;
+    for (const defId of priced) {
+      const expected = MOVEMENT_BY_RARITY[cardDef(defId).rarity];
       state.hand = [{ uid: `d_${defId}`, defId }];
       state.movement = 0;
       state.energy = 3;
@@ -135,6 +139,67 @@ describe('the turn loop', () => {
     expect(far.every((entry) => entry.cost <= 1)).toBe(true);
   });
 
+  it('ends the phase by itself once there is nothing left to spend', () => {
+    const game = createGame(4242);
+    beginTurn(game);
+    const { state } = game;
+
+    state.hand = [];
+    state.movement = 0;
+    tick(game, 1 / 60);
+
+    expect(state.phase).toBe('enemy');
+    expect(state.log.some((line) => line.includes('Nothing left to spend'))).toBe(true);
+  });
+
+  it('stays in the player phase while there is still movement banked', () => {
+    const game = createGame(4242);
+    beginTurn(game);
+    game.state.hand = [];
+    game.state.movement = 2;
+
+    for (let i = 0; i < 30; i += 1) tick(game, 1 / 60);
+    expect(game.state.phase).toBe('player');
+  });
+
+  it('stays in the player phase while cards remain, even with no movement', () => {
+    const game = createGame(4242);
+    beginTurn(game);
+    game.state.movement = 0;
+    expect(game.state.hand.length).toBeGreaterThan(0);
+
+    for (let i = 0; i < 30; i += 1) tick(game, 1 / 60);
+    expect(game.state.phase).toBe('player');
+  });
+
+  it('waits for a reward to be claimed before ending the phase', () => {
+    const game = createGame(4242);
+    beginTurn(game);
+    game.state.hand = [];
+    game.state.movement = 0;
+    game.state.pendingRewards.push({ kind: 'gem', gemId: 'ruby' });
+
+    for (let i = 0; i < 30; i += 1) tick(game, 1 / 60);
+    expect(game.state.phase).toBe('player');
+    expect(game.state.activeReward).not.toBeNull();
+  });
+
+  it('waits for the last animation before ending the phase', () => {
+    const game = createGame(4242);
+    beginTurn(game);
+    const self = player(game.state);
+    game.state.hand = [];
+    game.state.movement = 0;
+    self.anim = { state: 'attack', frame: 0, elapsed: 0, done: false };
+
+    tick(game, 1 / 60);
+    expect(game.state.phase).toBe('player');
+
+    const clip = entityDef('caden').animations.attack;
+    for (let t = 0; t < clip.frames / clip.fps + 0.2; t += 1 / 60) tick(game, 1 / 60);
+    expect(game.state.phase).toBe('enemy');
+  });
+
   it('runs enemy turns and comes back round to the player', () => {
     const game = createGame(555);
     beginTurn(game);
@@ -144,7 +209,7 @@ describe('the turn loop', () => {
 
     expect(game.state.phase).toBe('player');
     expect(game.state.turn).toBe(2);
-    expect(game.state.hand).toHaveLength(game.state.handSize);
+    expect(game.state.hand).toHaveLength(stat(game.state, 'handSize'));
   });
 
   it('keeps enemies coming as the player moves down the map', () => {

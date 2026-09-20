@@ -63,6 +63,7 @@ export const ENTITIES: Record<string, EntityDefinition> = {
     sprite: { kind: 'sheet', sheet: 'enemies', col: ENEMY_COLUMN, row: 0, faces: -1, footprint: { width: 50, height: 36 } },
     animations: STATIC_ANIMATIONS,
     intents: ['approach', 'strike', 'brace', 'brace'],
+    reward: { cardRarity: { normal: 85, rare: 15, mythic: 0 } },
   },
 
   dragon: {
@@ -76,6 +77,13 @@ export const ENTITIES: Record<string, EntityDefinition> = {
     sprite: { kind: 'sheet', sheet: 'enemies', col: ENEMY_COLUMN, row: 1, faces: -1, footprint: { width: 94, height: 70 } },
     animations: STATIC_ANIMATIONS,
     intents: ['strike', 'strike', 'empower', 'approach'],
+    // The zone's centrepiece: more choices, better odds, and the only one
+    // that leans towards talismans.
+    reward: {
+      weights: { card: 45, gem: 25, talisman: 30 },
+      cardChoices: 4,
+      cardRarity: { normal: 20, rare: 45, mythic: 35 },
+    },
   },
 
   bug: {
@@ -115,6 +123,12 @@ export const ENTITIES: Record<string, EntityDefinition> = {
     sprite: { kind: 'sheet', sheet: 'enemies', col: ENEMY_COLUMN, row: 4, faces: -1, footprint: { width: 42, height: 48 } },
     animations: STATIC_ANIMATIONS,
     intents: ['approach', 'approach', 'strike', 'approach'],
+    // Barely a threat, barely a prize.
+    reward: {
+      weights: { card: 80, gem: 20, talisman: 0 },
+      cardChoices: 2,
+      cardRarity: { normal: 95, rare: 5, mythic: 0 },
+    },
   },
 
   wolf: {
@@ -128,6 +142,7 @@ export const ENTITIES: Record<string, EntityDefinition> = {
     sprite: { kind: 'sheet', sheet: 'enemies', col: ENEMY_COLUMN, row: 5, faces: -1, footprint: { width: 76, height: 50 } },
     animations: STATIC_ANIMATIONS,
     intents: ['approach', 'strike', 'strike', 'brace'],
+    reward: { weights: { card: 60, gem: 30, talisman: 10 } },
   },
 };
 

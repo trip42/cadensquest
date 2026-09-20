@@ -11,6 +11,7 @@ import { computed, ref, shallowRef } from 'vue';
 import {
   beginTurn,
   canPlay,
+  chooseCardReward,
   discardForMovement,
   endPlayerPhase,
   isBusy,
@@ -18,21 +19,70 @@ import {
   movePlayerTo,
   movementRange,
   playCard,
+  socketGemReward,
+  takeTalismanReward,
   tick,
 } from '~/game/actions';
 import { cardDef, cardMovement } from '~/game/cards/definitions';
-import type { CardDefinition } from '~/game/cards/types';
+import type { CardDefinition, CardInstance } from '~/game/cards/types';
+import { GEM_SLOTS, gemDef, type GemDefinition } from '~/game/gems';
+import { talismanDef, type TalismanDefinition } from '~/game/talismans';
 import { entityDef } from '~/game/entities/definitions';
+import { rewardLabel } from '~/game/rewards';
 import type { Cell } from '~/game/map/navigation';
-import { createGame, type Game, type Phase, player } from '~/game/state';
+import {
+  createGame,
+  entityAt,
+  type Game,
+  gemsOf,
+  type Phase,
+  player,
+  stat,
+  wholeDeck,
+} from '~/game/state';
 import { cellKey, type HighlightKind, type MapRenderer } from '~/render/renderer';
 
-export interface HandCardView {
+/* One shape for a card wherever it is shown: in hand, among spoils, or in
+   the deck while a gem looks for a home. */
+export interface CardView {
   uid: string;
   def: CardDefinition;
-  playable: boolean;
-  /** Movement gained by discarding this card instead of playing it. */
+  /** Gems socketed into this instance. */
+  gems: GemDefinition[];
+  /** Movement gained by discarding it instead of playing it. */
   movement: number;
+  /** Hand only: affordable right now. */
+  playable?: boolean;
+  /** Gem screen only: no sockets left. */
+  full?: boolean;
+}
+
+export type HandCardView = CardView;
+
+export type DeckCardView = CardView;
+
+export interface RewardView {
+  kind: 'card' | 'gem' | 'talisman';
+  /** Card rewards: what is on offer. */
+  cards?: DeckCardView[];
+  /** Gem rewards: which gem, and every card it could go into. */
+  gem?: GemDefinition;
+  deck?: DeckCardView[];
+  /** Talisman rewards: what was found. */
+  talisman?: TalismanDefinition;
+}
+
+export interface EnemyTipView {
+  id: string;
+  name: string;
+  hp: number;
+  maxHp: number;
+  intent: string | null;
+  intentText: string | null;
+  reward: string;
+  rewardTint: string;
+  x: number;
+  y: number;
 }
 
 export interface GameView {
@@ -53,6 +103,10 @@ export interface GameView {
   hand: HandCardView[];
   log: string[];
   busy: boolean;
+  /** Treasures held, oldest first. */
+  talismans: TalismanDefinition[];
+  /** The reward being chosen, if play is paused for one. */
+  reward: RewardView | null;
 }
 
 export const useGameStore = defineStore('game', () => {
@@ -61,6 +115,7 @@ export const useGameStore = defineStore('game', () => {
   let signature = '';
 
   const view = shallowRef<GameView | null>(null);
+  const enemyTip = shallowRef<EnemyTipView | null>(null);
   const selectedUid = ref<string | null>(null);
   const hoverCell = shallowRef<Cell | null>(null);
 
@@ -73,7 +128,7 @@ export const useGameStore = defineStore('game', () => {
       phase: state.phase,
       zone: world.zoneAt(self.row).name,
       energy: state.energy,
-      maxEnergy: state.maxEnergy,
+      maxEnergy: stat(state, 'maxEnergy'),
       movement: state.movement,
       hp: self.hp,
       maxHp: self.maxHp,
@@ -83,15 +138,41 @@ export const useGameStore = defineStore('game', () => {
       drawCount: state.drawPile.length,
       discardCount: state.discardPile.length,
       hand: state.hand.map((card) => ({
-        uid: card.uid,
-        def: cardDef(card.defId),
+        ...describeCard(card),
         playable: canPlay(current, card.uid),
-        movement: cardMovement(cardDef(card.defId)),
       })),
       log: state.log.slice(-6).reverse(),
       busy: isBusy(state),
+      talismans: state.talismans.map(talismanDef),
+      reward: describeReward(current),
     };
   };
+
+  /** A card as every screen shows it. */
+  const describeCard = (card: CardInstance): CardView => ({
+    uid: card.uid,
+    def: cardDef(card.defId),
+    gems: gemsOf(card).map(gemDef),
+    movement: cardMovement(cardDef(card.defId)),
+    full: gemsOf(card).length >= GEM_SLOTS,
+  });
+
+  function describeReward(current: Game): RewardView | null {
+    const active = current.state.activeReward;
+    if (!active) return null;
+
+    if (active.reward.kind === 'card') {
+      return { kind: 'card', cards: (active.offered ?? []).map(describeCard) };
+    }
+    if (active.reward.kind === 'gem') {
+      return {
+        kind: 'gem',
+        gem: gemDef(active.reward.gemId),
+        deck: wholeDeck(current.state).map(describeCard),
+      };
+    }
+    return { kind: 'talisman', talisman: talismanDef(active.reward.talismanId) };
+  }
 
   /** Cheap check so the HUD only re-renders when something changed. */
   const sign = (current: Game): string => {
@@ -102,9 +183,12 @@ export const useGameStore = defineStore('game', () => {
       self.hp, self.block, self.row, self.col,
       // Which cards, not how many: a hand that swaps for another of the
       // same size still has to repaint, or the deal animation never runs.
-      state.hand.map((card) => card.uid).join(','),
+      state.hand.map((card) => `${card.uid}:${(card.gems ?? []).join('+')}`).join(','),
       state.entities.length, state.log.length,
       isBusy(state) ? 1 : 0, selectedUid.value ?? '',
+      state.talismans.join(','),
+      state.activeReward ? state.activeReward.reward.kind : '',
+      state.pendingRewards.length,
     ].join('|');
   };
 
@@ -172,6 +256,48 @@ export const useGameStore = defineStore('game', () => {
     if (!game) return;
     tick(game, dt);
     sync();
+    trackEnemyTip();
+  }
+
+  /* The tip follows the enemy under the pointer. Updated from the render
+     loop because the camera can move under a still mouse, but only written
+     when something actually changed, so it does not churn every frame. */
+  function trackEnemyTip(): void {
+    const cell = hoverCell.value;
+    const foe = game && cell ? entityAt(game.state, cell.row, cell.col) : undefined;
+
+    if (!game || !foe || foe.faction !== 'enemy' || foe.dead) {
+      if (enemyTip.value) enemyTip.value = null;
+      return;
+    }
+
+    const point = renderer?.crownOf(foe.id);
+    if (!point) return;
+
+    const def = entityDef(foe.defId);
+    const intent = foe.intent ? cardDef(foe.intent.cardId) : null;
+    const next: EnemyTipView = {
+      id: foe.id,
+      name: def.name,
+      hp: foe.hp,
+      maxHp: foe.maxHp,
+      intent: foe.intent?.label ?? null,
+      intentText: intent?.text ?? null,
+      reward: foe.reward ? rewardLabel(foe.reward) : 'NOTHING',
+      rewardTint: !foe.reward
+        ? '#7e938a'
+        : foe.reward.kind === 'gem'
+          ? gemDef(foe.reward.gemId).colour
+          : foe.reward.kind === 'talisman' ? '#e2b249' : '#a8d06a',
+      x: Math.round(point.x),
+      y: Math.round(point.y),
+    };
+
+    const old = enemyTip.value;
+    if (!old || old.id !== next.id || old.x !== next.x || old.y !== next.y
+      || old.hp !== next.hp || old.intent !== next.intent) {
+      enemyTip.value = next;
+    }
   }
 
   /* ------------------------------ commands ----------------------------- */
@@ -229,6 +355,20 @@ export const useGameStore = defineStore('game', () => {
     sync(true);
   }
 
+  /* ------------------------------ rewards ------------------------------ */
+
+  function chooseCard(uid: string): void {
+    if (game && chooseCardReward(game, uid)) sync(true);
+  }
+
+  function socketGem(cardUid: string): void {
+    if (game && socketGemReward(game, cardUid)) sync(true);
+  }
+
+  function takeTalisman(): void {
+    if (game && takeTalismanReward(game)) sync(true);
+  }
+
   function endPhase(): void {
     if (!game) return;
     selectedUid.value = null;
@@ -251,9 +391,10 @@ export const useGameStore = defineStore('game', () => {
   };
 
   return {
-    view, selected, selectedUid, hoverCell, enemyCount,
+    view, selected, selectedUid, hoverCell, enemyCount, enemyTip,
     start, attach, detach, frame,
     select, commitCell, hover, pickAt, discard, endPhase,
+    chooseCard, socketGem, takeTalisman,
     rawGame, entityDef,
   };
 });

@@ -6,6 +6,7 @@
    tiles without the simulation ever being in a half-way state. */
 
 import type { Cell } from '../map/navigation';
+import type { Reward, RewardOverrides } from '../rewards';
 
 export type Faction = 'player' | 'enemy';
 export type AnimationState = 'idle' | 'walk' | 'attack' | 'ranged' | 'hurt' | 'die';
@@ -100,6 +101,9 @@ export interface EntityDefinition {
   animations: AnimationSet;
   /** Enemy behaviour is a deck too: one intent is drawn each enemy phase. */
   intents: string[];
+  /** How generous this one is. Anything left out falls back to
+   *  DEFAULT_REWARD_CONFIG, so an enemy only states what it changes. */
+  reward?: RewardOverrides;
 }
 
 export interface Motion {
@@ -130,6 +134,8 @@ export interface Entity {
   path: Cell[];
   /** The enemy's telegraphed action for the coming phase. */
   intent: { cardId: string; label: string } | null;
+  /** What it drops when it falls, decided when it was spawned. */
+  reward: Reward | null;
   dead: boolean;
 }
 

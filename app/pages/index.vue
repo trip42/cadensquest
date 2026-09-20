@@ -76,6 +76,10 @@ onMounted(() => {
       </div>
     </div>
 
+    <TalismanRail v-if="store.view" />
+    <EnemyTip />
+    <RewardModal />
+
     <div v-if="store.view && (store.view.phase === 'victory' || store.view.phase === 'defeat')" class="ending">
       <p>{{ store.view.phase === 'victory' ? 'You reached the far end.' : 'Caden has fallen.' }}</p>
       <button type="button" @click="store.start()">NEW RUN</button>

@@ -1,3 +1,5 @@
+import type { Effect } from '../effects';
+
 /* Cards — the player's hand and the enemies' intents are the same shape.
 
    An effect is data, not a closure, so a card is serialisable, can come
@@ -6,18 +8,15 @@
 
 export type Targeting = 'none' | 'self' | 'cell' | 'enemy';
 
-/** How hard a card is to come by. Drives the colour of its frame:
- *  black for normal, blue for rare, gold for mythic. */
-export type Rarity = 'normal' | 'rare' | 'mythic';
+/** How hard a card is to come by. Drives the colour of its frame: grey for
+ *  starter, black for normal, blue for rare, gold for mythic.
+ *
+ *  `starter` is the basic stock you begin with. It is never offered as a
+ *  reward — winning another Strike is not a prize. */
+export type Rarity = 'starter' | 'normal' | 'rare' | 'mythic';
 
-export type CardEffect =
-  | { kind: 'damage'; amount: number }
-  | { kind: 'block'; amount: number }
-  | { kind: 'movement'; amount: number }
-  | { kind: 'energy'; amount: number }
-  | { kind: 'draw'; amount: number }
-  | { kind: 'step'; amount: number }
-  | { kind: 'heal'; amount: number };
+/** Cards speak the same effect language as gems and talismans. */
+export type CardEffect = Effect;
 
 export interface CardDefinition {
   id: string;
@@ -37,8 +36,11 @@ export interface CardDefinition {
   art?: string;
 }
 
-/** A card in a pile. Duplicates of the same definition need distinct ids. */
+/** A card in a pile. Duplicates of the same definition need distinct ids —
+ *  and gems are socketed into the instance, so one Strike can carry a ruby
+ *  while the other three stay plain. */
 export interface CardInstance {
   uid: string;
   defId: string;
+  gems?: string[];
 }

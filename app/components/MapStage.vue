@@ -4,6 +4,7 @@
 
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { entityDef } from '~/game/entities/definitions';
+import { rollReward } from '~/game/rewards';
 import { makeEntity } from '~/game/state';
 import { MapRenderer } from '~/render/renderer';
 import { useGameStore } from '~/stores/game';
@@ -32,6 +33,7 @@ onMounted(() => {
       game: store.rawGame(),
       makeEntity,
       entityDef,
+      rollReward,
     };
   }
 });

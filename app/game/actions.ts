@@ -13,7 +13,9 @@
    clock, which is what lets movement and attacks play out visibly. */
 
 import { cardDef, cardMovement } from './cards/definitions';
-import type { CardEffect } from './cards/types';
+import type { CardInstance } from './cards/types';
+import type { Effect, TriggerPoint } from './effects';
+import { GEM_SLOTS, gemDef } from './gems';
 import { entityDef } from './entities/definitions';
 import {
   advanceAnimation,
@@ -24,22 +26,38 @@ import {
 import { CHUNK_ROWS } from './map/generate';
 import { type Cell, cellDistance, findPath, reachable } from './map/navigation';
 import { chunkIndexForRow } from './map/world';
+import { rollReward } from './rewards';
 import { nextInt, pick, shuffle } from './rng';
+import { talismanEffects } from './talismans';
 import {
   enemies,
   entityAt,
+  findCard,
   type Game,
   type GameState,
+  gemsOf,
   handCard,
+  makeCard,
   makeEntity,
   note,
   player,
+  stat,
+  syncStats,
 } from './state';
 
 /** How fast a character walks, in cells per second. */
 const WALK_SPEED = 3.2;
 /** Chunks ahead of the player kept populated. */
 const SPAWN_LOOKAHEAD = 2;
+
+/* ------------------------------ triggers ------------------------------- */
+
+/** Fire whatever the held talismans do at this point in the loop. */
+function fire(game: Game, point: TriggerPoint): void {
+  for (const effect of talismanEffects(game.state.talismans, point)) {
+    resolveEffect(game, effect, null);
+  }
+}
 
 /* ------------------------------ queries -------------------------------- */
 
@@ -69,7 +87,7 @@ export function movementRange(game: Game): Map<string, { cell: Cell; cost: numbe
 
 export function canPlay(game: Game, uid: string): boolean {
   const card = handCard(game.state, uid);
-  if (!card || game.state.phase !== 'player') return false;
+  if (!card || game.state.phase !== 'player' || game.state.activeReward) return false;
   return cardDef(card.defId).cost <= game.state.energy;
 }
 
@@ -107,7 +125,8 @@ export function drawCards(state: GameState, count: number): void {
   for (let i = 0; i < count; i += 1) drawOne(state);
 }
 
-function dealDamage(state: GameState, target: Entity, amount: number): void {
+function dealDamage(game: Game, target: Entity, amount: number): void {
+  const { state } = game;
   const absorbed = Math.min(target.block, amount);
   target.block -= absorbed;
   const through = amount - absorbed;
@@ -119,23 +138,28 @@ function dealDamage(state: GameState, target: Entity, amount: number): void {
     target.dead = true;
     setAnimation(target, 'die');
     note(state, `${entityDef(target.defId).name} falls.`);
+    if (target.faction === 'enemy') {
+      // What it was carrying was decided when it spawned.
+      if (target.reward) state.pendingRewards.push(target.reward);
+      fire(game, 'enemyDefeated');
+    }
   } else {
     setAnimation(target, 'hurt');
   }
 }
 
-function resolveEffect(game: Game, effect: CardEffect, target: Cell | null): void {
+function resolveEffect(game: Game, effect: Effect, target: Cell | null): void {
   const { state } = game;
   const self = player(state);
 
   switch (effect.kind) {
     case 'damage': {
       const victim = target && entityAt(state, target.row, target.col);
-      if (victim) dealDamage(state, victim, effect.amount + self.power);
+      if (victim) dealDamage(game, victim, effect.amount + self.power + stat(state, 'damageBonus'));
       break;
     }
     case 'block':
-      self.block += effect.amount;
+      self.block += effect.amount + stat(state, 'blockBonus');
       break;
     case 'movement':
       state.movement += effect.amount;
@@ -165,13 +189,13 @@ function resolveEffect(game: Game, effect: CardEffect, target: Cell | null): voi
    what it does and how far it carries you. */
 export function discardForMovement(game: Game, uid: string): boolean {
   const { state } = game;
-  if (state.phase !== 'player' || isBusy(state)) return false;
+  if (state.phase !== 'player' || isBusy(state) || state.activeReward) return false;
 
   const card = handCard(state, uid);
   if (!card) return false;
 
   const def = cardDef(card.defId);
-  const gained = cardMovement(def);
+  const gained = cardMovement(def) + stat(state, 'movementBonus');
 
   state.hand = state.hand.filter((item) => item.uid !== uid);
   state.discardPile.push(card);
@@ -204,6 +228,11 @@ export function playCard(game: Game, uid: string, target: Cell | null = null): b
   }
 
   for (const effect of def.effects) resolveEffect(game, effect, target);
+  // Gems are socketed into this instance, so only this copy carries them.
+  for (const gemId of gemsOf(card)) {
+    for (const effect of gemDef(gemId).effects) resolveEffect(game, effect, target);
+  }
+  fire(game, 'cardPlayed');
   return true;
 }
 
@@ -225,7 +254,7 @@ function startStep(entity: Entity): void {
 /** Walk the player to a cell, if it is in range and reachable. */
 export function movePlayerTo(game: Game, cell: Cell): boolean {
   const { state, world } = game;
-  if (state.phase !== 'player' || isBusy(state)) return false;
+  if (state.phase !== 'player' || isBusy(state) || state.activeReward) return false;
 
   const self = player(state);
   const path = findPath(world, entityCell(self), cell, {
@@ -273,6 +302,7 @@ export function ensureSpawns(game: Game): void {
       if (entityAt(state, spot.row, spot.col)) continue;
       const enemy = makeEntity(pick(state.rng, chunk.zone.enemies), spot.row, spot.col);
       enemy.facing = -1;
+      enemy.reward = rollReward(state.rng, entityDef(enemy.defId).reward);
       state.entities.push(enemy);
     }
   }
@@ -289,16 +319,19 @@ export function beginTurn(game: Game): void {
   state.turn += 1;
 
   const self = player(state);
-  self.block = 0;
-  state.energy = state.maxEnergy;
+  // Block from talismans replaces what was left, rather than adding to it.
+  self.block = stat(state, 'blockPerRefresh');
+  self.hp = Math.min(self.maxHp, self.hp + stat(state, 'healPerRefresh'));
+  state.energy = stat(state, 'maxEnergy');
   // No allowance: every step this turn has to be bought with a card.
   state.movement = 0;
 
   state.discardPile.push(...state.hand);
   state.hand = [];
-  drawCards(state, state.handSize);
+  drawCards(state, stat(state, 'handSize'));
 
   ensureSpawns(game);
+  fire(game, 'refresh');
 
   // Enemies telegraph what they will do, so the player can plan around it.
   for (const enemy of enemies(state)) {
@@ -314,7 +347,8 @@ export function beginTurn(game: Game): void {
 /** Phase 2 ends here; phase 3 is queued up and played out by `tick`. */
 export function endPlayerPhase(game: Game): void {
   const { state } = game;
-  if (state.phase !== 'player') return;
+  if (state.phase !== 'player' || state.activeReward) return;
+  fire(game, 'playerPhaseEnd');
   state.phase = 'enemy';
   state.queue = enemies(state).map((enemy) => ({ entityId: enemy.id }));
 }
@@ -333,7 +367,7 @@ function resolveEnemy(game: Game, entityId: string): void {
     const dx = self.col - enemy.col - (self.row - enemy.row);
     if (dx !== 0) enemy.facing = dx > 0 ? 1 : -1;
     setAnimation(enemy, 'attack');
-    dealDamage(state, self, def.attackDamage + enemy.power);
+    dealDamage(game, self, def.attackDamage + enemy.power);
   };
 
   const approach = (): void => {
@@ -376,6 +410,69 @@ function resolveEnemy(game: Game, entityId: string): void {
 }
 
 /** Returns true once the run is over, either way. */
+/* ------------------------------ rewards --------------------------------- */
+
+/** Bring the next won reward up for choosing. Card rewards mint their
+ *  offered instances once, so the choice does not reshuffle underfoot. */
+function activateNextReward(game: Game): void {
+  const { state } = game;
+  const reward = state.pendingRewards.shift();
+  if (!reward) return;
+
+  state.activeReward = reward.kind === 'card'
+    ? { reward, offered: reward.options.map(makeCard) }
+    : { reward };
+}
+
+/** Take one of the offered cards. It goes on top of the draw pile, so it
+ *  is the very next card drawn. */
+export function chooseCardReward(game: Game, uid: string): boolean {
+  const { state } = game;
+  const active = state.activeReward;
+  if (!active || active.reward.kind !== 'card') return false;
+
+  const chosen = active.offered?.find((card) => card.uid === uid);
+  if (!chosen) return false;
+
+  state.drawPile.push(chosen);
+  state.activeReward = null;
+  note(state, `Took ${cardDef(chosen.defId).name}.`);
+  return true;
+}
+
+/** Set the won gem into one card of the deck. */
+export function socketGemReward(game: Game, cardUid: string): boolean {
+  const { state } = game;
+  const active = state.activeReward;
+  if (!active || active.reward.kind !== 'gem') return false;
+
+  const card = findCard(state, cardUid);
+  if (!card) return false;
+  const gems = gemsOf(card);
+  if (gems.length >= GEM_SLOTS) return false;
+
+  card.gems = [...gems, active.reward.gemId];
+  state.activeReward = null;
+  note(state, `Set ${gemDef(active.reward.gemId).name} into ${cardDef(card.defId).name}.`);
+  return true;
+}
+
+/** Keep the won talisman. Its modifiers apply from this moment on. */
+export function takeTalismanReward(game: Game): boolean {
+  const { state } = game;
+  const active = state.activeReward;
+  if (!active || active.reward.kind !== 'talisman') return false;
+
+  state.talismans.push(active.reward.talismanId);
+  syncStats(state);
+  state.activeReward = null;
+  return true;
+}
+
+/** Cards in the deck a gem could still be set into. */
+export const gemTargets = (state: GameState): CardInstance[] =>
+  [...state.drawPile, ...state.hand, ...state.discardPile];
+
 function checkEnding(game: Game): boolean {
   const { state } = game;
   const self = player(state);
@@ -430,6 +527,27 @@ export function tick(game: Game, dt: number): void {
   if (state.phase === 'enemy') {
     const next = state.queue.shift();
     if (next) resolveEnemy(game, next.entityId);
-    else beginTurn(game);
+    else {
+      fire(game, 'enemyPhaseEnd');
+      beginTurn(game);
+    }
+    return;
+  }
+
+  if (state.phase !== 'player' || state.activeReward) return;
+
+  // Rewards wait for a quiet moment in the player's own phase, so nothing
+  // interrupts an enemy mid-stride. They come first: claiming one is
+  // something left to do, even with an empty hand.
+  if (state.pendingRewards.length) {
+    activateNextReward(game);
+    return;
+  }
+
+  // Nothing left to spend — no cards to play, none to trade for steps, and
+  // no movement banked — so the turn is over whether or not it is called.
+  if (!state.hand.length && state.movement <= 0) {
+    note(state, 'Nothing left to spend.');
+    endPlayerPhase(game);
   }
 }

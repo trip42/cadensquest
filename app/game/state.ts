@@ -10,8 +10,18 @@ import type { Entity } from './entities/types';
 import { CHUNK_ROWS } from './map/generate';
 import { World } from './map/world';
 import { createRng, type Rng, shuffle } from './rng';
+import type { Reward } from './rewards';
+import { resolveStat, type StatKey, type StatModifier } from './stats';
+import { talismanModifiers } from './talismans';
 
 export type Phase = 'refresh' | 'player' | 'enemy' | 'victory' | 'defeat';
+
+/** A reward being chosen right now. Play is suspended until it resolves. */
+export interface ActiveReward {
+  reward: Reward;
+  /** Card rewards keep their offered instances, so the choice is stable. */
+  offered?: CardInstance[];
+}
 
 /** An enemy waiting its turn during the enemy phase. */
 export interface QueuedAction {
@@ -28,14 +38,19 @@ export interface GameState {
   entities: Entity[];
 
   energy: number;
-  maxEnergy: number;
   /** Earned by discarding cards; there is no allowance each turn. */
   movement: number;
 
   hand: CardInstance[];
   drawPile: CardInstance[];
   discardPile: CardInstance[];
-  handSize: number;
+
+  /** Treasures held, in the order they were won. */
+  talismans: string[];
+  /** Rewards won but not yet chosen, oldest first. */
+  pendingRewards: Reward[];
+  /** The one being chosen now, if any. */
+  activeReward: ActiveReward | null;
 
   /** Chunks that have already had their enemies placed. */
   spawnedChunks: number[];
@@ -76,11 +91,12 @@ export function makeEntity(defId: string, row: number, col: number): Entity {
     motion: null,
     path: [],
     intent: null,
+    reward: null,
     dead: false,
   };
 }
 
-const instance = (defId: string): CardInstance => ({ uid: nextUid('c'), defId });
+export const makeCard = (defId: string): CardInstance => ({ uid: nextUid('c'), defId, gems: [] });
 
 export function createGame(seed: number): Game {
   const world = new World(seed);
@@ -95,22 +111,25 @@ export function createGame(seed: number): Game {
     }
   }
 
-  const player = makeEntity('caden', 0, startCol);
+  const self = makeEntity('caden', 0, startCol);
+  self.maxHp = resolveStat('maxHp', []);
+  self.hp = self.maxHp;
 
   const state: GameState = {
     seed,
     turn: 0,
     phase: 'refresh',
     rng,
-    playerId: player.id,
-    entities: [player],
+    playerId: self.id,
+    entities: [self],
     energy: 0,
-    maxEnergy: 3,
     movement: 0,
     hand: [],
-    drawPile: shuffle(rng, STARTING_DECK.map(instance)),
+    drawPile: shuffle(rng, STARTING_DECK.map(makeCard)),
     discardPile: [],
-    handSize: 5,
+    talismans: [],
+    pendingRewards: [],
+    activeReward: null,
     spawnedChunks: [],
     goalRow: CHUNK_ROWS * 9,
     queue: [],
@@ -119,6 +138,37 @@ export function createGame(seed: number): Game {
 
   return { state, world };
 }
+
+/* ------------------------------ stats --------------------------------- */
+
+/* Nothing reads a raw constant. Every number the run is built from comes
+   through here, so a talisman changes it without anything else knowing. */
+
+export const modifiersOf = (state: GameState): StatModifier[] =>
+  talismanModifiers(state.talismans);
+
+export const stat = (state: GameState, key: StatKey): number =>
+  resolveStat(key, modifiersOf(state));
+
+/** Keep derived pools in step after the talismans change. Raising maximum
+ *  health hands over the difference rather than leaving a dent. */
+export function syncStats(state: GameState): void {
+  const self = player(state);
+  const max = stat(state, 'maxHp');
+  if (max === self.maxHp) return;
+  const gained = max - self.maxHp;
+  self.maxHp = max;
+  self.hp = Math.max(1, Math.min(max, self.hp + Math.max(0, gained)));
+}
+
+/** Every card the player owns, wherever it currently sits. */
+export const wholeDeck = (state: GameState): CardInstance[] =>
+  [...state.drawPile, ...state.hand, ...state.discardPile];
+
+export const findCard = (state: GameState, uid: string): CardInstance | undefined =>
+  wholeDeck(state).find((card) => card.uid === uid);
+
+export const gemsOf = (card: CardInstance): string[] => card.gems ?? [];
 
 /* ------------------------------ lookups ------------------------------- */
 

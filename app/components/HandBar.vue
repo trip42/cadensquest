@@ -1,14 +1,15 @@
 <script setup lang="ts">
 /* The hand.
 
-   Cards are tall portrait rectangles, 2 wide by 3.25 tall, fanned in a
-   shallow arch the way a hand is actually held: each one pivots about a
-   point below the card, so the ones at the edges lean out and sit a little
-   lower. Hovering lifts a card clear of its neighbours.
+   Cards are fanned in a shallow arch: each pivots about a point below
+   itself, so the outer ones lean out while the middle rise off the
+   baseline. Hovering lifts a card clear and offers to spend it as movement
+   instead of playing it.
 
-   Dealing is a TransitionGroup on the slot that wraps each card, not on the
-   card itself — the arch transform lives on the card, and the two would
-   fight over `transform` if they shared an element. */
+   The card itself is <GameCard>; everything here is about *holding* cards —
+   the arch, the lift, the spread, the deal, and the discard offer that
+   appears beneath one. The discard button is deliberately not part of the
+   card: it belongs to the hand, and the card is shown elsewhere without it. */
 
 import { computed, ref } from 'vue';
 import { useGameStore } from '~/stores/game';
@@ -27,14 +28,11 @@ const ANGLE_STEP = 3.2;
 const MAX_ANGLE = 10;
 /** Curve of the arch, per card away from the middle. The outer cards rest
  *  on the baseline and the middle ones rise off it — rather than the edges
- *  hanging below, which would push the whole hand up the screen to make
- *  room for them. */
+ *  hanging below, which would push the whole hand up the screen. */
 const LIFT_STEP = 3.2;
 /** Horizontal pitch between cards — card width less the overlap. */
 const PITCH = 96;
-/** How far the rest of the hand steps aside for a hovered card. A little
- *  more than the overlap, so the raised card clears its neighbours with a
- *  gap either side rather than just touching them. */
+/** How far the rest of the hand steps aside for a hovered card. */
 const SPREAD = 38;
 
 function slotVars(index: number): Record<string, string> {
@@ -56,20 +54,6 @@ function slotVars(index: number): Record<string, string> {
     '--index': String(index),
   };
 }
-
-/* Placeholder artwork: one stroked glyph per card until there is real art.
-   Keyed by the card's `art` field, so swapping in an image later is a
-   change to this map and nothing else. */
-const GLYPHS: Record<string, string> = {
-  slash: 'M4 20 L20 4 M14 4 H20 V10',
-  bolt: 'M13 3 L6 13 H11 L10 21 L18 10 H13 Z',
-  shield: 'M12 3 L19 6 V12 C19 16.5 15.5 20 12 21 C8.5 20 5 16.5 5 12 V6 Z',
-  eye: 'M2 12 C5 7 8.5 5 12 5 C15.5 5 19 7 22 12 C19 17 15.5 19 12 19 C8.5 19 5 17 2 12 Z M12 9.2 A2.8 2.8 0 1 0 12 14.8 A2.8 2.8 0 1 0 12 9.2',
-  arc: 'M4 19 C8 6 16 6 20 19 M3 19 H21',
-  default: 'M12 4 L19 12 L12 20 L5 12 Z',
-};
-
-const glyph = (art?: string): string => GLYPHS[art ?? 'default'] ?? GLYPHS.default!;
 
 /* ------------------------------ dragging ------------------------------- */
 
@@ -124,40 +108,21 @@ function onPointerUp(event: PointerEvent): void {
              from a passing pointer. -->
         <span class="zone" aria-hidden="true" />
 
-        <button
+        <GameCard
           class="card"
-          :class="[
-            `rarity-${card.def.rarity}`,
-            {
-              'is-playable': card.playable,
-              'is-selected': store.selectedUid === card.uid,
-              'is-dragging': draggingUid === card.uid,
-            },
-          ]"
-          type="button"
+          :class="{
+            'is-playable': card.playable,
+            'is-selected': store.selectedUid === card.uid,
+            'is-dragging': draggingUid === card.uid,
+          }"
+          :def="card.def"
+          :gems="card.gems"
+          :movement="card.movement"
           @pointerdown="onPointerDown($event, card.uid, card.def.targeting === 'cell' || card.def.targeting === 'enemy')"
           @pointermove="onPointerMove"
           @pointerup="onPointerUp"
           @pointercancel="draggingUid = null"
-        >
-          <span class="face">
-            <span class="head">
-              <span class="cost">{{ card.def.cost }}</span>
-              <span class="name">{{ card.def.name }}</span>
-            </span>
-
-            <!-- What the card is worth if you walk with it instead. -->
-            <span class="stride" :title="`Discard for ${card.movement} movement`">{{ card.movement }}</span>
-
-            <span class="art">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path :d="glyph(card.def.art)" />
-              </svg>
-            </span>
-
-            <span class="text">{{ card.def.text }}</span>
-          </span>
-        </button>
+        />
 
         <button
           v-if="hovered === index"
@@ -182,8 +147,7 @@ function onPointerUp(event: PointerEvent): void {
 .hand {
   --card-w: 126px;
   /* The art window sets the card's height: everything else is fixed, so
-     this is the one number to turn for a taller or shorter card. At 75px
-     the card lands on roughly the proportions of a real trading card. */
+     this is the one number to turn for a taller or shorter card. */
   --art-h: 75px;
   /* How much of a card its neighbour covers at rest. */
   --overlap: 30px;
@@ -194,14 +158,13 @@ function onPointerUp(event: PointerEvent): void {
   align-items: flex-end;
   /* Room above for a card to lift on hover. Little is needed below: the
      arch rises from the baseline, so only the rotated corners hang over. */
-  padding: 48px 0 12px;
+  padding: 30px 0 12px;
 }
 
 /* The slot carries dealing and reflow; the card inside carries the arch. */
 .slot {
   position: relative;
   width: var(--card-w);
-  /* Overlap, so the hand reads as held rather than laid out. */
   margin: 0 calc(var(--overlap) / -2);
 }
 .slot.is-focused { z-index: 10; }
@@ -220,18 +183,10 @@ function onPointerUp(event: PointerEvent): void {
   left: -14px;
 }
 
+/* Positioning only — everything the card *is* lives in GameCard. */
 .card {
-  /* Positioned so it stacks above the hover zone behind it. */
   position: relative;
   z-index: 1;
-  width: var(--card-w);
-  /* Height follows the contents, so changing --art-h changes the card. */
-  height: auto;
-  padding: 3px;
-  border: 0;
-  border-radius: 9px;
-  font: inherit;
-  text-align: left;
   cursor: not-allowed;
   opacity: 0.45;
   /* Pivot below the card, the way a fanned hand turns about the wrist. */
@@ -242,71 +197,19 @@ function onPointerUp(event: PointerEvent): void {
 }
 .card.is-playable { opacity: 1; cursor: grab; }
 
-.card.is-playable:hover,
+/* Driven by the slot's focus, not the card's own :hover — the pointer
+   leaves the card the moment it reaches for the discard button, and a card
+   that ducked away at that point was the whole jitter. Every card lifts,
+   playable or not: one you cannot afford can still be walked with. */
+.slot.is-focused .card,
 .card.is-selected {
   /* Lifted far enough to clear the discard button underneath it. */
   transform: translate(var(--shift, 0px), calc(var(--drop) - 46px)) rotate(var(--angle)) scale(1.05);
+  opacity: 1;
   z-index: 5;
 }
 .card.is-selected { filter: drop-shadow(0 0 7px rgba(240, 200, 106, 0.55)); }
 .card.is-dragging { opacity: 0.4; }
-
-/* ------------------------------ rarity frames -------------------------- */
-
-.rarity-normal { background: linear-gradient(150deg, #2b3531 0%, #0b100e 55%, #232c29 100%); }
-.rarity-rare { background: linear-gradient(150deg, #8cc0ec 0%, #2c6499 50%, #9ccdf5 100%); }
-.rarity-mythic { background: linear-gradient(150deg, #f6dc94 0%, #b3801f 42%, #fdf0bb 58%, #8f6318 100%); }
-
-.rarity-rare { box-shadow: 0 0 10px rgba(76, 145, 214, 0.28); }
-.rarity-mythic { box-shadow: 0 0 12px rgba(226, 178, 73, 0.38); }
-
-/* ------------------------------ card face ------------------------------ */
-
-.face {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  padding: 6px 6px 7px;
-  border-radius: 7px;
-  background: linear-gradient(180deg, #1b2c26 0%, #14231e 100%);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.5);
-}
-
-.head {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  min-height: 18px;
-}
-.cost {
-  flex: none;
-  width: 17px;
-  height: 17px;
-  display: grid;
-  place-items: center;
-  border-radius: 50%;
-  color: #16302b;
-  background: #d0dc9b;
-  font-size: 10px;
-  font-weight: 600;
-}
-/* Sits under the cost, in its own colour: one is what the card takes to
-   play, the other what it gives up to walk. */
-.stride {
-  position: absolute;
-  top: 27px;
-  left: 6px;
-  width: 17px;
-  height: 17px;
-  display: grid;
-  place-items: center;
-  border-radius: 4px;
-  color: #08242f;
-  background: #76c7e8;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
-  font-size: 10px;
-  font-weight: 600;
-}
 
 .discard {
   position: absolute;
@@ -326,50 +229,6 @@ function onPointerUp(event: PointerEvent): void {
   z-index: 11;
 }
 .discard:hover { background: #76c7e8; color: #08242f; border-color: #76c7e8; }
-
-.name {
-  flex: 1;
-  min-width: 0;
-  color: #e8eedd;
-  font-size: 10.5px;
-  letter-spacing: 0.01em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.art {
-  flex: none;
-  height: var(--art-h);
-  margin: 5px 0;
-  display: grid;
-  place-items: center;
-  border-radius: 4px;
-  background:
-    radial-gradient(120% 90% at 50% 15%, rgba(208, 220, 155, 0.14), transparent 70%),
-    linear-gradient(180deg, #24382f 0%, #16241f 100%);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.45);
-}
-.art svg {
-  width: 44%;
-  height: auto;
-  fill: none;
-  stroke: rgba(208, 220, 155, 0.6);
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.text {
-  flex: none;
-  min-height: 54px;
-  padding: 4px 5px;
-  border-radius: 3px;
-  background: rgba(8, 16, 13, 0.5);
-  color: #93a899;
-  font-size: 8.5px;
-  line-height: 1.38;
-}
 
 .ghost {
   position: fixed;
@@ -413,8 +272,6 @@ function onPointerUp(event: PointerEvent): void {
 }
 
 @media (max-width: 860px) {
-  .hand { --card-w: 92px; }
-  .slot { margin: 0 -14px; }
-  .text { font-size: 7.5px; min-height: 34px; }
+  .hand { --card-w: 100px; --art-h: 58px; --overlap: 22px; }
 }
 </style>

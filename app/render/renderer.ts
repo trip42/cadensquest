@@ -12,7 +12,9 @@
 import { tick } from '../game/actions';
 import { entityDef } from '../game/entities/definitions';
 import type { Entity } from '../game/entities/types';
+import { gemDef } from '../game/gems';
 import type { Cell } from '../game/map/navigation';
+import { type Reward, rewardLabel } from '../game/rewards';
 import { KIND_OF, type FacePalette, type TileKind, type TileLetter, VOID } from '../game/map/tiles';
 import type { Game } from '../game/state';
 import {
@@ -272,7 +274,10 @@ export class MapRenderer {
 
     for (const { sx, top, entity } of this.overlay) {
       this.drawHealthBar(sx, top, entity);
-      if (entity.faction === 'enemy' && entity.intent) this.drawIntent(sx, top - 14, entity.intent.label);
+      if (entity.faction !== 'enemy') continue;
+      if (entity.intent) this.drawIntent(sx, top - 14, entity.intent.label);
+      // What it is carrying, readable before you decide to fight it.
+      if (entity.reward) this.drawRewardPill(sx, top - (entity.intent ? 30 : 16), entity.reward);
     }
   }
 
@@ -565,6 +570,41 @@ export class MapRenderer {
       ctx.fillStyle = '#7fb4d6';
       ctx.fillRect(sx - w / 2, sy + h, w * Math.min(1, entity.block / entity.maxHp), 2);
     }
+  }
+
+  /** Screen position of the point a character's health bar hangs from, in
+   *  client coordinates — where the HUD anchors its hover tip. */
+  crownOf(entityId: string): { x: number; y: number } | null {
+    const entry = this.overlay.find((item) => item.entity.id === entityId);
+    if (!entry) return null;
+    const rect = this.canvas.getBoundingClientRect();
+    return {
+      x: rect.left + entry.sx * this.scale,
+      y: rect.top + entry.top * this.scale,
+    };
+  }
+
+  private drawRewardPill(sx: number, sy: number, reward: Reward): void {
+    const ctx = this.ctx;
+    const label = rewardLabel(reward);
+    const tint = reward.kind === 'gem'
+      ? gemDef(reward.gemId).colour
+      : reward.kind === 'talisman' ? '#e2b249' : '#a8d06a';
+
+    ctx.font = '8px "DM Mono", ui-monospace, monospace';
+    const width = ctx.measureText(label).width + 12;
+
+    ctx.fillStyle = 'rgba(10, 20, 17, 0.85)';
+    ctx.fillRect(sx - width / 2, sy - 10, width, 12);
+    ctx.fillStyle = tint;
+    ctx.fillRect(sx - width / 2, sy - 10, 3, 12);
+
+    ctx.fillStyle = tint;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, sx + 1, sy - 4);
+    ctx.textAlign = 'start';
+    ctx.textBaseline = 'alphabetic';
   }
 
   private drawIntent(sx: number, sy: number, label: string): void {

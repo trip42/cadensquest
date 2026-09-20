@@ -84,6 +84,10 @@ Cards are dragged onto the map to pick a target square; cards that need no
 target resolve as soon as they are picked up. Enemy behaviour is a deck too:
 each enemy definition lists intent ids, and one is drawn per turn.
 
+The player phase ends on its own once your hand is empty and your banked
+movement is gone — there is nothing left you could do. Ending early is what
+the button is for.
+
 There is no movement allowance. `state.movement` starts at zero every turn
 and the only way to cover ground is to give a card up for it — hover a card
 and take the **Discard for X Movement** offer underneath it. A card is worth
@@ -159,6 +163,34 @@ When the measured extent still does not put the feet where they belong —
 a shadow or a scuff baked into the frame reads as ground, and the character
 hovers — `offsetY` on the sprite nudges it, in design units so it holds at
 every zoom. The health bar moves with it.
+
+## Rewards
+
+Every enemy carries one, decided when it spawns rather than when it dies —
+so the pill above its head can be read before you pick a fight, and so a
+seed still reproduces the whole run. Hovering an enemy says what it is, what
+it intends next turn, and what it will drop.
+
+- **A card** — take one of several on offer; it goes on top of your deck.
+  How many and how rare is per enemy type. The `starter` cards you begin
+  with are never offered: winning another Strike is not a prize.
+- **A gem** — pick which card in your deck it is set into. Red heals, blue
+  gives movement, green gives energy, all when that card is played. It is
+  socketed into the *instance*, so gemming one Strike leaves the others
+  alone. Three sockets per card.
+- **A talisman** — a treasure that works for the rest of the run, shown down
+  the left edge. Some change a stat permanently, some fire at a point in the
+  loop (heal when an enemy falls, draw at the end of the enemy phase).
+
+How often each kind turns up is `DEFAULT_REWARD_CONFIG` in
+`game/rewards.ts`, and any enemy may override part of it.
+
+The thread holding this together is that **no number in the game is a
+constant**. `BASE_STATS` lists them all and everything reads them through
+`stat()`, which folds in every modifier the held talismans contribute. So a
+talisman that says `{ stat: 'handSize', add: 1 }` works without a single
+branch elsewhere, and a card, gem and talisman all describe themselves with
+the same effect vocabulary.
 
 ## Screen layout
 

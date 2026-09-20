@@ -15,7 +15,7 @@ tests, which run headless with no browser.
 
 ```bash
 npm run dev          # http://localhost:3000
-npm test             # 46 tests: map invariants, turn loop, RNG, cards, entities
+npm test           # map invariants, turn loop, RNG, cards, entities, rewards
 npm run typecheck    # vue-tsc --build across app, server and tests
 npm run build
 ```
@@ -59,7 +59,8 @@ app/render/        canvas renderer — DOM, still no Vue
   sprites.ts         sheet registry, frame lookup, placeholder art
   renderer.ts        the frame loop, depth order, highlights, entity drawing
 app/stores/game.ts bridge: raw game in, view snapshot out
-app/components/    MapStage (canvas), HandBar (cards)
+app/components/    MapStage (canvas), GameCard, HandBar, RewardModal,
+                   TalismanRail, EnemyTip
 app/pages/index.vue the screen: full-bleed map with the HUD floating over it
 server/api/        card data over HTTP, to show the seam
 test/              runs in Node
@@ -107,11 +108,71 @@ off the queue once the previous one finishes — which is why a non-looping
 clip's *duration* is load-bearing: `isBusy` waits on it and it paces the
 enemy phase.
 
+**The player phase ends itself** once there is nothing left to spend: an
+empty hand and no banked movement. It waits for animations (`isBusy`) and
+for any won reward to be claimed first, since claiming one is still
+something to do. `tick` handles it, so the END PHASE button is for leaving
+early rather than for finishing.
+
 **There is no movement allowance.** `state.movement` starts at 0 every turn.
 The only way to cover ground is `discardForMovement`, which trades a card
 for `cardMovement(def)` steps — 1/2/3 by rarity, overridable per card. That
 tension (use the card or walk with it) is the core of the design; don't
 quietly reintroduce a base allowance.
+
+## Stats, and why nothing reads a constant
+
+`game/stats.ts` holds `BASE_STATS` — every number the run is built from:
+`maxHp`, `handSize`, `maxEnergy`, `blockPerRefresh`, `damageBonus`,
+`movementBonus` and so on. **Nothing reads those directly.** Everything goes
+through `stat(state, key)`, which resolves the base plus every `add` from
+every held talisman, times every `mul`.
+
+That is what makes a talisman pure metadata: `{ stat: 'handSize', add: 1 }`
+changes the hand without a branch anywhere. When you add a value someone
+might want to modify, put it in `BASE_STATS` rather than inlining it.
+
+`syncStats` runs after the talismans change; it is what hands over the extra
+health when `maxHp` goes up instead of leaving a dent.
+
+## Effects, gems, talismans, rewards
+
+`game/effects.ts` is the shared verb list — `damage`, `block`, `movement`,
+`energy`, `draw`, `heal`, `step`. Cards, gems and talismans all describe
+themselves with those tagged objects, so `resolveEffect` in actions.ts is
+the only place that knows what any of them do. A new gem is data; a new
+*verb* is one case in that switch.
+
+- **Gems** (`game/gems.ts`) socket into a `CardInstance`, not a definition —
+  `card.gems`, capped at `GEM_SLOTS`. Playing a card resolves its own
+  effects and then each gem's, so one gemmed Strike leaves the other three
+  plain. Test asserts exactly that.
+- **Talismans** (`game/talismans.ts`) carry `modifiers` (permanent, via the
+  stat table) and/or `triggers` (effects at a `TriggerPoint`). `fire(game,
+  point)` dispatches them; the points are wired into `beginTurn`,
+  `endPlayerPhase`, the end of the enemy phase, `playCard` and enemy death.
+  Duplicates stack, because they are just more modifiers.
+- **Rarities** are `starter`, `normal`, `rare`, `mythic`. `starter` is the
+  basic stock you begin with (Strike, Guard); `REWARD_POOL` filters it out
+  so no reward can ever offer one. That is done by filtering the pool, not
+  by weighting it to zero, so an enemy's reward table cannot ask for one by
+  mistake. `MOVEMENT_BY_RARITY` prices a discard by rarity — treat those
+  numbers as a balance dial and never pin them in a test.
+- **Rewards** (`game/rewards.ts`) are rolled **when an enemy spawns**, not
+  when it dies — so the pill above its head can be read before you commit,
+  and so the whole thing stays a function of the seed.
+  `DEFAULT_REWARD_CONFIG` is the frequency dial; any enemy definition may
+  override part of it via `reward` (the dragon leans towards talismans and
+  offers four cards, the chicken offers two commons).
+
+A won reward queues in `pendingRewards` and is brought up by `tick` only
+when the player phase is idle — never mid-enemy-stride. While
+`activeReward` is set, `playCard`, `movePlayerTo`, `discardForMovement` and
+`endPlayerPhase` all refuse, so the modal is not the only thing holding the
+board.
+
+Claiming: `chooseCardReward` (goes on **top** of the draw pile — `drawOne`
+pops from the end), `socketGemReward`, `takeTalismanReward`.
 
 ## Renderer
 
@@ -155,6 +216,23 @@ A single still, having no cycle to register against, *is* cropped.
 `offsetY` on a sprite nudges art whose measured extent still does not put
 the feet where they belong. Design units, so it holds at every zoom.
 
+## One card, three screens
+
+`components/GameCard.vue` is the card: rarity frame, cost, the movement it
+is worth, art, gem sockets, rules text. The hand, the spoils screen and the
+gem screen all use it, so a card looks the same wherever it appears — they
+drifted apart once already, which is why it exists.
+
+It knows nothing about being *held*. The arch, the lift, the spread, the
+deal animation and the discard offer belong to `HandBar`, which positions
+it; `HandBar`'s `.card` rule carries transform, cursor and opacity only, and
+nothing about the card's own face. Size comes from `--card-w` and `--art-h`
+on whatever contains it, so the same component reads at hand size (126px)
+and in the gem grid (104px).
+
+Its root is a `<button>`, so listeners, `disabled` and `title` fall through
+from whichever screen is using it.
+
 ## Store bridge
 
 `app/stores/game.ts` holds the raw `Game` object as a plain closure
@@ -177,6 +255,15 @@ silently skipping the deal animation.
   `ssr: false` the suffix buys nothing anyway.
 - **A component needs a single root** if the parent passes it a class; a
   fragment root silently drops it.
+- **Never drive a hover effect from CSS `:hover` on an element that moves.**
+  The hand's cards lift on hover and a Discard button appears underneath;
+  with `:hover` on the card, reaching for that button took the pointer off
+  the card and it ducked away — jitter. Focus is tracked in JS on the slot
+  (`is-focused`), and the slot contains an invisible `.zone` that grows past
+  the lifted card, the button and the gap between them, so the pointer never
+  falls out. `pointerenter`/`pointerleave` count descendants, which is what
+  makes the zone work. Verify changes here by creeping a synthetic pointer
+  along the path and sampling the lift; it must not dip.
 - **`TransitionGroup` and CSS transforms fight.** The deal animation lives
   on a slot element *wrapping* each card; the arch transform lives on the
   card. They would clobber each other on one element.
@@ -188,6 +275,11 @@ silently skipping the deal animation.
   treating the current metrics as final.
 - **When patching files with a script, assert your search string matched.**
   Two template edits silently no-op'd because indentation had shifted.
+- **The editor reformats files under you.** `cards/definitions.ts` has been
+  reflowed to double quotes and one property per line mid-session, which
+  silently broke single-line search strings. Match structurally — a regex
+  keyed on the card's `id` that tolerates either quote style — rather than
+  on an exact line, and always assert the substitution count.
 
 ## Verifying UI work
 

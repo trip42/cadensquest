@@ -1,15 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CARD_POOL,
   CARDS,
   cardDef,
   cardMovement,
   MOVEMENT_BY_RARITY,
+  REWARD_POOL,
   STARTING_DECK,
 } from '~/game/cards/definitions';
 
 describe('cards', () => {
   it('prices movement by rarity unless the card says otherwise', () => {
-    expect(MOVEMENT_BY_RARITY).toEqual({ normal: 1, rare: 2, mythic: 3 });
+    // The table is a balance dial; what matters is that it is ordered and
+    // that every card falls back to it.
+    expect(MOVEMENT_BY_RARITY.starter).toBeGreaterThan(0);
+    expect(MOVEMENT_BY_RARITY.normal).toBeGreaterThan(0);
+    expect(MOVEMENT_BY_RARITY.rare).toBeGreaterThan(MOVEMENT_BY_RARITY.normal);
+    expect(MOVEMENT_BY_RARITY.mythic).toBeGreaterThan(MOVEMENT_BY_RARITY.rare);
+
     for (const def of Object.values(CARDS)) {
       const expected = def.movement ?? MOVEMENT_BY_RARITY[def.rarity];
       expect(cardMovement(def), `${def.id}`).toBe(expected);
@@ -28,6 +36,21 @@ describe('cards', () => {
     expect(cardMovement(cardDef('bolt'))).toBeLessThan(cardMovement(cardDef('vault')));
   });
 
+  it('marks the basic stock as starter and keeps it out of rewards', () => {
+    expect(cardDef('strike').rarity).toBe('starter');
+    expect(cardDef('guard').rarity).toBe('starter');
+
+    const starters = CARD_POOL.filter((id) => cardDef(id).rarity === 'starter');
+    expect(starters.length).toBeGreaterThan(0);
+    for (const id of starters) expect(REWARD_POOL).not.toContain(id);
+  });
+
+  it('still has cards of every offerable rarity to reward', () => {
+    for (const rarity of ['normal', 'rare', 'mythic'] as const) {
+      expect(REWARD_POOL.filter((id) => cardDef(id).rarity === rarity).length).toBeGreaterThan(0);
+    }
+  });
+
   it('has no card whose only purpose is movement', () => {
     expect(CARDS.stride).toBeUndefined();
     expect(STARTING_DECK).not.toContain('stride');
@@ -40,7 +63,7 @@ describe('cards', () => {
 
   it('gives every card a rarity and something to say', () => {
     for (const def of Object.values(CARDS)) {
-      expect(['normal', 'rare', 'mythic']).toContain(def.rarity);
+      expect(['starter', 'normal', 'rare', 'mythic']).toContain(def.rarity);
       expect(def.text.length).toBeGreaterThan(0);
       expect(cardMovement(def)).toBeGreaterThan(0);
     }

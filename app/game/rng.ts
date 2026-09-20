@@ -33,6 +33,20 @@ export function pick<T>(rng: Rng, items: readonly T[]): T {
   return items[nextInt(rng, items.length)]!;
 }
 
+/** Pick by relative weight. Entries with a weight of zero never come up,
+ *  which is how a reward table turns a kind off entirely. */
+export function pickWeighted<T>(rng: Rng, entries: readonly (readonly [T, number])[]): T {
+  const total = entries.reduce((sum, [, weight]) => sum + Math.max(0, weight), 0);
+  if (total <= 0) throw new Error('pickWeighted needs at least one positive weight');
+
+  let roll = nextFloat(rng) * total;
+  for (const [value, weight] of entries) {
+    roll -= Math.max(0, weight);
+    if (roll < 0) return value;
+  }
+  return entries[entries.length - 1]![0];
+}
+
 /** Fisher-Yates, returning a new array. */
 export function shuffle<T>(rng: Rng, items: readonly T[]): T[] {
   const out = items.slice();
