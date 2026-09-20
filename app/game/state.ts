@@ -3,18 +3,18 @@
    Everything needed to resume a run lives here, and everything here is
    serialisable — the map is not stored, only the seed it grew from. */
 
-import { cardDef, STARTING_DECK } from './cards/definitions';
-import type { CardInstance } from './cards/types';
-import { entityDef } from './entities/definitions';
-import type { Entity } from './entities/types';
-import { CHUNK_ROWS } from './map/generate';
-import { World } from './map/world';
-import { createRng, type Rng, shuffle } from './rng';
-import type { Reward } from './rewards';
-import { resolveStat, type StatKey, type StatModifier } from './stats';
-import { talismanModifiers } from './talismans';
+import { cardDef, STARTING_DECK } from "./cards/definitions";
+import type { CardInstance } from "./cards/types";
+import { entityDef } from "./entities/definitions";
+import type { Entity } from "./entities/types";
+import { LAST_ROW, START_ROW, surfaceKind } from "./map/tiles";
+import { World } from "./map/world";
+import { createRng, type Rng, shuffle } from "./rng";
+import type { Reward } from "./rewards";
+import { resolveStat, type StatKey, type StatModifier } from "./stats";
+import { talismanModifiers } from "./talismans";
 
-export type Phase = 'refresh' | 'player' | 'enemy' | 'victory' | 'defeat';
+export type Phase = "refresh" | "player" | "enemy" | "victory" | "defeat";
 
 /** A reward being chosen right now. Play is suspended until it resolves. */
 export interface ActiveReward {
@@ -54,7 +54,7 @@ export interface GameState {
 
   /** Chunks that have already had their enemies placed. */
   spawnedChunks: number[];
-  /** Row that ends the run. Provisional — the real end condition is TBD. */
+  /** The last row of the map. Reaching it wins the run. */
   goalRow: number;
 
   queue: QueuedAction[];
@@ -68,7 +68,8 @@ export interface Game {
 }
 
 let uidCounter = 0;
-export const nextUid = (prefix: string): string => `${prefix}${(uidCounter += 1)}`;
+export const nextUid = (prefix: string): string =>
+  `${prefix}${(uidCounter += 1)}`;
 /** Tests want a clean slate. */
 export const resetUids = (): void => {
   uidCounter = 0;
@@ -87,7 +88,7 @@ export function makeEntity(defId: string, row: number, col: number): Entity {
     block: 0,
     power: 0,
     facing: 1,
-    anim: { state: 'idle', frame: 0, elapsed: 0, done: false },
+    anim: { state: "idle", frame: 0, elapsed: 0, done: false },
     motion: null,
     path: [],
     intent: null,
@@ -96,29 +97,40 @@ export function makeEntity(defId: string, row: number, col: number): Entity {
   };
 }
 
-export const makeCard = (defId: string): CardInstance => ({ uid: nextUid('c'), defId, gems: [] });
+export const makeCard = (defId: string): CardInstance => ({
+  uid: nextUid("c"),
+  defId,
+  gems: [],
+});
 
 export function createGame(seed: number): Game {
   const world = new World(seed);
   const rng = createRng(seed ^ 0x9e3779b9);
 
-  // Drop the player on the trail of the first canonical row.
+  /* A few rows in rather than right on the edge, so there is map behind him
+     at the start and the opening view is not half empty. */
   let startCol = Math.floor(world.width / 2);
+  const walkable: number[] = [];
   for (let col = 0; col < world.width; col += 1) {
-    if (world.walkable(0, col)) {
-      startCol = col;
-      break;
-    }
+    if (world.walkable(START_ROW, col)) walkable.push(col);
+  }
+  if (walkable.length) {
+    // Prefer the trail itself; fall back to any footing on the row.
+    const onTrail = walkable.filter(
+      (col) => surfaceKind(world.stackAt(START_ROW, col)) === "trail",
+    );
+    const choices = onTrail.length ? onTrail : walkable;
+    startCol = choices[Math.floor(choices.length / 2)]!;
   }
 
-  const self = makeEntity('caden', 0, startCol);
-  self.maxHp = resolveStat('maxHp', []);
+  const self = makeEntity("caden", START_ROW, startCol);
+  self.maxHp = resolveStat("maxHp", []);
   self.hp = self.maxHp;
 
   const state: GameState = {
     seed,
     turn: 0,
-    phase: 'refresh',
+    phase: "refresh",
     rng,
     playerId: self.id,
     entities: [self],
@@ -131,7 +143,7 @@ export function createGame(seed: number): Game {
     pendingRewards: [],
     activeReward: null,
     spawnedChunks: [],
-    goalRow: CHUNK_ROWS * 9,
+    goalRow: LAST_ROW,
     queue: [],
     log: [],
   };
@@ -154,7 +166,7 @@ export const stat = (state: GameState, key: StatKey): number =>
  *  health hands over the difference rather than leaving a dent. */
 export function syncStats(state: GameState): void {
   const self = player(state);
-  const max = stat(state, 'maxHp');
+  const max = stat(state, "maxHp");
   if (max === self.maxHp) return;
   const gained = max - self.maxHp;
   self.maxHp = max;
@@ -162,10 +174,16 @@ export function syncStats(state: GameState): void {
 }
 
 /** Every card the player owns, wherever it currently sits. */
-export const wholeDeck = (state: GameState): CardInstance[] =>
-  [...state.drawPile, ...state.hand, ...state.discardPile];
+export const wholeDeck = (state: GameState): CardInstance[] => [
+  ...state.drawPile,
+  ...state.hand,
+  ...state.discardPile,
+];
 
-export const findCard = (state: GameState, uid: string): CardInstance | undefined =>
+export const findCard = (
+  state: GameState,
+  uid: string,
+): CardInstance | undefined =>
   wholeDeck(state).find((card) => card.uid === uid);
 
 export const gemsOf = (card: CardInstance): string[] => card.gems ?? [];
@@ -175,14 +193,22 @@ export const gemsOf = (card: CardInstance): string[] => card.gems ?? [];
 export const player = (state: GameState): Entity =>
   state.entities.find((entity) => entity.id === state.playerId)!;
 
-export const entityAt = (state: GameState, row: number, col: number): Entity | undefined =>
-  state.entities.find((entity) => !entity.dead && entity.row === row && entity.col === col);
+export const entityAt = (
+  state: GameState,
+  row: number,
+  col: number,
+): Entity | undefined =>
+  state.entities.find(
+    (entity) => !entity.dead && entity.row === row && entity.col === col,
+  );
 
 export const enemies = (state: GameState): Entity[] =>
-  state.entities.filter((entity) => entity.faction === 'enemy' && !entity.dead);
+  state.entities.filter((entity) => entity.faction === "enemy" && !entity.dead);
 
-export const handCard = (state: GameState, uid: string): CardInstance | undefined =>
-  state.hand.find((card) => card.uid === uid);
+export const handCard = (
+  state: GameState,
+  uid: string,
+): CardInstance | undefined => state.hand.find((card) => card.uid === uid);
 
 export const describeCard = (card: CardInstance) => cardDef(card.defId);
 

@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   beginTurn,
+  discardAllForMovement,
   discardForMovement,
+  handMovementValue,
   endPlayerPhase,
   isBusy,
   movePlayerTo,
@@ -12,6 +14,7 @@ import {
 import { cardDef, MOVEMENT_BY_RARITY } from '~/game/cards/definitions';
 import { entityDef } from '~/game/entities/definitions';
 import { entityCell } from '~/game/entities/types';
+import { LAST_ROW, START_ROW } from '~/game/map/tiles';
 import { createGame, enemies, type Game, player, resetUids, stat } from '~/game/state';
 
 const settle = (game: Game, limit = 4000): void => {
@@ -26,6 +29,21 @@ const runEnemyPhase = (game: Game, limit = 20000): void => {
 
 describe('the turn loop', () => {
   beforeEach(() => resetUids());
+
+  it('starts a few rows in, with footing under him', () => {
+    for (const seed of [1, 42, 4242, 90210, 31337]) {
+      const game = createGame(seed);
+      const self = player(game.state);
+
+      expect(self.row).toBe(START_ROW);
+      expect(game.world.walkable(self.row, self.col)).toBe(true);
+      expect(self.col).toBeGreaterThanOrEqual(0);
+      expect(self.col).toBeLessThan(game.world.width);
+      // And the finish is still the whole map away.
+      expect(game.state.goalRow).toBe(LAST_ROW);
+      expect(game.state.goalRow - self.row).toBeGreaterThan(100);
+    }
+  });
 
   it('refreshes into the player phase with a hand, energy and movement', () => {
     const game = createGame(4242);
@@ -71,6 +89,59 @@ describe('the turn loop', () => {
       expect(state.hand).toHaveLength(0);
       expect(state.discardPile).toHaveLength(before + 1);
     }
+  });
+
+  it('trades the whole hand in at once', () => {
+    const game = createGame(7);
+    beginTurn(game);
+    const { state } = game;
+
+    const expected = handMovementValue(state);
+    const cards = state.hand.length;
+    const discarded = state.discardPile.length;
+    expect(cards).toBeGreaterThan(1);
+    expect(expected).toBeGreaterThan(0);
+
+    expect(discardAllForMovement(game)).toBe(expected);
+    expect(state.hand).toHaveLength(0);
+    expect(state.movement).toBe(expected);
+    expect(state.discardPile).toHaveLength(discarded + cards);
+    expect(state.log.at(-1)).toContain(`${cards} cards for ${expected} movement`);
+  });
+
+  it('values the whole hand the same as discarding one at a time', () => {
+    const one = createGame(31337);
+    beginTurn(one);
+    const bulk = createGame(31337);
+    beginTurn(bulk);
+
+    while (one.state.hand.length) discardForMovement(one, one.state.hand[0]!.uid);
+    discardAllForMovement(bulk);
+
+    expect(bulk.state.movement).toBe(one.state.movement);
+  });
+
+  it('counts a movement bonus once per card traded in', () => {
+    const game = createGame(7);
+    beginTurn(game);
+    const plain = handMovementValue(game.state);
+
+    game.state.talismans.push('lodestone');   // +1 movement per discard
+    const cards = game.state.hand.length;
+    expect(handMovementValue(game.state)).toBe(plain + cards);
+    expect(discardAllForMovement(game)).toBe(plain + cards);
+  });
+
+  it('refuses a bulk discard with an empty hand or outside the phase', () => {
+    const game = createGame(7);
+    beginTurn(game);
+
+    game.state.hand = [];
+    expect(discardAllForMovement(game)).toBe(0);
+
+    beginTurn(game);
+    endPlayerPhase(game);
+    expect(discardAllForMovement(game)).toBe(0);
   });
 
   it('will not discard outside the player phase', () => {

@@ -12,13 +12,16 @@ import {
   beginTurn,
   canPlay,
   chooseCardReward,
+  discardAllForMovement,
   discardForMovement,
   endPlayerPhase,
+  handMovementValue,
   isBusy,
   isValidTarget,
   movePlayerTo,
   movementRange,
   playCard,
+  skipReward,
   socketGemReward,
   takeTalismanReward,
   tick,
@@ -101,6 +104,8 @@ export interface GameView {
   drawCount: number;
   discardCount: number;
   hand: HandCardView[];
+  /** What the whole hand is worth if traded in for movement. */
+  handMovement: number;
   log: string[];
   busy: boolean;
   /** Treasures held, oldest first. */
@@ -141,6 +146,7 @@ export const useGameStore = defineStore('game', () => {
         ...describeCard(card),
         playable: canPlay(current, card.uid),
       })),
+      handMovement: handMovementValue(state),
       log: state.log.slice(-6).reverse(),
       busy: isBusy(state),
       talismans: state.talismans.map(talismanDef),
@@ -355,6 +361,13 @@ export const useGameStore = defineStore('game', () => {
     sync(true);
   }
 
+  /** Trade the whole hand in at once. */
+  function discardAll(): void {
+    if (!game) return;
+    if (discardAllForMovement(game) > 0) selectedUid.value = null;
+    sync(true);
+  }
+
   /* ------------------------------ rewards ------------------------------ */
 
   function chooseCard(uid: string): void {
@@ -363,6 +376,11 @@ export const useGameStore = defineStore('game', () => {
 
   function socketGem(cardUid: string): void {
     if (game && socketGemReward(game, cardUid)) sync(true);
+  }
+
+  /** Decline whatever is on offer. */
+  function skip(): void {
+    if (game && skipReward(game)) sync(true);
   }
 
   function takeTalisman(): void {
@@ -393,8 +411,8 @@ export const useGameStore = defineStore('game', () => {
   return {
     view, selected, selectedUid, hoverCell, enemyCount, enemyTip,
     start, attach, detach, frame,
-    select, commitCell, hover, pickAt, discard, endPhase,
-    chooseCard, socketGem, takeTalisman,
+    select, commitCell, hover, pickAt, discard, discardAll, endPhase,
+    chooseCard, socketGem, takeTalisman, skip,
     rawGame, entityDef,
   };
 });

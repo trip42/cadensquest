@@ -30,10 +30,13 @@ export const MIN_SCALE = 0.5;
 export const MAX_SCALE = 2.2;
 
 /** Where the camera's subject sits, as a fraction of the viewport. The map
- *  is full-screen and the cards cover the bottom third, so the player is
- *  centred in what is left: the middle of the top two-thirds. */
+ *  is full-screen and the cards cover the bottom of it, so the player rides
+ *  about a third of the way down, clear of them.
+ *
+ *  This is where the CHARACTER lands, not the tile under him — `anchorY`
+ *  below takes care of the difference. */
 export const FOCUS_X = 0.5;
-export const FOCUS_Y = 0.34;
+export const FOCUS_Y = 0.33;
 
 export interface Camera {
   row: number;
@@ -43,6 +46,11 @@ export interface Camera {
   /** Fractions of the viewport the camera's subject is pinned to. */
   focusX: number;
   focusY: number;
+  /* A sprite stands on its tile, so aiming the camera at the tile leaves
+     the character floating well above the mark. This pushes the world down
+     by half his height, which puts the man — not the ground he is on — at
+     the focus point. Design units, so it holds at every zoom. */
+  anchorY: number;
 }
 
 export interface Viewport {
@@ -55,13 +63,13 @@ export const projectX = (col: number, row: number, camera: Camera, view: Viewpor
   (col - camera.col - (row - camera.row)) * HW + view.width * camera.focusX + camera.panX;
 
 export const projectY = (col: number, row: number, camera: Camera, view: Viewport): number =>
-  (col - camera.col + (row - camera.row)) * HH + view.height * camera.focusY + camera.panY;
+  (col - camera.col + (row - camera.row)) * HH + view.height * camera.focusY + camera.panY + camera.anchorY;
 
 /** Screen point back to a cell on the ground plane. Height is handled by the
  *  caller, which tests the stacks that could be standing in the way. */
 export function unproject(px: number, py: number, camera: Camera, view: Viewport): { row: number; col: number } {
   const a = (px - view.width * camera.focusX - camera.panX) / HW;
-  const b = (py - view.height * camera.focusY - camera.panY) / HH;
+  const b = (py - view.height * camera.focusY - camera.panY - camera.anchorY) / HH;
   return {
     row: camera.row + (b - a) / 2,
     col: camera.col + (a + b) / 2,

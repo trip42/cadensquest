@@ -204,6 +204,33 @@ export function discardForMovement(game: Game, uid: string): boolean {
   return true;
 }
 
+/** Trade the whole hand in at once. Returns the movement gained. */
+export function discardAllForMovement(game: Game): number {
+  const { state } = game;
+  if (state.phase !== 'player' || isBusy(state) || state.activeReward) return 0;
+  if (!state.hand.length) return 0;
+
+  const bonus = stat(state, 'movementBonus');
+  const count = state.hand.length;
+  let gained = 0;
+
+  for (const card of state.hand) {
+    gained += cardMovement(cardDef(card.defId)) + bonus;
+    state.discardPile.push(card);
+  }
+  state.hand = [];
+  state.movement += gained;
+
+  note(state, `Discarded ${count} card${count === 1 ? '' : 's'} for ${gained} movement.`);
+  return gained;
+}
+
+/** What the whole hand is worth as movement, without spending it. */
+export function handMovementValue(state: GameState): number {
+  const bonus = stat(state, 'movementBonus');
+  return state.hand.reduce((sum, card) => sum + cardMovement(cardDef(card.defId)) + bonus, 0);
+}
+
 export function playCard(game: Game, uid: string, target: Cell | null = null): boolean {
   const { state } = game;
   if (!canPlay(game, uid)) return false;
@@ -466,6 +493,17 @@ export function takeTalismanReward(game: Game): boolean {
   state.talismans.push(active.reward.talismanId);
   syncStats(state);
   state.activeReward = null;
+  return true;
+}
+
+/** Walk away with nothing. The reward is gone, not requeued. */
+export function skipReward(game: Game): boolean {
+  const { state } = game;
+  const active = state.activeReward;
+  if (!active) return false;
+
+  state.activeReward = null;
+  note(state, `Left the ${active.reward.kind} behind.`);
   return true;
 }
 

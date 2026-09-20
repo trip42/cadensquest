@@ -4,12 +4,47 @@
    Three shapes behind one screen: pick one of the offered cards, choose
    which card a gem goes into, or accept a talisman. */
 
+import { computed, ref, watch } from 'vue';
 import { describeEffect } from '~/game/effects';
 import { describeModifier } from '~/game/stats';
 import { glyph } from '~/render/glyphs';
 import { useGameStore } from '~/stores/game';
 
 const store = useGameStore();
+
+/* Choosing is two steps: pick, then confirm. The pick is only ever in the
+   UI — nothing reaches the simulation until Take is pressed, so Back has
+   nothing to undo. */
+const picked = ref<string | null>(null);
+
+/** Identifies the offer on screen, so a new one clears the old pick. */
+const offerKey = computed(() => {
+  const reward = store.view?.reward;
+  if (!reward) return '';
+  return [
+    reward.kind,
+    reward.gem?.id ?? '',
+    reward.talisman?.id ?? '',
+    (reward.cards ?? []).map((card) => card.uid).join(','),
+  ].join('|');
+});
+watch(offerKey, () => { picked.value = null; });
+
+const choices = computed(() => store.view?.reward?.cards ?? store.view?.reward?.deck ?? []);
+const pickedCard = computed(() => choices.value.find((card) => card.uid === picked.value) ?? null);
+
+function confirm(): void {
+  const uid = picked.value;
+  if (!uid) return;
+  if (store.view?.reward?.kind === 'card') store.chooseCard(uid);
+  else store.socketGem(uid);
+  picked.value = null;
+}
+
+function skip(): void {
+  picked.value = null;
+  store.skip();
+}
 </script>
 
 <template>
@@ -25,12 +60,22 @@ const store = useGameStore();
           v-for="card in store.view.reward.cards"
           :key="card.uid"
           class="pick"
+          :class="{ 'is-chosen': picked === card.uid }"
           :def="card.def"
           :gems="card.gems"
           :movement="card.movement"
-          @click="store.chooseCard(card.uid)"
+          @click="picked = picked === card.uid ? null : card.uid"
         />
       </div>
+
+      <footer class="actions">
+        <button class="ghost" type="button" @click="skip()">SKIP</button>
+        <span v-if="pickedCard" class="pair">
+          <button class="ghost" type="button" @click="picked = null">BACK</button>
+          <button class="take" type="button" @click="confirm()">TAKE {{ pickedCard.def.name.toUpperCase() }}</button>
+        </span>
+        <span v-else class="prompt">Choose a card</span>
+      </footer>
     </section>
 
     <!-- A gem: choose the card instance it is set into. -->
@@ -53,9 +98,20 @@ const store = useGameStore();
           :movement="card.movement"
           :disabled="card.full"
           :title="card.full ? 'No sockets left' : `Set the gem into ${card.def.name}`"
-          @click="store.socketGem(card.uid)"
+          @click="picked = picked === card.uid ? null : card.uid"
         />
       </div>
+
+      <footer class="actions">
+        <button class="ghost" type="button" @click="skip()">SKIP</button>
+        <span v-if="pickedCard" class="pair">
+          <button class="ghost" type="button" @click="picked = null">BACK</button>
+          <button class="take" type="button" @click="confirm()">
+            SET INTO {{ pickedCard.def.name.toUpperCase() }}
+          </button>
+        </span>
+        <span v-else class="prompt">Choose a card to set it into</span>
+      </footer>
     </section>
 
     <!-- A talisman: read it, then keep it. -->
@@ -132,6 +188,54 @@ header p { margin: 6px 0 0; color: #8ea393; font-size: 10.5px; }
 .target { cursor: pointer; transition: transform 0.12s ease, opacity 0.12s; }
 .target:hover:not(:disabled) { transform: translateY(-4px); }
 .target.is-full { opacity: 0.35; cursor: not-allowed; }
+
+/* ------------------------------ chosen + actions ----------------------- */
+
+/* The one being considered, lifted clear of the rest. */
+.pick.is-chosen,
+.target.is-chosen {
+  transform: translateY(-8px);
+  filter: drop-shadow(0 0 9px rgba(240, 200, 106, 0.6));
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(208, 220, 155, 0.12);
+}
+.pair { display: flex; align-items: center; gap: 8px; }
+.prompt { color: #6f8377; font-size: 10px; letter-spacing: 0.06em; }
+
+.ghost {
+  padding: 9px 16px;
+  border: 1px solid rgba(208, 220, 155, 0.28);
+  border-radius: 4px;
+  background: transparent;
+  color: #8ea393;
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s;
+}
+.ghost:hover { border-color: rgba(208, 220, 155, 0.6); color: #d7e0c9; }
+
+.take {
+  padding: 9px 18px;
+  border: 0;
+  border-radius: 4px;
+  background: #d0dc9b;
+  color: #16302b;
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+}
+.take:hover { background: #e2edb0; }
 
 /* ------------------------------ talisman ------------------------------- */
 .relic { display: flex; gap: 14px; align-items: flex-start; }

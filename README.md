@@ -58,13 +58,21 @@ Letters are semantic, not visual: a zone supplies the palette, so the marsh
 and the highlands look nothing alike while the generator reasons about
 ground and trail.
 
-Three properties are guaranteed **by construction**, not checked after the
+The map is finite and has two edges: it begins at row 0, runs each zone once
+in order, and reaching the last row wins the run. There is nothing before
+the start or past the finish — just open air. You start a few rows in rather than on the edge.
+
+Four properties are guaranteed **by construction**, not checked after the
 fact — a validator that fails at runtime still means a broken world on
 someone's screen:
 
 - the walkable ground is one connected landmass that forks and rejoins
 - the trail through it is likewise continuous, splitting and merging
 - no strand is ever narrower than four tiles
+- and you can actually walk it end to end: a step of more than one layer is
+  a climb, so the trail is never built on and terrain height is walked back
+  down in time to meet the next chunk. Peaks rise beside the path, never
+  across it.
 
 `app/game/map/audit.ts` is the proof rather than the guard: `npm test` runs
 it over 200 seeds × 6 chunks and across chunk seams. The first and last row
@@ -83,6 +91,11 @@ dropped and rebuilt in any order while still joining up.
 Cards are dragged onto the map to pick a target square; cards that need no
 target resolve as soon as they are picked up. Enemy behaviour is a deck too:
 each enemy definition lists intent ids, and one is drawn per turn.
+
+While you still hold cards the button at bottom right offers to trade the
+lot in at once — *DISCARD ALL FOR n MOVE*. It only becomes *END PHASE* once
+your hand is empty, because until then there is always something left to
+spend.
 
 The player phase ends on its own once your hand is empty and your banked
 movement is gone — there is nothing left you could do. Ending early is what

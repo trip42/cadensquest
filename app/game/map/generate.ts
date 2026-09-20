@@ -25,11 +25,25 @@ import { type Stack, VOID, type Zone, zoneForRow } from './tiles';
 
 export const MAP_WIDTH = 10;
 export const CHUNK_ROWS = 16;
-export const MIN_STRAND = 4;
-export const MIN_GAP = 2;
+/* A strand may get this narrow, and a fork's void this wide. Dropping the
+   strand minimum is what makes room for both: at ten columns across, a
+   fork needs 2 x MIN_STRAND + MIN_GAP to fit. */
+export const MIN_STRAND = 3;
+export const MIN_GAP = 3;
 /** Columns the trail must cross on a canonical row, so chunks join up. */
 export const SEAM_TRAIL: [number, number] = [4, 5];
 
+/* Terrain height is the one thing that can make a map impassable: a step of
+   more than one layer is a climb, not a walk. Two rules keep a route open
+   from the first row to the last.
+
+   One, the trail is never built on. Ridges and peaks only rise beyond the
+   trail's own columns, so walking the trail is never a climb.
+
+   Two, height changes by at most a layer per row, and is pulled back to the
+   chunk's canonical height in time to meet the next chunk — otherwise a
+   chunk ending high would butt against one starting low and wall the map
+   off at the seam. */
 interface Strand {
   /** Inclusive column range of solid land. */
   lo: number;
@@ -42,6 +56,8 @@ interface Strand {
   /** Terrain height in layers, and whether the far half steps up one. */
   height: number;
   ridge: boolean;
+  /** Extra layers heaped beyond the trail, for a peak. */
+  peak: number;
 }
 
 const width = (strand: Strand) => strand.hi - strand.lo + 1;
@@ -57,6 +73,7 @@ function canonicalStrand(height: number): Strand {
     spanHi: SEAM_TRAIL[1],
     height,
     ridge: false,
+    peak: 0,
   };
 }
 
@@ -80,7 +97,9 @@ function drift(strand: Strand, rng: Rng, zone: Zone): Strand {
     const step = chance(rng, 0.5) ? -1 : 1;
     drifted.height = Math.min(Math.max(strand.height + step, zone.gen.minHeight), zone.gen.maxHeight);
   }
+
   if (chance(rng, 0.15)) drifted.ridge = !strand.ridge;
+  drifted.peak = chance(rng, zone.gen.peakChance) ? zone.gen.peakHeight : 0;
 
   // The trail steps one column at a time and stays on its strand. The row
   // emits every column between where it entered and where it leaves, so a
@@ -91,6 +110,18 @@ function drift(strand: Strand, rng: Rng, zone: Zone): Strand {
   drifted.spanLo = Math.min(strand.trail, trail);
   drifted.spanHi = Math.max(strand.trail, trail);
   return drifted;
+}
+
+/* Pull the height back towards the one the chunk must close on, never by
+   more than a layer at a time. Applied to every row rather than inside
+   `drift`, because a fork or a merge skips drift altogether — and those
+   were precisely the rows that used to escape it and leave a chunk ending
+   too high to step onto the next one. */
+function settle(strand: Strand, seamHeight: number, rowsLeft: number): void {
+  strand.height = Math.min(
+    Math.max(strand.height, seamHeight - rowsLeft),
+    seamHeight + rowsLeft,
+  );
 }
 
 /** Can this strand be cut in two and leave two legal strands? */
@@ -104,6 +135,7 @@ function fork(strand: Strand, rng: Rng): [Strand, Strand] {
     lo: strand.lo,
     hi: strand.lo + MIN_STRAND - 1 + leftExtra,
     ridge: false,
+    peak: 0,
   };
   const right: Strand = {
     ...strand,
@@ -129,8 +161,11 @@ function merge(left: Strand, right: Strand): Strand {
     trail: left.trail,
     spanLo: Math.min(left.trail, right.trail, left.spanLo, right.spanLo),
     spanHi: Math.max(left.trail, right.trail, left.spanHi, right.spanHi),
+    // Both banks are kept within a layer of each other while the fork is
+    // open, so meeting at the higher of the two is still a single step up.
     height: Math.max(left.height, right.height),
     ridge: false,
+    peak: 0,
   };
 }
 
@@ -152,8 +187,17 @@ function paintRow(strands: Strand[], rng: Rng, zone: Zone): Stack[] {
       }
     }
 
+    /* Terrain rises away from the trail one layer per column, never in a
+       jump. A peak three layers up is therefore a flight of terraces rather
+       than a spire, which is what stops a tile ending up more than a layer
+       above every one of its neighbours — stranded, with no way on or off.
+       Nothing is heaped on the trail itself, so the route stays a walk
+       however dramatic the ground either side becomes. */
+    const rise = (strand.ridge ? 1 : 0) + strand.peak;
+
     for (let col = strand.lo; col <= strand.hi; col += 1) {
-      const stepped = strand.ridge && col > strand.trail ? 1 : 0;
+      const beyond = col - strand.spanHi;
+      const stepped = beyond > 0 ? Math.min(rise, beyond) : 0;
       const height = Math.max(1, strand.height + stepped);
       const decoration = special.get(col);
 
@@ -185,6 +229,8 @@ export function generateChunk(seed: number, index: number): Chunk {
 
   for (let row = 1; row < CHUNK_ROWS - 1; row += 1) {
     const previous = plan[row - 1]!;
+    // Rows left before the closing row, less one for the step onto it.
+    const rowsLeft = Math.max(0, CHUNK_ROWS - 2 - row);
     let next: Strand[];
 
     if (previous.length === 2) {
@@ -195,6 +241,9 @@ export function generateChunk(seed: number, index: number): Chunk {
         // Drift both, then hold them apart so the gap survives.
         const a = drift(left, rng, zone);
         const b = drift(right, rng, zone);
+        // Keep the two banks within a layer of each other, so whichever
+        // height the merge settles on is a single step from both.
+        b.height = Math.min(Math.max(b.height, a.height - 1), a.height + 1);
 
         // Both drifted freely, so they may have closed the gap. Pull one
         // back — but only as far as its own trail, because a branch that
@@ -209,7 +258,21 @@ export function generateChunk(seed: number, index: number): Chunk {
           else sustainable = false;
         }
 
-        next = sustainable ? [a, b] : [merge(a, b)];
+        if (sustainable) {
+          next = [a, b];
+        } else {
+          /* Closing the fork here merges two strands that have already
+             drifted, and taking the higher of those can be two layers above
+             the lower BANK — a climb, not a step. Hold the merged height
+             within a layer of both banks as they were. */
+          const merged = merge(a, b);
+          const banks = [left.height, right.height];
+          merged.height = Math.min(
+            Math.max(merged.height, Math.max(...banks) - 1),
+            Math.min(...banks) + 1,
+          );
+          next = [merged];
+        }
       }
     } else {
       const only = previous[0]!;
@@ -225,12 +288,13 @@ export function generateChunk(seed: number, index: number): Chunk {
       }
     }
 
+    for (const strand of next) settle(strand, startHeight, rowsLeft);
     plan.push(next);
   }
 
   // Close on a canonical row, reaching back to whatever the last row left.
   const last = plan[plan.length - 1]!;
-  const closing = canonicalStrand(last[0]!.height);
+  const closing = canonicalStrand(startHeight);
   closing.spanLo = Math.min(SEAM_TRAIL[0], ...last.map((s) => s.trail));
   closing.spanHi = Math.max(SEAM_TRAIL[1], ...last.map((s) => s.trail));
   plan.push([closing]);

@@ -15,7 +15,7 @@ import type { Entity } from '../game/entities/types';
 import { gemDef } from '../game/gems';
 import type { Cell } from '../game/map/navigation';
 import { type Reward, rewardLabel } from '../game/rewards';
-import { KIND_OF, type FacePalette, type TileKind, type TileLetter, VOID } from '../game/map/tiles';
+import { KIND_OF, type FacePalette, MAX_STACK_HEIGHT, type TileKind, type TileLetter, VOID } from '../game/map/tiles';
 import type { Game } from '../game/state';
 import {
   type Camera,
@@ -70,7 +70,12 @@ export class MapRenderer {
   private readonly hooks: RendererHooks;
 
   private view: Viewport = { width: DESIGN_W, height: DESIGN_H };
-  private camera: Camera = { row: 0, col: 0, panX: 0, panY: 0, focusX: FOCUS_X, focusY: FOCUS_Y };
+  private camera: Camera = {
+    row: 0, col: 0, panX: 0, panY: 0, focusX: FOCUS_X, focusY: FOCUS_Y, anchorY: 0,
+  };
+  /* Set once the player walks: the view slides back onto him, undoing
+     whatever the last drag was looking at. */
+  private recentring = false;
   private scale = 1;
   private raf = 0;
   private last = 0;
@@ -93,6 +98,9 @@ export class MapRenderer {
     const self = game.state.entities.find((entity) => entity.id === game.state.playerId)!;
     this.camera.row = self.row;
     this.camera.col = self.col;
+    // Half his height, less the nudge that already sits him on the tile.
+    const sprite = entityDef(self.defId).sprite;
+    this.camera.anchorY = sprite.footprint.height / 2 - (sprite.offsetY ?? 0);
 
     this.resize();
     if (typeof ResizeObserver !== 'undefined') {
@@ -159,6 +167,8 @@ export class MapRenderer {
   }
 
   pan(dx: number, dy: number): void {
+    // A deliberate drag wins until he moves again.
+    this.recentring = false;
     this.camera.panX += dx / this.scale;
     this.camera.panY += dy / this.scale;
   }
@@ -166,6 +176,7 @@ export class MapRenderer {
   recentre(): void {
     this.camera.panX = 0;
     this.camera.panY = 0;
+    this.recentring = false;
   }
 
   /** Screen point to a cell, respecting height: a tall stack covers the
@@ -198,11 +209,28 @@ export class MapRenderer {
     const { state } = this.game;
     const self = state.entities.find((entity) => entity.id === state.playerId);
     if (!self) return;
+
     const target = visualCell(self);
     // Critically damped enough to feel attached without snapping.
     const k = 1 - Math.exp(-6 * dt);
     this.camera.row += (target.row - this.camera.row) * k;
     this.camera.col += (target.col - this.camera.col) * k;
+
+    /* Dragging is for looking around, and it stays put while you do. The
+       moment he walks, the view comes back to him — and keeps easing after
+       he stops, so a single step recentres as surely as a long one. */
+    if (self.motion || self.path.length) this.recentring = true;
+    if (!this.recentring) return;
+
+    const ease = 1 - Math.exp(-4 * dt);
+    this.camera.panX -= this.camera.panX * ease;
+    this.camera.panY -= this.camera.panY * ease;
+
+    if (Math.abs(this.camera.panX) < 0.5 && Math.abs(this.camera.panY) < 0.5) {
+      this.camera.panX = 0;
+      this.camera.panY = 0;
+      this.recentring = false;
+    }
   }
 
   /* ------------------------------ drawing ------------------------------ */
@@ -256,7 +284,7 @@ export class MapRenderer {
         const sx = projectX(col, row, this.camera, this.view);
         const sy = projectY(col, row, this.camera, this.view);
         if (sx < -TILE_W || sx > view.width + TILE_W) continue;
-        if (sy < -TILE_H - 6 * LAYER_H || sy > view.height + TILE_H + LAYER_H) continue;
+        if (sy < -TILE_H - MAX_STACK_HEIGHT * LAYER_H || sy > view.height + TILE_H + LAYER_H) continue;
 
         this.drawStack(sx, sy, stack, row, col, now);
       }

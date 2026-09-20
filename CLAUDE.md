@@ -91,8 +91,40 @@ four-connectivity. Watch for: shrinking a strand away from the column its
 trail arrives on, and closing a fork gap by cutting into a branch's trail.
 
 The first and last row of every chunk are canonical (full width, trail
-across the middle), which is what makes a chunk a pure function of
-`(seed, index)` — buildable, droppable and rebuildable in any order.
+across the middle, at the zone's opening height), which is what makes a
+chunk a pure function of `(seed, index)` — buildable, droppable and
+rebuildable in any order.
+
+**The map is finite, and bounded at both ends.** `MAP_ROWS` is every zone
+once, in order; `zoneForRow` clamps past the end rather than cycling. A run
+starts at `START_ROW` and is won on `LAST_ROW`.
+
+`World.stackAt` returns open air outside `0..LAST_ROW`. Without that bound
+the world really did extend backwards for ever: the renderer draws rows well
+behind the camera, and each one generated chunk -1, -2 and on down — so the
+player could walk off the start of the map into terrain that should not have
+existed. The generator itself is unbounded and does not need to know; the
+bound belongs to the `World`, which is why the chunk tests still work on raw
+`generateChunk` output.
+
+**A fourth invariant: you can always get there.** Connectivity alone is not
+enough, because a step of more than one layer is a climb, so neighbouring
+ground can still be a wall. `traversable()` walks the map the way a
+character does and the audit fails without it. It is guaranteed by two
+rules in the generator:
+
+- Nothing is ever heaped on the trail. Ridges and peaks only rise beyond
+  `spanHi`, so however dramatic the terrain gets either side, the trail is
+  always a walk.
+- Height moves at most a layer per row *and* `settle()` pulls it back to
+  the chunk's opening height in time to meet the next chunk. Three places
+  used to escape that and each produced a real wall: forks and merges skip
+  `drift` entirely (so `settle` is applied to every row, not inside
+  `drift`); the two banks of a fork are held within a layer of each other,
+  so merging at the higher of them is still one step; and the *fallback*
+  merge — the one that closes a fork that can no longer be held open —
+  merges already-drifted strands, so its height is clamped against the
+  banks as they were, not as they became.
 
 ## Turn loop
 
@@ -107,6 +139,13 @@ characters between cells, steps animation frames, and pulls the next enemy
 off the queue once the previous one finishes — which is why a non-looping
 clip's *duration* is load-bearing: `isBusy` waits on it and it paces the
 enemy phase.
+
+**The one button at bottom right has two modes**, and which one shows is
+decided purely by whether the hand is empty. With cards in it, there is
+always something left to spend, so it reads *DISCARD ALL FOR n MOVE* and
+trades the whole hand in (`discardAllForMovement`, worth exactly the same
+as discarding each card by hand — a test pins that). Only an empty hand
+offers *END PHASE*.
 
 **The player phase ends itself** once there is nothing left to spend: an
 empty hand and no banked movement. It waits for animations (`isBusy`) and
@@ -183,8 +222,19 @@ transform, so no drawing code knows the screen size.
 - `DESIGN_W` x `DESIGN_H` is the area guaranteed visible; the canvas scales
   to *contain* it, clamped to `MIN_SCALE`..`MAX_SCALE`.
 - `ZOOM` multiplies that — one dial for how close the camera sits.
-- `FOCUS_Y` (0.34) pins the camera's subject a third down, because the cards
-  cover the bottom of the screen.
+- `FOCUS_X`/`FOCUS_Y` (0.5, 0.33) pin the player across the middle and a
+  third of the way down, clear of the cards along the bottom.
+- `camera.anchorY` is why that lands on the *character* rather than the
+  tile he stands on: a sprite is drawn upward from its tile, so aiming at
+  the tile leaves him floating high — his head sat at 21% when the focus
+  said 33%. It pushes the world down by half his drawn height, in design
+  units so it holds at every zoom. **`unproject` subtracts it too** — miss
+  that and every click lands on the wrong tile.
+
+Dragging is for looking around and persists while you do. The moment the
+player walks, `recentring` turns on and the pan eases back to zero, and it
+keeps easing after he stops so one step recentres as surely as a long walk.
+A fresh drag cancels it; double-click still snaps back instantly.
 
 Draw order is a painter's algorithm over diagonals of constant `row + col`,
 which is the true far-to-near order in this projection. Characters fold into
@@ -232,6 +282,15 @@ and in the gem grid (104px).
 
 Its root is a `<button>`, so listeners, `disabled` and `title` fall through
 from whichever screen is using it.
+
+It also carries its own hover tooltip — full rules text, target, what it is
+worth as movement, and each socketed gem with its effect — so every screen
+gets it without asking. Three things make that work: a short dwell so it
+does not strobe while sweeping across a hand; `Teleport` to `<body>` with
+`position: fixed`, because the gem grid scrolls and would otherwise clip it;
+and `pointer-events: none`, so the pointer falls through to whatever card is
+underneath and the tooltip always follows the card actually being hovered.
+Teleported markup escapes scoped styles, so its rules are `:global`.
 
 ## Store bridge
 

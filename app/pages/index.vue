@@ -58,7 +58,19 @@ onMounted(() => {
         <HandBar class="hand-area" />
 
         <aside class="controls">
+          <!-- While cards remain there is always something to spend, so the
+               button trades them in. Only an empty hand offers to end. -->
           <button
+            v-if="store.view.hand.length"
+            class="end panel is-discard"
+            type="button"
+            :disabled="store.view.phase !== 'player' || store.view.busy"
+            @click="store.discardAll()"
+          >
+            DISCARD ALL FOR {{ store.view.handMovement }} MOVE
+          </button>
+          <button
+            v-else
             class="end panel"
             type="button"
             :disabled="store.view.phase !== 'player' || store.view.busy"
@@ -168,6 +180,11 @@ onMounted(() => {
 }
 .end {
   pointer-events: auto;
+  /* Both labels live in the same box, so the button does not jump when the
+     hand empties or the movement total changes digits. Sized for the
+     longest it can read: DISCARD ALL FOR 100 MOVE. */
+  min-width: 230px;
+  text-align: center;
   padding: 11px 16px;
   color: #16302b;
   background: #d0dc9b;
@@ -178,6 +195,9 @@ onMounted(() => {
   cursor: pointer;
 }
 .end:hover:not(:disabled) { background: #e2edb0; }
+/* The bulk discard is a movement action, so it wears movement's colour. */
+.end.is-discard { background: #76c7e8; color: #08242f; }
+.end.is-discard:hover:not(:disabled) { background: #97d6f0; }
 .end:disabled { background: rgba(14, 30, 25, 0.72); color: #6f8377; cursor: default; }
 .piles {
   pointer-events: auto;
@@ -218,7 +238,7 @@ onMounted(() => {
 @media (max-width: 860px) {
   .dock { grid-template-columns: 1fr; justify-items: center; }
   .log { display: none; }
-  .controls { flex-direction: row; align-items: center; justify-self: center; }
+  .controls { flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: center; justify-self: center; }
   .hint { display: none; }
 }
 </style>
