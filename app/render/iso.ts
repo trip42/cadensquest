@@ -38,6 +38,10 @@ export const MAX_SCALE = 2.2;
 export const FOCUS_X = 0.5;
 export const FOCUS_Y = 0.33;
 
+/** How far down the screen a dragged view may push the player before the
+ *  hand of cards would start hiding him. */
+export const HAND_CLEARANCE = 0.62;
+
 export interface Camera {
   row: number;
   col: number;

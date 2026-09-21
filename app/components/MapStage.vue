@@ -100,7 +100,8 @@ function onPointerUp(event: PointerEvent): void {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  background: radial-gradient(120% 90% at 50% 30%, #2c4b43, #12261f);
+  /* Deep water, matching what the renderer paints. */
+  background: #12383a;
 }
 .stage-canvas {
   display: block;

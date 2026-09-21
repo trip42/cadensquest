@@ -23,6 +23,7 @@ import {
   DESIGN_W,
   FOCUS_X,
   FOCUS_Y,
+  HAND_CLEARANCE,
   MAX_SCALE,
   MIN_SCALE,
   ZOOM,
@@ -154,6 +155,7 @@ export class MapRenderer {
     this.ctx.setTransform(dpr * this.scale, 0, 0, dpr * this.scale, 0, 0);
 
     this.view = { width: rect.width / this.scale, height: rect.height / this.scale };
+    this.clampPan();
   }
 
   /* ------------------------------ input -------------------------------- */
@@ -171,6 +173,46 @@ export class MapRenderer {
     this.recentring = false;
     this.camera.panX += dx / this.scale;
     this.camera.panY += dy / this.scale;
+    this.clampPan();
+  }
+
+  /* Looking around is allowed; losing him is not. The pan is held to
+     whatever keeps Caden inside a margin of the canvas — and above the
+     cards, since being hidden behind the hand is no more use than being
+     off the edge. Re-applied every frame, because the camera drifts and
+     the viewport can resize under a pan that was legal when it was made. */
+  private clampPan(): void {
+    const { state } = this.game;
+    const self = state.entities.find((entity) => entity.id === state.playerId);
+    if (!self || !this.view.width || !this.view.height) return;
+
+    const pos = visualCell(self);
+    // Where he would be drawn with no pan applied.
+    const naked: Camera = { ...this.camera, panX: 0, panY: 0 };
+    const baseX = projectX(pos.col, pos.row, naked, this.view);
+    const baseY = projectY(pos.col, pos.row, naked, this.view) - this.surfaceOffset(pos);
+
+    /* Bound his whole figure, not the tile under his feet: `baseY` is where
+       he stands, and he is drawn upward from there, so bounding the point
+       alone would let his head slide off the top. */
+    const sprite = entityDef(self.defId).sprite;
+    const halfWide = sprite.footprint.width / 2;
+    const tall = sprite.footprint.height;
+
+    const inset = 40;
+    const limit = (value: number, min: number, max: number): number =>
+      min > max ? (min + max) / 2 : Math.min(Math.max(value, min), max);
+
+    this.camera.panX = limit(
+      this.camera.panX,
+      inset + halfWide - baseX,
+      this.view.width - inset - halfWide - baseX,
+    );
+    this.camera.panY = limit(
+      this.camera.panY,
+      inset + tall - baseY,
+      this.view.height * HAND_CLEARANCE - baseY,
+    );
   }
 
   recentre(): void {
@@ -220,6 +262,7 @@ export class MapRenderer {
        moment he walks, the view comes back to him — and keeps easing after
        he stops, so a single step recentres as surely as a long one. */
     if (self.motion || self.path.length) this.recentring = true;
+    this.clampPan();
     if (!this.recentring) return;
 
     const ease = 1 - Math.exp(-4 * dt);
@@ -235,6 +278,12 @@ export class MapRenderer {
 
   /* ------------------------------ drawing ------------------------------ */
 
+  /** Deep water, a few shades under the zone's own shallows. */
+  private backdrop(): string {
+    const zone = this.game.world.zoneAt(Math.round(this.camera.row));
+    return darken(zone.palette.water.top, 0.58);
+  }
+
   private paletteFor(row: number, letter: TileLetter): FacePalette {
     const kind: TileKind = KIND_OF[letter] ?? 'ground';
     return this.game.world.zoneAt(row).palette[kind];
@@ -243,28 +292,17 @@ export class MapRenderer {
   private draw(now: number): void {
     const { ctx, view } = this;
     const { world, state } = this.game;
-    ctx.clearRect(0, 0, view.width, view.height);
     this.overlay.length = 0;
+
+    /* The land is an archipelago: everything that is not a tile is open
+       water. Taken from the zone's own water colour and sunk a little
+       darker, so the shallows on the map read as shallows against it. */
+    ctx.fillStyle = this.backdrop();
+    ctx.fillRect(0, 0, view.width, view.height);
 
     const reach = Math.ceil(view.width / TILE_W + view.height / TILE_H) + 10;
     const firstRow = Math.floor(this.camera.row) - reach;
     const lastRow = Math.ceil(this.camera.row) + reach;
-
-    // Pass one: the faint ground lattice, under the gaps and the open
-    // country either side. Drawn first so solid tiles always cover it.
-    ctx.strokeStyle = 'rgba(226, 240, 214, 0.07)';
-    ctx.lineWidth = 1;
-    for (let row = firstRow; row <= lastRow; row += 1) {
-      for (let col = -5; col < world.width + 5; col += 1) {
-        const inside = col >= 0 && col < world.width;
-        if (inside && world.stackAt(row, col) !== VOID) continue;
-        const sx = projectX(col, row, this.camera, this.view);
-        const sy = projectY(col, row, this.camera, this.view);
-        if (sx < -TILE_W || sx > view.width + TILE_W || sy < -TILE_H || sy > view.height + TILE_H) continue;
-        diamondPath(ctx, sx, sy);
-        ctx.stroke();
-      }
-    }
 
     // Characters join the same depth order, by where they are right now.
     const cast = state.entities
@@ -273,7 +311,7 @@ export class MapRenderer {
       .sort((a, b) => a.depth - b.depth);
     let next = 0;
 
-    // Pass two: stacks and characters, far to near.
+    // Stacks and characters, far to near.
     for (let depth = firstRow; depth <= lastRow + world.width - 1; depth += 1) {
       for (let col = 0; col < world.width; col += 1) {
         const row = depth - col;
@@ -651,6 +689,14 @@ export class MapRenderer {
 }
 
 /** Where a character is right now — between two cells while it walks. */
+/** Scale a #rrggbb colour towards black. */
+function darken(hex: string, factor: number): string {
+  const value = Number.parseInt(hex.slice(1), 16);
+  const channel = (shift: number) =>
+    Math.max(0, Math.min(255, Math.round(((value >> shift) & 0xff) * factor)));
+  return `rgb(${channel(16)}, ${channel(8)}, ${channel(0)})`;
+}
+
 export function visualCell(entity: Entity): { row: number; col: number } {
   if (!entity.motion) return { row: entity.row, col: entity.col };
   const { from, to, t } = entity.motion;

@@ -77,13 +77,34 @@ function canonicalStrand(height: number): Strand {
   };
 }
 
-/** Move a strand's edges by at most one column, keeping it legal. */
-function drift(strand: Strand, rng: Rng, zone: Zone): Strand {
+/** Move a strand's edges by at most one column, keeping it legal.
+ *  `bounds` pins an edge: while a fork is open the edges facing the void
+ *  may retreat from it but never advance into it, and the opposite edge is
+ *  pushed out rather than allowed to squeeze the strand below the minimum —
+ *  which is what used to shove the inner edge back across the gap. */
+function drift(
+  strand: Strand,
+  rng: Rng,
+  zone: Zone,
+  bounds?: { maxHi?: number; minLo?: number },
+): Strand {
   const drifted = { ...strand };
   const amount = () => (chance(rng, zone.gen.widthDrift) ? (chance(rng, 0.5) ? -1 : 1) : 0);
 
-  const lo = Math.min(Math.max(strand.lo + amount(), 0), MAP_WIDTH - 1);
-  const hi = Math.min(Math.max(strand.hi + amount(), 0), MAP_WIDTH - 1);
+  let lo = Math.min(Math.max(strand.lo + amount(), 0), MAP_WIDTH - 1);
+  let hi = Math.min(Math.max(strand.hi + amount(), 0), MAP_WIDTH - 1);
+
+  if (bounds?.maxHi !== undefined && hi > bounds.maxHi) {
+    hi = bounds.maxHi;
+    lo = Math.min(lo, hi - MIN_STRAND + 1);
+  }
+  if (bounds?.minLo !== undefined && lo < bounds.minLo) {
+    lo = bounds.minLo;
+    hi = Math.max(hi, lo + MIN_STRAND - 1);
+  }
+  lo = Math.max(0, lo);
+  hi = Math.min(MAP_WIDTH - 1, hi);
+
   if (hi - lo + 1 >= MIN_STRAND) {
     // Keep the column the trail arrives on inside the strand. Without this
     // the trail gets clamped sideways and leaves a diagonal gap, which is
@@ -239,8 +260,8 @@ export function generateChunk(seed: number, index: number): Chunk {
         next = [merge(left, right)];
       } else {
         // Drift both, then hold them apart so the gap survives.
-        const a = drift(left, rng, zone);
-        const b = drift(right, rng, zone);
+        const a = drift(left, rng, zone, { maxHi: left.hi });
+        const b = drift(right, rng, zone, { minLo: right.lo });
         // Keep the two banks within a layer of each other, so whichever
         // height the merge settles on is a single step from both.
         b.height = Math.min(Math.max(b.height, a.height - 1), a.height + 1);

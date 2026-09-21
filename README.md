@@ -69,6 +69,8 @@ someone's screen:
 - the walkable ground is one connected landmass that forks and rejoins
 - the trail through it is likewise continuous, splitting and merging
 - no strand is ever narrower than four tiles
+- no tile is stranded: every one has a neighbour within a layer, so peaks
+  are terraces rather than towers
 - and you can actually walk it end to end: a step of more than one layer is
   a climb, so the trail is never built on and terrain height is walked back
   down in time to meet the next chunk. Peaks rise beside the path, never

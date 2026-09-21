@@ -90,6 +90,13 @@ produced *diagonal* trail steps, which are not connected under
 four-connectivity. Watch for: shrinking a strand away from the column its
 trail arrives on, and closing a fork gap by cutting into a branch's trail.
 
+`MIN_STRAND` is 3 and `MIN_GAP` is 3: at ten columns a fork needs
+`2 * MIN_STRAND + MIN_GAP` to fit, so the strand minimum is what buys both
+narrower ribbons and wider voids. While a fork is open the edges facing the
+void are pinned by `drift`'s `bounds` — they may retreat from it, never
+advance into it. Without that the gap closed within a row or two and a split
+barely lasted; with it, forks run to the chunk boundary.
+
 The first and last row of every chunk are canonical (full width, trail
 across the middle, at the zone's opening height), which is what makes a
 chunk a pure function of `(seed, index)` — buildable, droppable and
@@ -107,6 +114,13 @@ existed. The generator itself is unbounded and does not need to know; the
 bound belongs to the `World`, which is why the chunk tests still work on raw
 `generateChunk` output.
 
+**A fifth invariant: nothing is stranded.** Every walkable tile has at least
+one neighbour within a layer, so there are no spires you cannot climb and no
+pits you cannot leave. `strandedTiles()` counts the exceptions and the audit
+fails on any. It is guaranteed by terracing: ground rises away from the
+trail *one layer per column*, so a three-layer peak is a flight of steps
+rather than a tower.
+
 **A fourth invariant: you can always get there.** Connectivity alone is not
 enough, because a step of more than one layer is a climb, so neighbouring
 ground can still be a wall. `traversable()` walks the map the way a
@@ -114,8 +128,8 @@ character does and the audit fails without it. It is guaranteed by two
 rules in the generator:
 
 - Nothing is ever heaped on the trail. Ridges and peaks only rise beyond
-  `spanHi`, so however dramatic the terrain gets either side, the trail is
-  always a walk.
+  `spanHi`, one layer per column, so however dramatic the terrain gets
+  either side, the trail is always a walk.
 - Height moves at most a layer per row *and* `settle()` pulls it back to
   the chunk's opening height in time to meet the next chunk. Three places
   used to escape that and each produced a real wall: forks and merges skip
@@ -235,6 +249,19 @@ Dragging is for looking around and persists while you do. The moment the
 player walks, `recentring` turns on and the pan eases back to zero, and it
 keeps easing after he stops so one step recentres as surely as a long walk.
 A fresh drag cancels it; double-click still snaps back instantly.
+
+`clampPan` bounds how far a drag can go: Caden always stays on screen, and
+above `HAND_CLEARANCE` (0.62) so the cards never hide him either. It bounds
+his **figure**, not the tile he stands on — `projectY` gives where his feet
+are and he is drawn upward from there, so bounding the point alone let his
+head slide off the top. It runs on every pan, every frame and on resize,
+because the camera drifts under a standing pan and a resize can invalidate
+one that was legal when it was made.
+
+Everything that is not a tile is open water: the renderer fills the canvas
+with the current zone's own water colour, sunk darker, so the shallows drawn
+on the map read as shallows against the deep. `MapStage`'s CSS background
+matches, so nothing flashes before the first frame.
 
 Draw order is a painter's algorithm over diagonals of constant `row + col`,
 which is the true far-to-near order in this projection. Characters fold into
