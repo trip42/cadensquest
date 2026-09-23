@@ -1,13 +1,14 @@
 import type { CardDefinition, Rarity } from "./types";
 
-/* Movement is no longer handed out each turn: the only way to cover ground
-   is to give up a card for it. Rarer cards are worth more strides, which
-   is the whole tension — the better the card, the more it costs to walk. */
+/* Base movement now comes from the `movePerTurn` stat every turn. Discarding
+   a card is the fallback for when that runs short, so it is worth a flat
+   step regardless of rarity — otherwise a mythic would be more use thrown
+   away than played. Still a dial, per rarity and per card. */
 export const MOVEMENT_BY_RARITY: Record<Rarity, number> = {
-  starter: 2,
-  normal: 2,
-  rare: 3,
-  mythic: 4,
+  starter: 1,
+  normal: 1,
+  rare: 1,
+  mythic: 1,
 };
 
 /** What discarding this card is worth, unless it says otherwise. */
@@ -148,53 +149,9 @@ export const CARDS: Record<string, CardDefinition> = {
   },
 };
 
-/* Enemy intents. The same shape, drawn from the enemy's own deck — kept
-   apart from CARDS so a reward can never offer you an enemy's intention. */
-export const INTENTS: Record<string, CardDefinition> = {
-  approach: {
-    id: "approach",
-    rarity: "normal",
-    name: "Approach",
-    cost: 0,
-    targeting: "none",
-    range: 0,
-    text: "Moves toward you.",
-    effects: [],
-  },
-  strike_intent: {
-    id: "strike_intent",
-    rarity: "normal",
-    name: "Strike",
-    cost: 0,
-    targeting: "none",
-    range: 0,
-    text: "Attacks if you are in reach.",
-    effects: [],
-  },
-  brace: {
-    id: "brace",
-    rarity: "normal",
-    name: "Brace",
-    cost: 0,
-    targeting: "none",
-    range: 0,
-    text: "Gains block.",
-    effects: [{ kind: "block", amount: 4 }],
-  },
-  empower: {
-    id: "empower",
-    rarity: "normal",
-    name: "Empower",
-    cost: 0,
-    targeting: "none",
-    range: 0,
-    text: "Grows stronger.",
-    effects: [],
-  },
-};
 
 export const cardDef = (id: string): CardDefinition => {
-  const def = CARDS[id] ?? INTENTS[id] ?? INTENTS[`${id}_intent`];
+  const def = CARDS[id];
   if (!def) throw new Error(`unknown card: ${id}`);
   return def;
 };

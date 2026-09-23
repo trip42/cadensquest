@@ -8,4 +8,12 @@ export default defineNuxtConfig({
   devtools: { enabled: false },
   compatibilityDate: '2025-07-15',
   typescript: { strict: true },
+  // Overridden from the environment: NUXT_PUBLIC_POSTHOG_KEY and friends.
+  runtimeConfig: {
+    public: {
+      posthogKey: '',
+      posthogHost: 'https://us.i.posthog.com',
+      posthogDev: '',
+    },
+  },
 });

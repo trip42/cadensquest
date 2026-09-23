@@ -24,7 +24,7 @@ app/game/      the simulation. No Vue, no DOM, no imports from anywhere else.
   state.ts       GameState and what it is made of
   actions.ts     the turn loop: refresh -> player -> enemy -> repeat
   map/           tiles, zones, the generator, streaming, pathfinding
-  cards/         card and intent definitions; effects are data, not closures
+  cards/         player cards and enemy cards (intents.ts); effects are data
   entities/      characters, stats, animation clips
 app/render/    the canvas renderer. DOM, but still no Vue.
 app/stores/    Pinia: holds the raw game, publishes a snapshot for the HUD
@@ -85,14 +85,16 @@ dropped and rebuilt in any order while still joining up.
 ## The turn loop
 
 1. **refresh** — block clears, energy and movement reset, the hand is drawn,
-   enemies draw an intent and telegraph it above their heads
+   each enemy draws a card from its own deck and telegraphs it above its head
 2. **player** — play cards and move until energy and movement run out
-3. **enemy** — each enemy resolves the intent it drew, one at a time
+3. **enemy** — each enemy plays its card, effect by effect, one enemy at a time
 4. repeat until the player falls or reaches `goalRow`
 
 Cards are dragged onto the map to pick a target square; cards that need no
 target resolve as soon as they are picked up. Enemy behaviour is a deck too:
-each enemy definition lists intent ids, and one is drawn per turn.
+each enemy lists its own cards (`app/game/cards/intents.ts`) — advance,
+block, power and attack, in whatever mix suits it — and draws one per turn,
+reshuffling when the deck runs out.
 
 While you still hold cards the button at bottom right offers to trade the
 lot in at once — *DISCARD ALL FOR n MOVE*. It only becomes *END PHASE* once
@@ -103,13 +105,12 @@ The player phase ends on its own once your hand is empty and your banked
 movement is gone — there is nothing left you could do. Ending early is what
 the button is for.
 
-There is no movement allowance. `state.movement` starts at zero every turn
-and the only way to cover ground is to give a card up for it — hover a card
-and take the **Discard for X Movement** offer underneath it. A card is worth
-1, 2 or 3 steps by rarity (`MOVEMENT_BY_RARITY`), overridable per card with
-its own `movement` field. So every card in hand is a choice between what it
-does and how far it carries you, and the tiles you can reach are outlined in
-neon green.
+You get 3 movement every turn, raised by cards, gems and talismans like any
+other stat. Discarding a card buys one more step when that runs short.
+Enemies make running past them costly: stepping away from one you are next
+to costs an extra step, every enemy walks up *and* acts on its turn, and a
+guardian holds the last row of each zone — the way on stays shut until it
+falls.
 
 `tick(game, dt)` is the only function that advances the clock. It moves
 characters between cells, steps animation frames, and pulls the next enemy
@@ -264,6 +265,87 @@ arch for the property if they shared an element.
 
 Artwork is a stroked glyph per card for now, keyed by the card's `art`
 field, so real images replace one map in `HandBar.vue`.
+
+## Analytics (PostHog)
+
+The game reports how runs go — rows reached, cards collected, played and
+discarded, gems and talismans taken, enemies killed, deaths — to
+[PostHog](https://posthog.com). It is optional: with no key configured
+nothing is sent and the game plays exactly the same.
+
+### Setting it up
+
+1. In PostHog, open **Project settings** and copy the **Project API key**
+   (it starts with `phc_`). This is a public client key — it ships in the
+   browser bundle by design — but keep it out of git anyway so forks and
+   test builds don't report into your project.
+2. Copy the example environment file and fill it in:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   ```bash
+   # .env
+   NUXT_PUBLIC_POSTHOG_KEY=phc_your_project_key
+   NUXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
+   NUXT_PUBLIC_POSTHOG_DEV=
+   ```
+
+   | Variable | What it does |
+   | --- | --- |
+   | `NUXT_PUBLIC_POSTHOG_KEY` | The project key. Empty means analytics are off. |
+   | `NUXT_PUBLIC_POSTHOG_HOST` | `https://us.i.posthog.com`, or `https://eu.i.posthog.com` for an EU project. |
+   | `NUXT_PUBLIC_POSTHOG_DEV` | `1` to send events from `npm run dev` as well. Leave empty normally. |
+
+   `.env` is gitignored; `.env.example` is the committed template.
+3. Restart `npm run dev` — Nuxt reads `.env` at startup.
+
+### Development vs production
+
+In `npm run dev` events are **not sent**. Each one is printed to the
+browser console as `[analytics] <event> {…}` instead, so playtesting doesn't
+fill the real project with junk runs. To check the pipeline end to end, set
+`NUXT_PUBLIC_POSTHOG_DEV=1`, restart, and watch **Activity** in PostHog.
+
+Production builds send whenever a key is present. How the variables reach
+the build depends on how it is deployed:
+
+- **`npm run build`** (Node server) — the `NUXT_PUBLIC_*` variables are read
+  when the server starts, so set them in the host's environment.
+- **`npm run generate`** (static files) — there is no server to read them,
+  so they are baked in at build time. Set them in the environment of the
+  build step (for example your CI or static host's build settings).
+
+PostHog ignores traffic from headless browsers, so automated test runs
+won't appear in the project even with a key set.
+
+### What is sent
+
+Only the game's own events. Autocapture, pageviews, session replay and
+surveys are all switched off in `app/plugins/posthog.ts`, and players stay
+anonymous (no person profiles). Every event carries `run_id`, `seed`,
+`turn` and `at_row`.
+
+| Event | When |
+| --- | --- |
+| `run_started` | A new run begins |
+| `row_reached` | The player reaches a new furthest row |
+| `zone_entered` | The player crosses into a new zone |
+| `card_collected` | A card reward is taken (includes the new deck size) |
+| `card_played` | A card is played (with any socketed gems) |
+| `card_discarded` | A card is discarded for movement |
+| `gem_collected` | A gem is socketed into a card |
+| `talisman_collected` | A talisman is taken |
+| `reward_skipped` | A reward is passed up |
+| `enemy_killed` | An enemy dies (with its type, and whether it was a guardian) |
+| `player_died` | The player falls (row, zone and what killed them) |
+| `run_won` | The player reaches the end of the map |
+| `run_ended` | Either way: one summary event with the whole run's totals |
+
+The events are defined in `app/game/telemetry.ts`. To add one, add a member
+to `GameEvent` and call `record()` where it happens; it reaches PostHog with
+no other change.
 
 ## Where to go next
 

@@ -7,6 +7,7 @@
    only when something the UI actually shows has changed. */
 
 import { defineStore } from 'pinia';
+import { track } from '~/utils/analytics';
 import { computed, ref, shallowRef } from 'vue';
 import {
   beginTurn,
@@ -27,6 +28,7 @@ import {
   tick,
 } from '~/game/actions';
 import { cardDef, cardMovement } from '~/game/cards/definitions';
+import { intentDef } from '~/game/cards/intents';
 import type { CardDefinition, CardInstance } from '~/game/cards/types';
 import { GEM_SLOTS, gemDef, type GemDefinition } from '~/game/gems';
 import { talismanDef, type TalismanDefinition } from '~/game/talismans';
@@ -84,6 +86,8 @@ export interface EnemyTipView {
   intentText: string | null;
   reward: string;
   rewardTint: string;
+  /** Holds a zone's last row; the way on is shut until it falls. */
+  guardian: boolean;
   x: number;
   y: number;
 }
@@ -198,8 +202,31 @@ export const useGameStore = defineStore('game', () => {
     ].join('|');
   };
 
+  /* Hand the game's events to analytics. Every one carries which run it
+     belongs to: the seed says which world, the run id says which attempt —
+     the same seed played twice is two runs. */
+  let runId = '';
+
+  function flushEvents(current: Game): void {
+    const { state } = current;
+    if (!state.events.length) return;
+    const self = player(state);
+    for (const { type, ...properties } of state.events.splice(0)) {
+      track(type, {
+        ...properties,
+        run_id: runId,
+        seed: state.seed,
+        turn: state.turn,
+        at_row: self.row,
+      });
+    }
+  }
+
   function sync(force = false): void {
     if (!game) return;
+    // Before the early return below: events matter even when nothing the
+    // HUD shows has changed.
+    flushEvents(game);
     const next = sign(game);
     if (!force && next === signature) return;
     signature = next;
@@ -240,6 +267,7 @@ export const useGameStore = defineStore('game', () => {
   /* ------------------------------ lifecycle ---------------------------- */
 
   function start(seed: number = Math.floor(Math.random() * 0xffffffff)): void {
+    runId = crypto.randomUUID();
     game = createGame(seed);
     beginTurn(game);
     selectedUid.value = null;
@@ -281,15 +309,21 @@ export const useGameStore = defineStore('game', () => {
     if (!point) return;
 
     const def = entityDef(foe.defId);
-    const intent = foe.intent ? cardDef(foe.intent.cardId) : null;
+    const intent = foe.intent ? intentDef(foe.intent.cardId) : null;
+    // The card says what it does; power it has built up hits on top of that.
+    const empowered = intent?.effects.some((effect) => effect.kind === 'damage') && foe.power > 0;
+    const intentText = intent
+      ? empowered ? `${intent.text} (+${foe.power} power)` : intent.text
+      : null;
     const next: EnemyTipView = {
       id: foe.id,
       name: def.name,
       hp: foe.hp,
       maxHp: foe.maxHp,
       intent: foe.intent?.label ?? null,
-      intentText: intent?.text ?? null,
+      intentText,
       reward: foe.reward ? rewardLabel(foe.reward) : 'NOTHING',
+      guardian: !!def.guardian,
       rewardTint: !foe.reward
         ? '#7e938a'
         : foe.reward.kind === 'gem'

@@ -40,6 +40,13 @@ export const TALISMANS: Record<string, TalismanDefinition> = {
     icon: 'shield',
     modifiers: [{ stat: 'blockPerRefresh', add: 3 }],
   },
+  boots: {
+    id: 'boots',
+    name: 'Wayfarer Boots',
+    text: 'Move one more tile every turn.',
+    icon: 'boot',
+    modifiers: [{ stat: 'movePerTurn', add: 1 }],
+  },
   lodestone: {
     id: 'lodestone',
     name: 'Lodestone',

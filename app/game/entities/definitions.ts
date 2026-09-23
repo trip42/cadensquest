@@ -26,6 +26,8 @@ const CADEN_ANIMATIONS: AnimationSet = {
 
 /** Column of the enemies sheet these definitions draw from. */
 const ENEMY_COLUMN = 0;
+/** The dark column of the same sheet: guardians. */
+const GUARDIAN_COLUMN = 1;
 
 export const ENTITIES: Record<string, EntityDefinition> = {
   caden: {
@@ -33,9 +35,6 @@ export const ENTITIES: Record<string, EntityDefinition> = {
     name: 'Caden',
     faction: 'player',
     maxHp: 40,
-    moveRange: 4,
-    attackRange: 1,
-    attackDamage: 6,
     // The artwork faces right, so `faces: 1` and the renderer flips the
     // other way. Row and column are the origin of Caden's block in the
     // sheet; each clip picks its row from there.
@@ -49,7 +48,7 @@ export const ENTITIES: Record<string, EntityDefinition> = {
       offsetY: 10,
     },
     animations: CADEN_ANIMATIONS,
-    intents: [],
+    deck: [],
   },
 
   slime: {
@@ -57,12 +56,9 @@ export const ENTITIES: Record<string, EntityDefinition> = {
     name: 'Slime',
     faction: 'enemy',
     maxHp: 14,
-    moveRange: 1,
-    attackRange: 1,
-    attackDamage: 3,
     sprite: { kind: 'sheet', sheet: 'enemies', col: ENEMY_COLUMN, row: 0, faces: -1, footprint: { width: 50, height: 36 } },
     animations: STATIC_ANIMATIONS,
-    intents: ['approach', 'strike', 'brace', 'brace'],
+    deck: ['slime_ooze', 'slime_ooze', 'slime_harden', 'slime_harden'],
     reward: { cardRarity: { normal: 85, rare: 15, mythic: 0 } },
   },
 
@@ -71,12 +67,9 @@ export const ENTITIES: Record<string, EntityDefinition> = {
     name: 'Dragon',
     faction: 'enemy',
     maxHp: 30,
-    moveRange: 2,
-    attackRange: 3,
-    attackDamage: 8,
     sprite: { kind: 'sheet', sheet: 'enemies', col: ENEMY_COLUMN, row: 1, faces: -1, footprint: { width: 94, height: 70 } },
     animations: STATIC_ANIMATIONS,
-    intents: ['strike', 'strike', 'empower', 'approach'],
+    deck: ['dragon_breath', 'dragon_breath', 'dragon_rage', 'dragon_wingbeat'],
     // The zone's centrepiece: more choices, better odds, and the only one
     // that leans towards talismans.
     reward: {
@@ -91,12 +84,9 @@ export const ENTITIES: Record<string, EntityDefinition> = {
     name: 'Bug',
     faction: 'enemy',
     maxHp: 9,
-    moveRange: 3,
-    attackRange: 1,
-    attackDamage: 3,
     sprite: { kind: 'sheet', sheet: 'enemies', col: ENEMY_COLUMN, row: 2, faces: -1, footprint: { width: 64, height: 40 } },
     animations: STATIC_ANIMATIONS,
-    intents: ['approach', 'approach', 'approach', 'strike'],
+    deck: ['bug_skitter', 'bug_skitter', 'bug_bite', 'bug_bite'],
   },
 
   spider: {
@@ -104,12 +94,9 @@ export const ENTITIES: Record<string, EntityDefinition> = {
     name: 'Spider',
     faction: 'enemy',
     maxHp: 12,
-    moveRange: 3,
-    attackRange: 2,
-    attackDamage: 4,
     sprite: { kind: 'sheet', sheet: 'enemies', col: ENEMY_COLUMN, row: 3, faces: -1, footprint: { width: 70, height: 50 } },
     animations: STATIC_ANIMATIONS,
-    intents: ['approach', 'strike', 'strike', 'empower'],
+    deck: ['spider_spit', 'spider_spit', 'spider_scuttle', 'spider_brood'],
   },
 
   chicken: {
@@ -117,12 +104,9 @@ export const ENTITIES: Record<string, EntityDefinition> = {
     name: 'Chicken',
     faction: 'enemy',
     maxHp: 6,
-    moveRange: 4,
-    attackRange: 1,
-    attackDamage: 2,
     sprite: { kind: 'sheet', sheet: 'enemies', col: ENEMY_COLUMN, row: 4, faces: -1, footprint: { width: 42, height: 48 } },
     animations: STATIC_ANIMATIONS,
-    intents: ['approach', 'approach', 'strike', 'approach'],
+    deck: ['chicken_flap', 'chicken_flap', 'chicken_peck', 'chicken_peck'],
     // Barely a threat, barely a prize.
     reward: {
       weights: { card: 80, gem: 20, talisman: 0 },
@@ -136,15 +120,40 @@ export const ENTITIES: Record<string, EntityDefinition> = {
     name: 'Wolf',
     faction: 'enemy',
     maxHp: 16,
-    moveRange: 4,
-    attackRange: 1,
-    attackDamage: 6,
     sprite: { kind: 'sheet', sheet: 'enemies', col: ENEMY_COLUMN, row: 5, faces: -1, footprint: { width: 76, height: 50 } },
     animations: STATIC_ANIMATIONS,
-    intents: ['approach', 'strike', 'strike', 'brace'],
+    deck: ['wolf_lunge', 'wolf_lunge', 'wolf_circle', 'wolf_circle'],
     reward: { weights: { card: 60, gem: 30, talisman: 10 } },
   },
+
+  /* Guardians. Each holds the last row of a zone, and the way on stays shut
+     until it falls. They are drawn from the dark column of the enemies sheet —
+     the same creatures, gone wrong. They keep their post rather than chase,
+     and always carry a talisman: the crossing is the prize. */
+  warden: {
+    id: 'warden',
+    name: 'Warden',
+    faction: 'enemy',
+    maxHp: 44,
+    sprite: { kind: 'sheet', sheet: 'enemies', col: GUARDIAN_COLUMN, row: 5, faces: -1, footprint: { width: 96, height: 64 } },
+    animations: STATIC_ANIMATIONS,
+    deck: ['warden_maul', 'warden_maul', 'warden_stand', 'warden_roar'],
+    reward: { weights: { card: 0, gem: 0, talisman: 1 } },
+    guardian: true,
+  },
+  wyrm: {
+    id: 'wyrm',
+    name: 'Wyrm',
+    faction: 'enemy',
+    maxHp: 64,
+    sprite: { kind: 'sheet', sheet: 'enemies', col: GUARDIAN_COLUMN, row: 1, faces: -1, footprint: { width: 116, height: 86 } },
+    animations: STATIC_ANIMATIONS,
+    deck: ['wyrm_fire', 'wyrm_fire', 'wyrm_scales', 'wyrm_fury'],
+    reward: { weights: { card: 0, gem: 0, talisman: 1 } },
+    guardian: true,
+  },
 };
+
 
 export const entityDef = (id: string): EntityDefinition => {
   const def = ENTITIES[id];
@@ -154,5 +163,10 @@ export const entityDef = (id: string): EntityDefinition => {
 
 /** Every enemy, for zone tables and tests to check against. */
 export const ENEMY_IDS = Object.values(ENTITIES)
-  .filter((def) => def.faction === 'enemy')
+  .filter((def) => def.faction === 'enemy' && !def.guardian)
+  .map((def) => def.id);
+
+/** The zone guardians, kept apart from the enemies that roam. */
+export const GUARDIAN_IDS = Object.values(ENTITIES)
+  .filter((def) => def.guardian)
   .map((def) => def.id);

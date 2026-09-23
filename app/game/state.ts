@@ -10,6 +10,7 @@ import type { Entity } from "./entities/types";
 import { LAST_ROW, START_ROW, surfaceKind } from "./map/tiles";
 import { World } from "./map/world";
 import { createRng, type Rng, shuffle } from "./rng";
+import { emptyTally, type GameEvent, record, type RunTally } from "./telemetry";
 import type { Reward } from "./rewards";
 import { resolveStat, type StatKey, type StatModifier } from "./stats";
 import { talismanModifiers } from "./talismans";
@@ -23,9 +24,22 @@ export interface ActiveReward {
   offered?: CardInstance[];
 }
 
-/** An enemy waiting its turn during the enemy phase. */
+/* Each enemy takes two turns in the enemy phase: it moves, and then it acts.
+   They are queued separately so the move plays out on screen before the
+   attack lands — `tick` only takes the next entry once nothing is moving. */
+/** A zone boundary held by its guardian. Nothing past `row` can be entered
+ *  while that guardian stands. */
+export interface Gate {
+  row: number;
+  guardianId: string;
+}
+
+/** One effect of an enemy's card, waiting its turn in the enemy phase. */
 export interface QueuedAction {
   entityId: string;
+  cardId: string;
+  /** Which of the card's effects this is. */
+  index: number;
 }
 
 export interface GameState {
@@ -54,11 +68,20 @@ export interface GameState {
 
   /** Chunks that have already had their enemies placed. */
   spawnedChunks: number[];
+  /** Zone crossings and who holds them. */
+  gates: Gate[];
   /** The last row of the map. Reaching it wins the run. */
   goalRow: number;
 
   queue: QueuedAction[];
   log: string[];
+
+  /** Events not yet handed to analytics. The store drains this. */
+  events: GameEvent[];
+  /** Totals for the whole run, sent once when it ends. */
+  tally: RunTally;
+  /** Who last hurt the player, so a death can say what did it. */
+  lastHitBy: string | null;
 }
 
 export interface Game {
@@ -92,6 +115,7 @@ export function makeEntity(defId: string, row: number, col: number): Entity {
     motion: null,
     path: [],
     intent: null,
+    drawPile: [],
     reward: null,
     dead: false,
   };
@@ -143,11 +167,16 @@ export function createGame(seed: number): Game {
     pendingRewards: [],
     activeReward: null,
     spawnedChunks: [],
+    gates: [],
     goalRow: LAST_ROW,
     queue: [],
     log: [],
+    events: [],
+    tally: emptyTally(self.row),
+    lastHitBy: null,
   };
 
+  record(state, { type: "run_started", seed, startRow: self.row });
   return { state, world };
 }
 

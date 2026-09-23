@@ -93,17 +93,18 @@ export interface EntityDefinition {
   name: string;
   faction: Faction;
   maxHp: number;
-  /** Cells it can cover in one of its turns. */
-  moveRange: number;
-  attackRange: number;
-  attackDamage: number;
   sprite: SpriteStyle;
   animations: AnimationSet;
-  /** Enemy behaviour is a deck too: one intent is drawn each enemy phase. */
-  intents: string[];
+  /** What an enemy does: card ids from `cards/intents.ts`, drawn one per
+   *  turn and played in full. How far it moves, how hard it hits and from
+   *  how far away all live on those cards, not here. */
+  deck: string[];
   /** How generous this one is. Anything left out falls back to
    *  DEFAULT_REWARD_CONFIG, so an enemy only states what it changes. */
   reward?: RewardOverrides;
+  /** Holds the crossing into the next zone. While it stands, nothing past
+   *  its row can be entered. Placed by the zone, never spawned at random. */
+  guardian?: boolean;
 }
 
 export interface Motion {
@@ -134,6 +135,8 @@ export interface Entity {
   path: Cell[];
   /** The enemy's telegraphed action for the coming phase. */
   intent: { cardId: string; label: string } | null;
+  /** Cards left to draw from its deck before it reshuffles. */
+  drawPile: string[];
   /** What it drops when it falls, decided when it was spawned. */
   reward: Reward | null;
   dead: boolean;

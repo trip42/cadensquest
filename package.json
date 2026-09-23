@@ -21,6 +21,7 @@
     "@pinia/nuxt": "^1.0.2",
     "nuxt": "^4.5.2",
     "pinia": "^4.0.3",
+    "posthog-js": "^1.434.11",
     "vue": "^3.5.43"
   },
   "devDependencies": {

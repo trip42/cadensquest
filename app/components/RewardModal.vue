@@ -136,7 +136,7 @@ function skip(): void {
           </ul>
         </div>
       </div>
-      <button class="take" type="button" @click="store.takeTalisman()">TAKE IT</button>
+      <button class="take-relic" type="button" @click="store.takeTalisman()">TAKE IT</button>
     </section>
   </div>
 </template>
@@ -226,7 +226,8 @@ header p { margin: 6px 0 0; color: #8ea393; font-size: 10.5px; }
 
 .take {
   padding: 9px 18px;
-  border: 0;
+  /* Same 1px as the ghost buttons beside it, so all three are one height. */
+  border: 1px solid transparent;
   border-radius: 4px;
   background: #d0dc9b;
   color: #16302b;
@@ -243,6 +244,8 @@ header p { margin: 6px 0 0; color: #8ea393; font-size: 10.5px; }
 .relic-icon svg { width: 30px; fill: none; stroke: #e2b249; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .relic-text { margin: 0; color: #d7e0c9; font-size: 12px; }
 .effects { margin: 8px 0 0; padding-left: 16px; color: #8ea393; font-size: 10px; line-height: 1.6; }
-.take { display: block; margin: 18px auto 0; padding: 10px 22px; border: 0; border-radius: 4px; background: #e2b249; color: #23180a; font: inherit; font-size: 11px; letter-spacing: 0.14em; cursor: pointer; }
-.take:hover { background: #f0c86a; }
+/* Its own class: sharing `.take` with the footer buttons pushed them down
+   18px and turned them gold. */
+.take-relic { display: block; margin: 18px auto 0; padding: 10px 22px; border: 0; border-radius: 4px; background: #e2b249; color: #23180a; font: inherit; font-size: 11px; letter-spacing: 0.14em; cursor: pointer; }
+.take-relic:hover { background: #f0c86a; }
 </style>

@@ -18,6 +18,23 @@ export interface MoveOptions {
   blocked?: (row: number, col: number) => boolean;
   /** Biggest height change a character can take in one step, in layers. */
   maxStep?: number;
+  /** What a single step costs, for rules that make some moves dearer — zone
+   *  of control charges extra to walk away from an enemy. Defaults to 1. */
+  stepCost?: (from: Cell, to: Cell) => number;
+}
+
+const costOf = (options: MoveOptions, from: Cell, to: Cell): number =>
+  options.stepCost ? options.stepCost(from, to) : 1;
+
+/** Total cost of walking a path, from `from` through every cell of `path`. */
+export function pathCost(from: Cell, path: readonly Cell[], options: MoveOptions = {}): number {
+  let total = 0;
+  let previous = from;
+  for (const cell of path) {
+    total += costOf(options, previous, cell);
+    previous = cell;
+  }
+  return total;
 }
 
 const key = (row: number, col: number) => `${row}:${col}`;
@@ -38,8 +55,9 @@ const neighbours = (cell: Cell): Cell[] => [
   { row: cell.row, col: cell.col + 1 },
 ];
 
-/** Every cell within `budget` steps, with the cost of getting there.
- *  This is what the player phase highlights as movement range. */
+/** Every cell within `budget` of movement, with the cost of getting there.
+ *  This is what the player phase highlights as movement range. Cheapest-first
+ *  rather than a plain flood, because steps no longer all cost the same. */
 export function reachable(
   world: World,
   from: Cell,
@@ -49,20 +67,24 @@ export function reachable(
   const found = new Map<string, { cell: Cell; cost: number }>();
   if (budget <= 0) return found;
 
-  const queue: Array<{ cell: Cell; cost: number }> = [{ cell: from, cost: 0 }];
-  const seen = new Set<string>([key(from.row, from.col)]);
+  const best = new Map<string, number>([[key(from.row, from.col), 0]]);
+  const open: Array<{ cell: Cell; cost: number }> = [{ cell: from, cost: 0 }];
 
-  while (queue.length) {
-    const current = queue.shift()!;
-    if (current.cost >= budget) continue;
+  while (open.length) {
+    open.sort((a, b) => a.cost - b.cost);
+    const current = open.shift()!;
+    if (current.cost > (best.get(key(current.cell.row, current.cell.col)) ?? Infinity)) continue;
+
     for (const next of neighbours(current.cell)) {
-      const k = key(next.row, next.col);
-      if (seen.has(k)) continue;
       if (!canEnter(world, current.cell, next.row, next.col, options)) continue;
-      seen.add(k);
-      const entry = { cell: next, cost: current.cost + 1 };
+      const cost = current.cost + costOf(options, current.cell, next);
+      if (cost > budget) continue;
+      const k = key(next.row, next.col);
+      if (cost >= (best.get(k) ?? Infinity)) continue;
+      best.set(k, cost);
+      const entry = { cell: next, cost };
       found.set(k, entry);
-      queue.push(entry);
+      open.push(entry);
     }
   }
 
@@ -95,7 +117,7 @@ export function findPath(world: World, from: Cell, to: Cell, options: MoveOption
     for (const next of neighbours(cell)) {
       if (!canEnter(world, cell, next.row, next.col, options)) continue;
       const k = key(next.row, next.col);
-      const candidate = spent + 1;
+      const candidate = spent + costOf(options, cell, next);
       if (cost.has(k) && candidate >= cost.get(k)!) continue;
       cost.set(k, candidate);
       cameFrom.set(k, cell);

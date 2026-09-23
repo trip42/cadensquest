@@ -261,7 +261,12 @@ export class MapRenderer {
     /* Dragging is for looking around, and it stays put while you do. The
        moment he walks, the view comes back to him — and keeps easing after
        he stops, so a single step recentres as surely as a long one. */
-    if (self.motion || self.path.length) this.recentring = true;
+    /* Recentre when he moves — and whenever the camera is still catching up
+       with him. A lagging camera makes clampPan add pan to keep him on
+       screen, and without this that pan outlived the lag: after any jump
+       that was not a walk, the view stayed shoved to one side. */
+    const lagging = Math.abs(target.row - this.camera.row) + Math.abs(target.col - this.camera.col) > 0.5;
+    if (self.motion || self.path.length || lagging) this.recentring = true;
     this.clampPan();
     if (!this.recentring) return;
 
@@ -277,6 +282,16 @@ export class MapRenderer {
   }
 
   /* ------------------------------ drawing ------------------------------ */
+
+  /** Is this the first row beyond a guardian that still stands? */
+  private isGateLine(row: number): boolean {
+    const { state } = this.game;
+    return state.gates.some((gate) => {
+      if (gate.row + 1 !== row) return false;
+      const guardian = state.entities.find((entity) => entity.id === gate.guardianId);
+      return !!guardian && !guardian.dead;
+    });
+  }
 
   /** Deep water, a few shades under the zone's own shallows. */
   private backdrop(): string {
@@ -356,11 +371,28 @@ export class MapRenderer {
 
     const highlight = this.highlights.get(cellKey(row, col));
     const hovered = this.hover && this.hover.row === row && this.hover.col === col;
-    if (!highlight && !hovered) return;
+    const shut = this.isGateLine(row);
+    if (!highlight && !hovered && !shut) return;
 
     const ctx = this.ctx;
     const top = this.paletteFor(row, stack[stack.length - 1] as TileLetter);
     const ty = sy - (stack.length - 1) * LAYER_H - top.elev;
+
+    // The first row past a standing guardian, marked so the barrier reads
+    // before you walk into it.
+    if (shut) {
+      ctx.save();
+      diamondPath(ctx, sx, ty);
+      ctx.fillStyle = 'rgba(190, 58, 44, 0.3)';
+      ctx.fill();
+      ctx.strokeStyle = '#e0785f';
+      ctx.lineWidth = 2;
+      ctx.shadowColor = '#e0785f';
+      ctx.shadowBlur = 6;
+      ctx.stroke();
+      ctx.restore();
+      if (!highlight && !hovered) return;
+    }
     const style = HIGHLIGHT[highlight ?? 'hover'];
 
     diamondPath(ctx, sx, ty);

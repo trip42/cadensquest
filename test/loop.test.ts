@@ -54,17 +54,27 @@ describe('the turn loop', () => {
     expect(state.turn).toBe(1);
     expect(state.hand).toHaveLength(stat(state, 'handSize'));
     expect(state.energy).toBe(stat(state, 'maxEnergy'));
-    // No allowance any more: every step has to be bought with a card.
-    expect(state.movement).toBe(0);
+    expect(state.movement).toBe(stat(state, 'movePerTurn'));
   });
 
-  it('gives no movement at the start of any turn', () => {
+  it('restores base movement at the start of every turn', () => {
     const game = createGame(808);
     beginTurn(game);
     for (let turn = 0; turn < 3; turn += 1) {
-      expect(game.state.movement).toBe(0);
+      expect(game.state.movement).toBe(stat(game.state, 'movePerTurn'));
+      game.state.movement = 0;
       runEnemyPhase(game);
     }
+  });
+
+  it('lets a talisman raise base speed', () => {
+    const game = createGame(808);
+    beginTurn(game);
+    const base = stat(game.state, 'movePerTurn');
+    game.state.talismans.push('boots');
+    game.state.movement = 0;
+    runEnemyPhase(game);
+    expect(game.state.movement).toBe(base + 1);
   });
 
   it('buys movement by discarding, priced by rarity', () => {
@@ -99,12 +109,13 @@ describe('the turn loop', () => {
     const expected = handMovementValue(state);
     const cards = state.hand.length;
     const discarded = state.discardPile.length;
+    const before = state.movement;
     expect(cards).toBeGreaterThan(1);
     expect(expected).toBeGreaterThan(0);
 
     expect(discardAllForMovement(game)).toBe(expected);
     expect(state.hand).toHaveLength(0);
-    expect(state.movement).toBe(expected);
+    expect(state.movement).toBe(before + expected);
     expect(state.discardPile).toHaveLength(discarded + cards);
     expect(state.log.at(-1)).toContain(`${cards} cards for ${expected} movement`);
   });
@@ -180,8 +191,8 @@ describe('the turn loop', () => {
     beginTurn(game);
     const { state } = game;
 
-    // Nowhere to go until a card is given up for it.
-    expect(movementRange(game).size).toBe(0);
+    // Base movement means there is somewhere to go from the first turn.
+    expect(movementRange(game).size).toBeGreaterThan(0);
     while (state.movement < 3 && state.hand.length) {
       discardForMovement(game, state.hand[0]!.uid);
     }

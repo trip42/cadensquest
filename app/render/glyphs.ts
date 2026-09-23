@@ -13,6 +13,7 @@ export const GLYPHS: Record<string, string> = {
   heart: 'M12 20 C6 16 3 12.5 3 9 A4 4 0 0 1 12 7 A4 4 0 0 1 21 9 C21 12.5 18 16 12 20 Z',
   // Talismans
   bag: 'M6 9 H18 L19 20 H5 Z M9 9 V6.5 A3 3 0 0 1 15 6.5 V9',
+  boot: 'M8 3 V14 L4 16 V20 H20 V17 L14 15 V3 Z M8 8 H14',
   compass: 'M12 3 A9 9 0 1 0 12 21 A9 9 0 1 0 12 3 M15 9 L13 13 L9 15 L11 11 Z',
   flame: 'M12 21 C8 21 5.5 18.5 5.5 15 C5.5 11 9 9 10 3 C14 6 18.5 9 18.5 15 C18.5 18.5 16 21 12 21 Z',
   blade: 'M5 19 L15 9 L19 5 L18 10 L9 19 Z M5 19 H9',

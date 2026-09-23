@@ -52,6 +52,7 @@ app/game/          the simulation — no Vue, no DOM
     world.ts         chunk cache; stackAt() is the single read path
     audit.ts         invariant checks, used by tests
     navigation.ts    walkability, reachable(), A* findPath()
+  telemetry.ts       GameEvent, record(), the run tally
   cards/             definitions + effect types; rarity and movement values
   entities/          stats, sprite refs, animation clips
 app/render/        canvas renderer — DOM, still no Vue
@@ -81,7 +82,7 @@ trail.
 **Three invariants are guaranteed by construction, not checked at runtime:**
 the walkable ground is one connected landmass that forks and rejoins; the
 trail through it is likewise continuous; no strand is narrower than
-`MIN_STRAND` (4). `audit.ts` is the proof, run over 200 seeds in CI — not a
+`MIN_STRAND` (3). `audit.ts` is the proof, run over 200 seeds in CI — not a
 runtime guard. A generator that emits a broken world and catches it later
 has still put a broken world on someone's screen.
 
@@ -142,10 +143,13 @@ rules in the generator:
 
 ## Turn loop
 
-1. **refresh** — block clears, energy resets, hand is drawn, enemies draw an
-   intent and telegraph it. Synchronous; not a state you wait in.
+1. **refresh** — block clears, energy resets, hand is drawn, each enemy
+   draws a card from its own deck and telegraphs it. Synchronous; not a
+   state you wait in.
 2. **player** — play cards, discard cards for movement, walk.
-3. **enemy** — each enemy resolves its intent, one at a time.
+3. **enemy** — each enemy plays the card it drew, one effect per queue
+   entry (`{ entityId, cardId, index }`), so an `advance` plays out before
+   the `damage` after it lands. An enemy's block falls on its first entry.
 4. repeat until the player falls or reaches `goalRow`.
 
 `tick(game, dt)` is the only function that advances the clock. It moves
@@ -167,11 +171,50 @@ for any won reward to be claimed first, since claiming one is still
 something to do. `tick` handles it, so the END PHASE button is for leaving
 early rather than for finishing.
 
-**There is no movement allowance.** `state.movement` starts at 0 every turn.
-The only way to cover ground is `discardForMovement`, which trades a card
-for `cardMovement(def)` steps — 1/2/3 by rarity, overridable per card. That
-tension (use the card or walk with it) is the core of the design; don't
-quietly reintroduce a base allowance.
+**Movement is a stat.** Each refresh restores `movePerTurn` (3), and cards,
+gems and talismans raise it like any other stat (Wayfarer Boots: +1).
+Discarding a card is the fallback for when that runs short, worth a flat
+step (`MOVEMENT_BY_RARITY`, now 1 across the board) so a card is never more
+use thrown away than played. This replaced an earlier design where discards
+were the *only* source of movement; that made running past every fight too
+easy, so don't swing it back without the engagement rules below.
+
+Three rules keep fights from being skippable:
+
+- **Zone of control.** A step *away* from a tile next to an enemy costs
+  `disengageCost` more (1). Approaching is cheap; leaving is not. It lives in
+  `playerMoveOptions` as a `stepCost`, which is why `reachable` is
+  cheapest-first rather than a flood fill, and why `movePlayerTo` charges
+  `pathCost`, not `path.length`. Enemies are not subject to it.
+- **Enemies close in.** Most enemy cards open with `advance`: an enemy
+  three tiles away walks up and hits you in the same turn.
+- **Guardians hold the zone boundaries.** Each zone may name a `guardian`,
+  placed on the trail of its last row (`gateRowOf`) — always a canonical,
+  full-width row. While it stands, `barred()` shuts every row past it, for
+  walking and for Vault's leap alike; the renderer outlines the shut row in
+  red. Guardians keep their post (no card in their decks advances — a test
+  pins that), always carry a talisman,
+  and use the dark column of the enemies sheet. `ENEMY_IDS` excludes them;
+  `GUARDIAN_IDS` lists them.
+
+## Enemy decks
+
+An enemy's behaviour is data: `deck` on its definition lists card ids from
+`cards/intents.ts`. It draws from its own `drawPile`, reshuffling the whole
+deck when it runs dry, so a deck of two lunges and two circles never lunges
+three turns running. There are no enemy stats for speed, reach or damage —
+each card carries them:
+
+- `advance n` walks up to n tiles toward the player, stopping as soon as
+  the card's `range` reaches — a spitter does not walk into melee.
+- `damage n` lands only if the player is within `range` when it resolves,
+  and adds the enemy's `power`.
+- `block`, `heal` and `power` apply to the enemy itself.
+
+`resolveEffect` is the same function the player's cards go through, with
+an `actor`; verbs only the player has (`movement`, `energy`, `draw`,
+`step`) are no-ops for an enemy. A new enemy behaviour is a new card and a
+line in a deck; a new verb is one case in that switch.
 
 ## Stats, and why nothing reads a constant
 
@@ -246,7 +289,8 @@ transform, so no drawing code knows the screen size.
   that and every click lands on the wrong tile.
 
 Dragging is for looking around and persists while you do. The moment the
-player walks, `recentring` turns on and the pan eases back to zero, and it
+player walks — or whenever the camera is still catching up with him —
+`recentring` turns on and the pan eases back to zero, and it
 keeps easing after he stops so one step recentres as surely as a long walk.
 A fresh drag cancels it; double-click still snaps back instantly.
 
@@ -319,6 +363,38 @@ and `pointer-events: none`, so the pointer falls through to whatever card is
 underneath and the tooltip always follows the card actually being hovered.
 Teleported markup escapes scoped styles, so its rules are `:global`.
 
+## Analytics
+
+The rules record what happened; they never know where it goes.
+`game/telemetry.ts` defines `GameEvent`, and `record(state, event)` does two
+things at once: pushes the event onto `state.events` (the live outbox) and
+folds it into `state.tally` (run totals). When a run ends, `run_ended`
+carries the whole tally — per-card played / discarded / collected counts,
+kills by enemy, gems, talismans, deck size — as **one** event, which is far
+cheaper than an event per play.
+
+The store drains `state.events` in `sync()` (before its early return, so an
+event is never held back because the HUD didn't change) and hands each to
+`track()` in `utils/analytics.ts`, tagged with `run_id`, `seed`, `turn` and
+`at_row`. `run_id` is minted in the store, not the game, because it is not
+deterministic — the same seed played twice is two runs.
+
+`plugins/posthog.ts` installs the sink. The key is in `.env`
+(`NUXT_PUBLIC_POSTHOG_KEY`, a public client key; `.env.example` shows the
+shape). **In dev, events print to the console instead of sending**, so
+testing doesn't pollute the real project; `NUXT_PUBLIC_POSTHOG_DEV=1` sends
+from dev too. Autocapture, pageviews, session replay and surveys are all off:
+only the game's own events go out.
+
+To add an event: a new member of `GameEvent`, a `record()` call where it
+happens, and a tally line if it should appear in the run summary. Tests in
+`test/telemetry.test.ts` read `state.events` directly — no SDK involved.
+
+Verifying delivery: **PostHog silently drops events from headless Chrome**
+(bot user-agent filter). Override the user agent over CDP, and block the
+upload URLs with `Network.setBlockedURLs` so a test run doesn't land in the
+real project.
+
 ## Store bridge
 
 `app/stores/game.ts` holds the raw `Game` object as a plain closure
@@ -361,6 +437,11 @@ silently skipping the deal animation.
   treating the current metrics as final.
 - **When patching files with a script, assert your search string matched.**
   Two template edits silently no-op'd because indentation had shifted.
+- **Enemy cards and player cards are separate tables.** Enemy cards live
+  in `cards/intents.ts` and are looked up with `intentDef`; `cardDef` only
+  knows the player's. They used to share ids (`strike`), and the tip once
+  told you a Warden would "deal 6 damage to an adjacent enemy". Enemy card
+  ids are prefixed with the enemy (`wolf_lunge`) so they cannot collide.
 - **The editor reformats files under you.** `cards/definitions.ts` has been
   reflowed to double quotes and one property per line mid-session, which
   silently broke single-line search strings. Match structurally — a regex

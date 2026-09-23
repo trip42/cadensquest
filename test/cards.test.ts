@@ -13,10 +13,12 @@ describe('cards', () => {
   it('prices movement by rarity unless the card says otherwise', () => {
     // The table is a balance dial; what matters is that it is ordered and
     // that every card falls back to it.
+    // Rarer is never worth *less* as movement; whether it is worth more is
+    // a balance call.
     expect(MOVEMENT_BY_RARITY.starter).toBeGreaterThan(0);
-    expect(MOVEMENT_BY_RARITY.normal).toBeGreaterThan(0);
-    expect(MOVEMENT_BY_RARITY.rare).toBeGreaterThan(MOVEMENT_BY_RARITY.normal);
-    expect(MOVEMENT_BY_RARITY.mythic).toBeGreaterThan(MOVEMENT_BY_RARITY.rare);
+    expect(MOVEMENT_BY_RARITY.normal).toBeGreaterThanOrEqual(MOVEMENT_BY_RARITY.starter);
+    expect(MOVEMENT_BY_RARITY.rare).toBeGreaterThanOrEqual(MOVEMENT_BY_RARITY.normal);
+    expect(MOVEMENT_BY_RARITY.mythic).toBeGreaterThanOrEqual(MOVEMENT_BY_RARITY.rare);
 
     for (const def of Object.values(CARDS)) {
       const expected = def.movement ?? MOVEMENT_BY_RARITY[def.rarity];
@@ -31,9 +33,9 @@ describe('cards', () => {
     expect(cardMovement(cardDef('strike'))).toBe(MOVEMENT_BY_RARITY.normal);
   });
 
-  it('is worth more movement the rarer the card', () => {
-    expect(cardMovement(cardDef('strike'))).toBeLessThan(cardMovement(cardDef('bolt')));
-    expect(cardMovement(cardDef('bolt'))).toBeLessThan(cardMovement(cardDef('vault')));
+  it('is never worth less movement for being rarer', () => {
+    expect(cardMovement(cardDef('strike'))).toBeLessThanOrEqual(cardMovement(cardDef('bolt')));
+    expect(cardMovement(cardDef('bolt'))).toBeLessThanOrEqual(cardMovement(cardDef('vault')));
   });
 
   it('marks the basic stock as starter and keeps it out of rewards', () => {

@@ -13,6 +13,7 @@
    clock, which is what lets movement and attacks play out visibly. */
 
 import { cardDef, cardMovement } from './cards/definitions';
+import { intentDef } from './cards/intents';
 import type { CardInstance } from './cards/types';
 import type { Effect, TriggerPoint } from './effects';
 import { GEM_SLOTS, gemDef } from './gems';
@@ -24,9 +25,18 @@ import {
   setAnimation,
 } from './entities/types';
 import { CHUNK_ROWS } from './map/generate';
-import { type Cell, cellDistance, findPath, reachable } from './map/navigation';
+import {
+  type Cell,
+  cellDistance,
+  findPath,
+  type MoveOptions,
+  pathCost,
+  reachable,
+} from './map/navigation';
+import { gateRowOf, surfaceKind, ZONES } from './map/tiles';
 import { chunkIndexForRow } from './map/world';
 import { rollReward } from './rewards';
+import { record } from './telemetry';
 import { nextInt, pick, shuffle } from './rng';
 import { talismanEffects } from './talismans';
 import {
@@ -41,8 +51,10 @@ import {
   makeEntity,
   note,
   player,
+  type QueuedAction,
   stat,
   syncStats,
+  wholeDeck,
 } from './state';
 
 /** How fast a character walks, in cells per second. */
@@ -54,8 +66,9 @@ const SPAWN_LOOKAHEAD = 2;
 
 /** Fire whatever the held talismans do at this point in the loop. */
 function fire(game: Game, point: TriggerPoint): void {
+  const self = player(game.state);
   for (const effect of talismanEffects(game.state.talismans, point)) {
-    resolveEffect(game, effect, null);
+    resolveEffect(game, effect, { actor: self, target: null, range: 0 });
   }
 }
 
@@ -78,11 +91,43 @@ export const occupied = (state: GameState, ignore?: Entity) =>
     return !!other && other !== ignore;
   };
 
+/** Is this cell next to a living enemy? Standing there, you are engaged. */
+export function threatened(state: GameState, cell: Cell): boolean {
+  return enemies(state).some((enemy) => cellDistance(entityCell(enemy), cell) === 1);
+}
+
+/** Is this row shut behind a guardian that still stands? */
+export function barred(state: GameState, row: number): boolean {
+  return state.gates.some((gate) => {
+    if (row <= gate.row) return false;
+    const guardian = state.entities.find((entity) => entity.id === gate.guardianId);
+    return !!guardian && !guardian.dead;
+  });
+}
+
+/* How the player moves. Two rules on top of plain pathfinding:
+
+   Zone of control — a step away from a tile next to an enemy costs
+   `disengageCost` more. Walking up to an enemy is cheap; walking away from
+   one is not, so slipping past a fight costs you the turn you were trying
+   to save.
+
+   Gates — nothing beyond a guardian's row can be entered while it stands. */
+export function playerMoveOptions(game: Game): MoveOptions {
+  const { state } = game;
+  const self = player(state);
+  const toll = stat(state, 'disengageCost');
+  const standing = occupied(state, self);
+  return {
+    blocked: (row, col) => standing(row, col) || barred(state, row),
+    stepCost: (from) => 1 + (threatened(state, from) ? toll : 0),
+  };
+}
+
 /** Where the player could walk with the movement left this turn. */
 export function movementRange(game: Game): Map<string, { cell: Cell; cost: number }> {
   const { state, world } = game;
-  const self = player(state);
-  return reachable(world, entityCell(self), state.movement, { blocked: occupied(state, self) });
+  return reachable(world, entityCell(player(state)), state.movement, playerMoveOptions(game));
 }
 
 export function canPlay(game: Game, uid: string): boolean {
@@ -105,7 +150,9 @@ export function isValidTarget(game: Game, uid: string, cell: Cell): boolean {
     const target = entityAt(game.state, cell.row, cell.col);
     return !!target && target.faction === 'enemy';
   }
-  return game.world.walkable(cell.row, cell.col) && !entityAt(game.state, cell.row, cell.col);
+  return game.world.walkable(cell.row, cell.col)
+    && !entityAt(game.state, cell.row, cell.col)
+    && !barred(game.state, cell.row);   // a leap does not clear a gate either
 }
 
 /* ------------------------------ cards ---------------------------------- */
@@ -125,8 +172,9 @@ export function drawCards(state: GameState, count: number): void {
   for (let i = 0; i < count; i += 1) drawOne(state);
 }
 
-function dealDamage(game: Game, target: Entity, amount: number): void {
+function dealDamage(game: Game, target: Entity, amount: number, source?: Entity): void {
   const { state } = game;
+  if (source && target.id === state.playerId) state.lastHitBy = source.defId;
   const absorbed = Math.min(target.block, amount);
   target.block -= absorbed;
   const through = amount - absorbed;
@@ -139,6 +187,12 @@ function dealDamage(game: Game, target: Entity, amount: number): void {
     setAnimation(target, 'die');
     note(state, `${entityDef(target.defId).name} falls.`);
     if (target.faction === 'enemy') {
+      record(state, {
+        type: 'enemy_killed',
+        enemy: target.defId,
+        guardian: !!entityDef(target.defId).guardian,
+        row: target.row,
+      });
       // What it was carrying was decided when it spawned.
       if (target.reward) state.pendingRewards.push(target.reward);
       fire(game, 'enemyDefeated');
@@ -148,40 +202,107 @@ function dealDamage(game: Game, target: Entity, amount: number): void {
   }
 }
 
-function resolveEffect(game: Game, effect: Effect, target: Cell | null): void {
+/** Who is playing an effect, at what, and with how much reach. */
+interface Play {
+  actor: Entity;
+  /** The cell aimed at — the player's pick for a targeted card; for an
+   *  enemy, wherever the player is standing when the effect resolves. */
+  target: Cell | null;
+  /** The card's reach, which `advance` closes to and `damage` needs. */
+  range: number;
+}
+
+/* The one place that knows what every verb does, for both sides. Bonuses
+   from the stat table are the player's; an enemy's only bonus is its
+   `power`. Verbs that spend a resource only one side has are no-ops for
+   the other, so a stray `draw` in an enemy deck is harmless. */
+function resolveEffect(game: Game, effect: Effect, play: Play): void {
   const { state } = game;
-  const self = player(state);
+  const { actor, target, range } = play;
+  const isPlayer = actor.id === state.playerId;
 
   switch (effect.kind) {
     case 'damage': {
       const victim = target && entityAt(state, target.row, target.col);
-      if (victim) dealDamage(game, victim, effect.amount + self.power + stat(state, 'damageBonus'));
+      if (!victim || victim === actor) break;
+      if (!isPlayer && cellDistance(entityCell(actor), entityCell(victim)) > range) {
+        note(state, `${entityDef(actor.defId).name} cannot reach.`);
+        break;
+      }
+      faceToward(actor, entityCell(victim));
+      if (!isPlayer) setAnimation(actor, 'attack');
+      const bonus = actor.power + (isPlayer ? stat(state, 'damageBonus') : 0);
+      dealDamage(game, victim, effect.amount + bonus, actor);
       break;
     }
     case 'block':
-      self.block += effect.amount + stat(state, 'blockBonus');
-      break;
-    case 'movement':
-      state.movement += effect.amount;
-      break;
-    case 'energy':
-      state.energy += effect.amount;
-      break;
-    case 'draw':
-      drawCards(state, effect.amount);
+      actor.block += effect.amount + (isPlayer ? stat(state, 'blockBonus') : 0);
+      if (!isPlayer) note(state, `${entityDef(actor.defId).name} braces.`);
       break;
     case 'heal':
-      self.hp = Math.min(self.maxHp, self.hp + effect.amount);
+      actor.hp = Math.min(actor.maxHp, actor.hp + effect.amount);
+      break;
+    case 'power':
+      actor.power += effect.amount;
+      if (!isPlayer) note(state, `${entityDef(actor.defId).name} grows stronger.`);
+      break;
+    case 'advance':
+      if (!isPlayer) advance(game, actor, effect.amount, range);
+      break;
+    case 'movement':
+      if (isPlayer) state.movement += effect.amount;
+      break;
+    case 'energy':
+      if (isPlayer) state.energy += effect.amount;
+      break;
+    case 'draw':
+      if (isPlayer) drawCards(state, effect.amount);
       break;
     case 'step':
       // A leap: straight to the cell, no path, no movement spent.
-      if (target) {
-        self.motion = { from: entityCell(self), to: target, t: 0, speed: WALK_SPEED * 1.6 };
-        self.path = [];
-        setAnimation(self, 'walk');
+      if (isPlayer && target) {
+        actor.motion = { from: entityCell(actor), to: target, t: 0, speed: WALK_SPEED * 1.6 };
+        actor.path = [];
+        setAnimation(actor, 'walk');
       }
       break;
   }
+}
+
+function faceToward(entity: Entity, cell: Cell): void {
+  const dx = cell.col - entity.col - (cell.row - entity.row);
+  if (dx !== 0) entity.facing = dx > 0 ? 1 : -1;
+}
+
+/* An enemy walks up to `steps` tiles toward the player and stops as soon
+   as the card it is playing can reach — a spitter has no reason to walk
+   into melee. It paths to the player's own cell, which is how it finds the
+   way round obstacles, then keeps only the stretch it will actually walk.
+   Enemies are not slowed by zone of control; that rule is the player's. */
+function advance(game: Game, enemy: Entity, steps: number, reach: number): void {
+  const { state, world } = game;
+  const self = player(state);
+  const target = entityCell(self);
+  if (steps <= 0 || cellDistance(entityCell(enemy), target) <= reach) return;
+
+  const path = findPath(world, entityCell(enemy), target, {
+    maxCost: steps + 12,
+    blocked: occupied(state, self),
+  });
+  if (!path) return;
+
+  const walk: Cell[] = [];
+  for (const cell of path) {
+    if (walk.length >= steps) break;
+    if (cell.row === target.row && cell.col === target.col) break;
+    walk.push(cell);
+    if (cellDistance(cell, target) <= reach) break;
+  }
+  if (!walk.length) return;
+
+  enemy.path = walk;
+  startStep(enemy);
+  note(state, `${entityDef(enemy.defId).name} closes in.`);
 }
 
 /* The other thing a card can be: a way to cover ground. Discarding pays no
@@ -201,6 +322,7 @@ export function discardForMovement(game: Game, uid: string): boolean {
   state.discardPile.push(card);
   state.movement += gained;
   note(state, `Discarded ${def.name} for ${gained} movement.`);
+  record(state, { type: 'card_discarded', card: def.id, rarity: def.rarity, movement: gained, bulk: false });
   return true;
 }
 
@@ -215,8 +337,12 @@ export function discardAllForMovement(game: Game): number {
   let gained = 0;
 
   for (const card of state.hand) {
-    gained += cardMovement(cardDef(card.defId)) + bonus;
+    const def = cardDef(card.defId);
+    const worth = cardMovement(def) + bonus;
+    gained += worth;
     state.discardPile.push(card);
+    // One event per card, so per-card discard counts stay honest.
+    record(state, { type: 'card_discarded', card: def.id, rarity: def.rarity, movement: worth, bulk: true });
   }
   state.hand = [];
   state.movement += gained;
@@ -245,6 +371,7 @@ export function playCard(game: Game, uid: string, target: Cell | null = null): b
   state.hand = state.hand.filter((item) => item.uid !== uid);
   state.discardPile.push(card);
   note(state, `Played ${def.name}.`);
+  record(state, { type: 'card_played', card: def.id, rarity: def.rarity, gems: gemsOf(card) });
 
   const self = player(state);
   if (target) {
@@ -254,10 +381,11 @@ export function playCard(game: Game, uid: string, target: Cell | null = null): b
     if (def.targeting === 'enemy') setAnimation(self, def.range > 1 ? 'ranged' : 'attack');
   }
 
-  for (const effect of def.effects) resolveEffect(game, effect, target);
+  const play: Play = { actor: self, target, range: def.range };
+  for (const effect of def.effects) resolveEffect(game, effect, play);
   // Gems are socketed into this instance, so only this copy carries them.
   for (const gemId of gemsOf(card)) {
-    for (const effect of gemDef(gemId).effects) resolveEffect(game, effect, target);
+    for (const effect of gemDef(gemId).effects) resolveEffect(game, effect, play);
   }
   fire(game, 'cardPlayed');
   return true;
@@ -284,23 +412,56 @@ export function movePlayerTo(game: Game, cell: Cell): boolean {
   if (state.phase !== 'player' || isBusy(state) || state.activeReward) return false;
 
   const self = player(state);
-  const path = findPath(world, entityCell(self), cell, {
-    maxCost: state.movement,
-    blocked: occupied(state, self),
-  });
-  if (!path || !path.length || path.length > state.movement) return false;
+  const options = playerMoveOptions(game);
+  const from = entityCell(self);
+  const path = findPath(world, from, cell, { ...options, maxCost: state.movement });
+  if (!path || !path.length) return false;
 
-  // startStep shifts the first cell off the path, and `self.path` is the
-  // same array — so count the steps before handing it over.
+  // Steps and cost differ once breaking away from an enemy costs extra.
+  // Count both before handing the path over: startStep shifts cells off it.
   const steps = path.length;
-  state.movement -= steps;
+  const cost = pathCost(from, path, options);
+  if (cost > state.movement) return false;
+
+  state.movement -= cost;
   self.path = path;
   startStep(self);
-  note(state, `Moved ${steps} cell${steps === 1 ? '' : 's'}.`);
+  const toll = cost - steps;
+  note(state, `Moved ${steps} cell${steps === 1 ? '' : 's'}.${toll ? ` Breaking away cost ${toll} more.` : ''}`);
   return true;
 }
 
 /* ------------------------------ spawning -------------------------------- */
+
+/* The last row of a zone is a canonical row — full width, trail across the
+   middle — so a guardian stood on the trail there is squarely in the way.
+   It holds that row, and `barred` keeps everything past it shut until it
+   falls. */
+function placeGuardians(game: Game, chunkIndex: number): void {
+  const { state, world } = game;
+  const first = chunkIndex * CHUNK_ROWS;
+  const last = first + CHUNK_ROWS - 1;
+
+  ZONES.forEach((zone, zoneIndex) => {
+    if (!zone.guardian) return;
+    const row = gateRowOf(zoneIndex);
+    if (row < first || row > last || !world.contains(row)) return;
+    if (state.gates.some((gate) => gate.row === row)) return;
+
+    const cols = Array.from({ length: world.width }, (_, col) => col)
+      .filter((col) => world.walkable(row, col) && !entityAt(state, row, col));
+    if (!cols.length) return;
+    const onTrail = cols.filter((col) => surfaceKind(world.stackAt(row, col)) === 'trail');
+    const choices = onTrail.length ? onTrail : cols;
+    const col = choices[Math.floor(choices.length / 2)]!;
+
+    const guardian = makeEntity(zone.guardian, row, col);
+    guardian.facing = -1;
+    guardian.reward = rollReward(state.rng, entityDef(guardian.defId).reward);
+    state.entities.push(guardian);
+    state.gates.push({ row, guardianId: guardian.id });
+  });
+}
 
 /** Populate chunks the player is walking into. Deterministic: the same seed
  *  puts the same enemies in the same places. */
@@ -314,6 +475,8 @@ export function ensureSpawns(game: Game): void {
     state.spawnedChunks.push(index);
 
     const chunk = world.chunk(index);
+    placeGuardians(game, index);
+
     const candidates: Cell[] = [];
     for (let local = 0; local < CHUNK_ROWS; local += 1) {
       const row = index * CHUNK_ROWS + local;
@@ -344,14 +507,16 @@ export function beginTurn(game: Game): void {
   const { state } = game;
   state.phase = 'refresh';
   state.turn += 1;
+  state.tally.turns = state.turn;
 
   const self = player(state);
   // Block from talismans replaces what was left, rather than adding to it.
   self.block = stat(state, 'blockPerRefresh');
   self.hp = Math.min(self.maxHp, self.hp + stat(state, 'healPerRefresh'));
   state.energy = stat(state, 'maxEnergy');
-  // No allowance: every step this turn has to be bought with a card.
-  state.movement = 0;
+  // Base speed each turn. Cards, gems and talismans raise it through the
+  // stat table; discarding a card buys a step more when it runs short.
+  state.movement = stat(state, 'movePerTurn');
 
   state.discardPile.push(...state.hand);
   state.hand = [];
@@ -362,9 +527,8 @@ export function beginTurn(game: Game): void {
 
   // Enemies telegraph what they will do, so the player can plan around it.
   for (const enemy of enemies(state)) {
-    const def = entityDef(enemy.defId);
-    const intentId = pick(state.rng, def.intents);
-    enemy.intent = { cardId: intentId, label: cardDef(intentId).name };
+    const intentId = drawIntent(state, enemy);
+    enemy.intent = intentId ? { cardId: intentId, label: intentDef(intentId).name } : null;
   }
 
   state.phase = 'player';
@@ -377,63 +541,38 @@ export function endPlayerPhase(game: Game): void {
   if (state.phase !== 'player' || state.activeReward) return;
   fire(game, 'playerPhaseEnd');
   state.phase = 'enemy';
-  state.queue = enemies(state).map((enemy) => ({ entityId: enemy.id }));
+  // One queue entry per effect of each enemy's card, in order, so a stride
+  // plays out before the blow that follows it lands.
+  state.queue = enemies(state).flatMap((enemy) => {
+    const cardId = enemy.intent?.cardId;
+    if (!cardId) return [];
+    return intentDef(cardId).effects.map((_, index) => ({ entityId: enemy.id, cardId, index }));
+  });
 }
 
-function resolveEnemy(game: Game, entityId: string): void {
-  const { state, world } = game;
-  const enemy = state.entities.find((item) => item.id === entityId);
+/* Each enemy plays from its own deck, the way the player does: draw the
+   top card, and when the pile runs dry shuffle the whole deck back in. So
+   a deck of two lunges and two circles never lunges three turns running. */
+function drawIntent(state: GameState, enemy: Entity): string | null {
+  if (!enemy.drawPile.length) enemy.drawPile = shuffle(state.rng, [...entityDef(enemy.defId).deck]);
+  return enemy.drawPile.pop() ?? null;
+}
+
+/* Resolve one effect of the card an enemy telegraphed. Its target is
+   wherever the player stands *now*, so an `advance` earlier in the card
+   is what brings a following `damage` into reach. */
+function resolveEnemy(game: Game, next: QueuedAction): void {
+  const { state } = game;
+  const enemy = state.entities.find((item) => item.id === next.entityId);
   if (!enemy || enemy.dead) return;
 
-  const self = player(state);
-  const def = entityDef(enemy.defId);
-  const intent = enemy.intent?.cardId ?? 'approach';
-  enemy.block = 0;
+  const card = intentDef(next.cardId);
+  // Block is for the turn it was raised in; it falls as the enemy stirs.
+  if (next.index === 0) enemy.block = 0;
 
-  const attack = (): void => {
-    const dx = self.col - enemy.col - (self.row - enemy.row);
-    if (dx !== 0) enemy.facing = dx > 0 ? 1 : -1;
-    setAnimation(enemy, 'attack');
-    dealDamage(game, self, def.attackDamage + enemy.power);
-  };
-
-  const approach = (): void => {
-    // Walk toward the player and stop next to them: path through their cell,
-    // then drop that last step.
-    const path = findPath(world, entityCell(enemy), entityCell(self), {
-      maxCost: def.moveRange + 8,
-      blocked: occupied(state, self),
-    });
-    if (!path || !path.length) return;
-    enemy.path = path.slice(0, Math.max(0, Math.min(path.length - 1, def.moveRange)));
-    if (enemy.path.length) {
-      startStep(enemy);
-      note(state, `${def.name} closes in.`);
-    }
-  };
-
-  const distance = cellDistance(entityCell(enemy), entityCell(self));
-
-  switch (intent) {
-    case 'brace':
-      enemy.block += 4;
-      note(state, `${def.name} braces.`);
-      break;
-    case 'empower':
-      enemy.power += 2;
-      note(state, `${def.name} grows stronger.`);
-      break;
-    case 'strike':
-      if (distance <= def.attackRange) attack();
-      else approach();
-      break;
-    default:
-      if (distance <= def.attackRange) attack();
-      else approach();
-      break;
-  }
-
-  enemy.intent = null;
+  const effect = card.effects[next.index];
+  if (effect) resolveEffect(game, effect, { actor: enemy, target: entityCell(player(state)), range: card.range });
+  if (next.index >= card.effects.length - 1) enemy.intent = null;
 }
 
 /** Returns true once the run is over, either way. */
@@ -462,6 +601,13 @@ export function chooseCardReward(game: Game, uid: string): boolean {
   if (!chosen) return false;
 
   state.drawPile.push(chosen);
+  const chosenDef = cardDef(chosen.defId);
+  record(state, {
+    type: 'card_collected',
+    card: chosenDef.id,
+    rarity: chosenDef.rarity,
+    deckSize: wholeDeck(state).length,
+  });
   state.activeReward = null;
   note(state, `Took ${cardDef(chosen.defId).name}.`);
   return true;
@@ -479,6 +625,7 @@ export function socketGemReward(game: Game, cardUid: string): boolean {
   if (gems.length >= GEM_SLOTS) return false;
 
   card.gems = [...gems, active.reward.gemId];
+  record(state, { type: 'gem_collected', gem: active.reward.gemId, card: card.defId });
   state.activeReward = null;
   note(state, `Set ${gemDef(active.reward.gemId).name} into ${cardDef(card.defId).name}.`);
   return true;
@@ -491,6 +638,7 @@ export function takeTalismanReward(game: Game): boolean {
   if (!active || active.reward.kind !== 'talisman') return false;
 
   state.talismans.push(active.reward.talismanId);
+  record(state, { type: 'talisman_collected', talisman: active.reward.talismanId });
   syncStats(state);
   state.activeReward = null;
   return true;
@@ -504,6 +652,7 @@ export function skipReward(game: Game): boolean {
 
   state.activeReward = null;
   note(state, `Left the ${active.reward.kind} behind.`);
+  record(state, { type: 'reward_skipped', kind: active.reward.kind });
   return true;
 }
 
@@ -515,16 +664,56 @@ function checkEnding(game: Game): boolean {
   const { state } = game;
   const self = player(state);
   if (self.hp <= 0) {
-    if (state.phase !== 'defeat') note(state, 'Caden falls.');
+    if (state.phase !== 'defeat') {
+      note(state, 'Caden falls.');
+      record(state, {
+        type: 'player_died',
+        row: self.row,
+        zone: game.world.zoneAt(self.row).id,
+        killedBy: state.lastHitBy,
+        turn: state.turn,
+      });
+      endRun(state, 'died');
+    }
     state.phase = 'defeat';
     return true;
   }
   if (self.row >= state.goalRow) {
-    if (state.phase !== 'victory') note(state, 'The far end of the map.');
+    if (state.phase !== 'victory') {
+      note(state, 'The far end of the map.');
+      record(state, { type: 'run_won', turn: state.turn });
+      endRun(state, 'won');
+    }
     state.phase = 'victory';
     return true;
   }
   return false;
+}
+
+/** The whole run in one event: every per-card count, sent once. */
+function endRun(state: GameState, outcome: 'died' | 'won'): void {
+  record(state, {
+    type: 'run_ended',
+    outcome,
+    summary: { ...structuredClone(state.tally), deckSize: wholeDeck(state).length },
+  });
+}
+
+/* Progress, recorded the first time the player stands on a row further on
+   than any before it — walking back over old ground adds nothing. */
+function trackProgress(game: Game): void {
+  const { state, world } = game;
+  const self = player(state);
+  if (self.row <= state.tally.maxRow) return;
+
+  const before = world.zoneAt(state.tally.maxRow).id;
+  for (let row = state.tally.maxRow + 1; row <= self.row; row += 1) {
+    const zone = world.zoneAt(row).id;
+    record(state, { type: 'row_reached', row, zone });
+    if (zone !== before && world.zoneAt(row - 1).id !== zone) {
+      record(state, { type: 'zone_entered', zone, row });
+    }
+  }
 }
 
 /** Advance the clock. Drives animation and movement, and steps the enemy
@@ -559,12 +748,13 @@ export function tick(game: Game, dt: number): void {
     (entity) => entity.id === state.playerId || !(entity.dead && entity.anim.state === 'die' && entity.anim.done),
   );
 
+  trackProgress(game);
   if (checkEnding(game)) return;
   if (isBusy(state)) return;
 
   if (state.phase === 'enemy') {
     const next = state.queue.shift();
-    if (next) resolveEnemy(game, next.entityId);
+    if (next) resolveEnemy(game, next);
     else {
       fire(game, 'enemyPhaseEnd');
       beginTurn(game);

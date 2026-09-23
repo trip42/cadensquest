@@ -77,6 +77,8 @@ export interface Zone {
   enemies: string[];
   /** Enemies per chunk. */
   density: number;
+  /** Who holds the way out of this zone, standing on its last row. */
+  guardian?: string;
   gen: ZoneGenParams;
 }
 
@@ -85,6 +87,7 @@ export const ZONES: Zone[] = [
     id: "meadow",
     name: "North Basin",
     enemies: ["slime", "chicken", "bug"],
+    guardian: "warden",
     density: 3,
     palette: {
       ground: {
@@ -132,6 +135,7 @@ export const ZONES: Zone[] = [
     id: "marsh",
     name: "Sunken Reach",
     enemies: ["slime", "bug", "spider"],
+    guardian: "wyrm",
     density: 4,
     palette: {
       ground: {
@@ -233,6 +237,11 @@ export const MAP_ROWS = ZONES.length * ZONE_ROWS;
 
 /** The row that ends the run. */
 export const LAST_ROW = MAP_ROWS - 1;
+
+/** The row a zone's guardian holds: the last row of that zone. Every zone
+ *  boundary is also a chunk boundary, so this is always a canonical row —
+ *  full width, trail across the middle. */
+export const gateRowOf = (zoneIndex: number): number => (zoneIndex + 1) * ZONE_ROWS - 1;
 
 /** Where a run begins — a little way in, not on the very edge. */
 export const START_ROW = 1;

@@ -12,6 +12,11 @@ export const BASE_STATS = {
   handSize: 5,
   /** Energy restored at refresh. */
   maxEnergy: 3,
+  /** Movement restored at refresh — the player's base speed. */
+  movePerTurn: 3,
+  /** Extra movement it costs to step away from an enemy you are next to.
+   *  Zone of control: disengaging is the expensive part, not approaching. */
+  disengageCost: 1,
   /** Block granted automatically each refresh. */
   blockPerRefresh: 0,
   /** Health restored each refresh. */
@@ -62,6 +67,8 @@ const STAT_NAMES: Record<StatKey, string> = {
   maxHp: 'max health',
   handSize: 'hand size',
   maxEnergy: 'energy',
+  movePerTurn: 'movement each turn',
+  disengageCost: 'cost to break away',
   blockPerRefresh: 'block each turn',
   healPerRefresh: 'heal each turn',
   damageBonus: 'card damage',

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { cardDef } from '~/game/cards/definitions';
-import { ENEMY_IDS, ENTITIES, entityDef } from '~/game/entities/definitions';
+import { intentDef } from '~/game/cards/intents';
+import { ENEMY_IDS, ENTITIES, entityDef, GUARDIAN_IDS } from '~/game/entities/definitions';
 import type { AnimationState } from '~/game/entities/types';
 import { ZONES } from '~/game/map/tiles';
 
@@ -40,6 +41,18 @@ describe('entity definitions', () => {
     }
   });
 
+  it('gives each guarded zone a guardian that exists and is marked as one', () => {
+    const named = ZONES.map((zone) => zone.guardian).filter((id): id is string => !!id);
+    expect(named.length).toBeGreaterThan(0);
+    for (const id of named) {
+      expect(GUARDIAN_IDS).toContain(id);
+      expect(entityDef(id).guardian).toBe(true);
+      expect(entityDef(id).faction).toBe('enemy');
+    }
+    // Guardians hold a post; they are never rolled as ordinary spawns.
+    for (const zone of ZONES) for (const id of zone.enemies) expect(GUARDIAN_IDS).not.toContain(id);
+  });
+
   it('only lists enemies that exist, in every zone', () => {
     for (const zone of ZONES) {
       expect(zone.enemies.length).toBeGreaterThan(0);
@@ -55,14 +68,26 @@ describe('entity definitions', () => {
     expect([...placed].sort()).toEqual(ENEMY_IDS.sort());
   });
 
-  it('only gives enemies intents that resolve to a card', () => {
-    for (const id of ENEMY_IDS) {
-      const def = entityDef(id);
-      expect(def.intents.length).toBeGreaterThan(0);
-      for (const intent of def.intents) {
-        expect(() => cardDef(intent)).not.toThrow();
+  it('gives every enemy a deck of its own cards, with an attack in it', () => {
+    for (const id of [...ENEMY_IDS, ...GUARDIAN_IDS]) {
+      const deck = entityDef(id).deck;
+      expect(deck.length).toBeGreaterThan(0);
+      for (const cardId of deck) expect(() => intentDef(cardId)).not.toThrow();
+      const attacks = deck.some((cardId) => intentDef(cardId).effects.some((e) => e.kind === 'damage'));
+      expect(attacks, id).toBe(true);
+    }
+  });
+
+  it('keeps guardians rooted: no guardian card advances', () => {
+    for (const id of GUARDIAN_IDS) {
+      for (const cardId of entityDef(id).deck) {
+        expect(intentDef(cardId).effects.some((e) => e.kind === 'advance'), cardId).toBe(false);
       }
     }
+  });
+
+  it('keeps enemy cards out of the player pool', () => {
+    expect(() => cardDef('bug_bite')).toThrow();
   });
 
   it('draws the player from his own sheet, facing the way the art does', () => {

@@ -18,6 +18,7 @@ const store = useGameStore();
       {{ store.enemyTip.name }}
       <span class="hp">{{ store.enemyTip.hp }}/{{ store.enemyTip.maxHp }}</span>
     </p>
+    <p v-if="store.enemyTip.guardian" class="guard">GUARDIAN — the way on is shut until it falls</p>
     <p v-if="store.enemyTip.intent" class="intent">
       <span class="label">NEXT</span>
       {{ store.enemyTip.intent }}<span v-if="store.enemyTip.intentText"> — {{ store.enemyTip.intentText }}</span>
@@ -48,6 +49,7 @@ const store = useGameStore();
 .name { color: #e8eedd; font-size: 11.5px; display: flex; justify-content: space-between; gap: 10px; }
 .hp { color: #d0644e; }
 .intent { margin-top: 4px; color: #b9c7ae; }
+.guard { margin-top: 3px; color: #e0785f; font-size: 9px; letter-spacing: 0.08em; }
 .drop { margin-top: 5px; display: flex; align-items: center; gap: 6px; }
 .label { color: #6f8377; letter-spacing: 0.1em; margin-right: 4px; }
 .pill { padding: 1px 6px; border: 1px solid; border-radius: 3px; font-size: 8.5px; letter-spacing: 0.1em; }
