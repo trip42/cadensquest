@@ -7,7 +7,8 @@
    It knows nothing about being held. The arch, the lift and the discard
    offer belong to the hand, which positions this. Size comes from
    `--card-w` and `--art-h` on whatever contains it, so the same component
-   reads at hand size and at grid size. */
+   reads at hand size and at grid size; `--card-scale` grows the text and
+   badges with it, so a bigger card is also an easier one to read. */
 
 import { computed, onBeforeUnmount, ref } from 'vue';
 import type { CardDefinition } from '~/game/cards/types';
@@ -153,29 +154,30 @@ onBeforeUnmount(hide);
 </template>
 
 <style scoped>
+/* Pixel frames: a black outline, a band of rarity colour inside it and a
+   hard shadow. No gradients, no rounding — nothing that would read as
+   smooth next to the sprites. */
 .game-card {
+  --frame: var(--px-muted);
   width: var(--card-w, 126px);
   /* Height follows the contents, so --art-h sets the card's shape. */
   height: auto;
-  padding: 3px;
-  border: 0;
-  border-radius: 9px;
+  padding: 0;
+  border: 3px solid var(--px-ink);
+  border-radius: 0;
+  background: var(--px-panel);
+  box-shadow: inset 0 0 0 3px var(--frame), 5px 5px 0 var(--px-ink);
+  color: var(--px-text);
   font: inherit;
   text-align: left;
 }
 
 /* ------------------------------ rarity frames -------------------------- */
 
-.rarity-starter { background: linear-gradient(150deg, #3d443f 0%, #202724 55%, #343c38 100%); }
-.rarity-normal { background: linear-gradient(150deg, #2b3531 0%, #0b100e 55%, #232c29 100%); }
-.rarity-rare {
-  background: linear-gradient(150deg, #8cc0ec 0%, #2c6499 50%, #9ccdf5 100%);
-  box-shadow: 0 0 10px rgba(76, 145, 214, 0.28);
-}
-.rarity-mythic {
-  background: linear-gradient(150deg, #f6dc94 0%, #b3801f 42%, #fdf0bb 58%, #8f6318 100%);
-  box-shadow: 0 0 12px rgba(226, 178, 73, 0.38);
-}
+.rarity-starter { --frame: var(--px-muted); }
+.rarity-normal { --frame: var(--px-soft); }
+.rarity-rare { --frame: var(--px-cyan); }
+.rarity-mythic { --frame: var(--px-yellow); }
 
 /* ------------------------------ card face ------------------------------ */
 
@@ -183,81 +185,75 @@ onBeforeUnmount(hide);
   position: relative;
   display: flex;
   flex-direction: column;
-  padding: 6px 6px 7px;
-  border-radius: 7px;
-  background: linear-gradient(180deg, #1b2c26 0%, #14231e 100%);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.5);
+  padding: calc(7px * var(--card-scale, 1)) calc(7px * var(--card-scale, 1)) calc(8px * var(--card-scale, 1));
 }
 
 .head {
   display: flex;
   align-items: center;
-  gap: 5px;
-  min-height: 18px;
+  gap: calc(5px * var(--card-scale, 1));
+  min-height: calc(20px * var(--card-scale, 1));
 }
 .cost {
   flex: none;
-  width: 17px;
-  height: 17px;
+  width: calc(19px * var(--card-scale, 1));
+  height: calc(19px * var(--card-scale, 1));
   display: grid;
   place-items: center;
-  border-radius: 50%;
-  color: #16302b;
-  background: #d0dc9b;
-  font-size: 10px;
-  font-weight: 600;
+  background: var(--px-yellow);
+  color: var(--px-ink);
+  box-shadow: 2px 2px 0 var(--px-ink);
+  font-family: var(--px-font);
+  /* Whole grid steps only: 12px on the spoils screen, 16px in hand. */
+  font-size: round(nearest, calc(12px * var(--card-scale, 1)), 4px);
 }
 .name {
   flex: 1;
   min-width: 0;
-  color: #e8eedd;
-  font-size: 10.5px;
-  letter-spacing: 0.01em;
+  color: var(--px-text);
+  font-family: var(--px-font);
+  font-size: round(nearest, calc(12px * var(--card-scale, 1)), 4px);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* Sits under the cost, in its own colour: one is what the card takes to
-   play, the other what it gives up to walk. */
+/* The movement a discard is worth, tagged on the art's corner in
+   movement's colour: one number is what the card takes to play, the other
+   what it gives up to walk. Left, because in hand the next card covers the
+   right edge. */
 .stride {
   position: absolute;
-  top: 27px;
-  left: 6px;
-  width: 17px;
-  height: 17px;
-  display: grid;
-  place-items: center;
-  border-radius: 4px;
-  color: #08242f;
-  background: #76c7e8;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
-  font-size: 10px;
-  font-weight: 600;
+  top: calc(34px * var(--card-scale, 1));
+  left: calc(10px * var(--card-scale, 1));
+  padding: 0 calc(3px * var(--card-scale, 1));
+  background: var(--px-cyan);
+  color: var(--px-ink);
+  font-family: var(--px-font);
+  font-size: 8px;
+  line-height: 1.5;
   z-index: 1;
 }
+.stride::before { content: '+'; }
 
 .art {
   position: relative;
   flex: none;
   height: var(--art-h, 75px);
-  margin: 5px 0;
+  margin: calc(5px * var(--card-scale, 1)) 0;
   display: grid;
   place-items: center;
-  border-radius: 4px;
-  background:
-    radial-gradient(120% 90% at 50% 15%, rgba(208, 220, 155, 0.14), transparent 70%),
-    linear-gradient(180deg, #24382f 0%, #16241f 100%);
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.45);
+  background: var(--px-bg);
+  border: 2px solid var(--px-ink);
 }
 .art svg {
-  width: 44%;
+  width: 40%;
   height: auto;
   fill: none;
-  stroke: rgba(208, 220, 155, 0.6);
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  stroke: var(--frame);
+  stroke-width: 2.2;
+  stroke-linecap: square;
+  stroke-linejoin: miter;
 }
 
 /* Three sockets, tucked into the corner of the art rather than taking a
@@ -270,13 +266,22 @@ onBeforeUnmount(hide);
   gap: 3px;
 }
 .sockets i {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  border: 1px solid rgba(208, 220, 155, 0.3);
-  background: rgba(8, 16, 13, 0.55);
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--px-rim);
+  background: var(--px-ink);
 }
-.sockets i.is-set { box-shadow: 0 0 5px currentColor; }
+.sockets i.is-set { border-color: var(--px-ink); }
+
+.text {
+  flex: none;
+  min-height: calc(54px * var(--card-scale, 1));
+  color: var(--px-soft);
+  /* Held at 12px even in hand: at 16px the wide capitals fit a dozen to a
+     line and a rules sentence runs to five lines. */
+  font-size: 12px;
+  line-height: 1.3;
+}
 
 /* ------------------------------ tooltip -------------------------------- */
 
@@ -288,61 +293,50 @@ onBeforeUnmount(hide);
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 9px 10px;
-  border: 1px solid rgba(208, 220, 155, 0.2);
-  border-radius: 5px;
-  background: rgba(12, 26, 21, 0.96);
-  backdrop-filter: blur(7px);
-  -webkit-backdrop-filter: blur(7px);
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
-  color: #c9d3bd;
-  font-family: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 10px;
-  line-height: 1.5;
+  padding: 9px 11px;
+  border: 3px solid var(--px-ink);
+  background: var(--px-panel);
+  box-shadow: inset 0 0 0 2px var(--px-rim), 4px 4px 0 var(--px-ink);
+  color: var(--px-soft);
+  font-family: var(--px-font);
+  font-size: 12px;
+  line-height: 1.35;
+  text-transform: uppercase;
   pointer-events: none;
 }
 :global(.tip-head) { display: flex; align-items: center; gap: 6px; }
 :global(.tip-cost) {
-  flex: none; width: 17px; height: 17px;
-  display: grid; place-items: center; border-radius: 50%;
-  background: #d0dc9b; color: #16302b; font-size: 10px; font-weight: 600;
+  flex: none; width: 19px; height: 19px;
+  display: grid; place-items: center;
+  background: var(--px-yellow); color: var(--px-ink);
+  font-family: var(--px-font); font-size: 12px;
 }
-:global(.tip-name) { flex: 1; color: #e8eedd; font-size: 12px; }
-:global(.tip-rarity) { font-size: 8px; letter-spacing: 0.12em; text-transform: uppercase; }
-:global(.tip-rarity.is-starter) { color: #8ea393; }
-:global(.tip-rarity.is-normal) { color: #b9c7ae; }
-:global(.tip-rarity.is-rare) { color: #7fb6e8; }
-:global(.tip-rarity.is-mythic) { color: #e2b249; }
+:global(.tip-name) { flex: 1; color: var(--px-text); font-family: var(--px-font); font-size: 16px; }
+:global(.tip-rarity) { font-family: var(--px-font); font-size: 8px; }
+:global(.tip-rarity.is-starter) { color: var(--px-muted); }
+:global(.tip-rarity.is-normal) { color: var(--px-soft); }
+:global(.tip-rarity.is-rare) { color: var(--px-cyan); }
+:global(.tip-rarity.is-mythic) { color: var(--px-yellow); }
 
-:global(.tip-text) { color: #d7e0c9; }
+:global(.tip-text) { color: var(--px-text); }
 :global(.tip-meta) {
   display: flex; flex-direction: column; gap: 2px;
-  padding-top: 6px; border-top: 1px solid rgba(208, 220, 155, 0.12);
-  color: #8ea393; font-size: 9px;
+  padding-top: 6px; border-top: 2px solid var(--px-ink);
+  color: var(--px-soft); font-size: 12px;
 }
-:global(.tip-meta b) { color: #6f8377; font-weight: 400; margin-right: 4px; }
+:global(.tip-meta b) { color: var(--px-muted); font-family: var(--px-font); font-size: 8px; font-weight: 400; margin-right: 4px; }
 
 :global(.tip-gems) {
   display: flex; flex-direction: column; gap: 4px;
-  padding-top: 6px; border-top: 1px solid rgba(208, 220, 155, 0.12);
+  padding-top: 6px; border-top: 2px solid var(--px-ink);
 }
-:global(.tip-label) { color: #6f8377; font-size: 8px; letter-spacing: 0.14em; }
-:global(.tip-gem) { display: flex; gap: 6px; align-items: flex-start; font-size: 9px; color: #b9c7ae; }
-:global(.tip-gem b) { color: #e8eedd; font-weight: 500; }
+:global(.tip-label) { color: var(--px-muted); font-family: var(--px-font); font-size: 8px; }
+:global(.tip-gem) { display: flex; gap: 6px; align-items: flex-start; font-size: 12px; color: var(--px-soft); }
+:global(.tip-gem b) { color: var(--px-text); font-weight: 400; }
 :global(.tip-gem i) {
-  flex: none; width: 8px; height: 8px; margin-top: 3px;
-  border-radius: 50%; border: 1px solid rgba(208, 220, 155, 0.3);
+  flex: none; width: 9px; height: 9px; margin-top: 3px;
+  border: 1px solid var(--px-ink);
 }
-:global(.tip-gem.is-empty) { color: #6f8377; }
-
-.text {
-  flex: none;
-  min-height: 54px;
-  padding: 4px 5px;
-  border-radius: 3px;
-  background: rgba(8, 16, 13, 0.5);
-  color: #93a899;
-  font-size: 8.5px;
-  line-height: 1.38;
-}
+:global(.tip-gem.is-empty) { color: var(--px-muted); }
+:global(.tip-gem.is-empty i) { border-color: var(--px-rim); background: var(--px-ink); }
 </style>

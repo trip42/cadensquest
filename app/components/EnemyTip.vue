@@ -18,16 +18,17 @@ const store = useGameStore();
       {{ store.enemyTip.name }}
       <span class="hp">{{ store.enemyTip.hp }}/{{ store.enemyTip.maxHp }}</span>
     </p>
-    <p v-if="store.enemyTip.guardian" class="guard">GUARDIAN — the way on is shut until it falls</p>
+    <span class="bar"><i :style="{ width: `${(100 * store.enemyTip.hp) / store.enemyTip.maxHp}%` }" /></span>
+    <p v-if="store.enemyTip.guardian" class="guard">
+      <span class="px-tag is-red">GUARDIAN</span> The way on is shut until it falls.
+    </p>
     <p v-if="store.enemyTip.intent" class="intent">
-      <span class="label">NEXT</span>
-      {{ store.enemyTip.intent }}<span v-if="store.enemyTip.intentText"> — {{ store.enemyTip.intentText }}</span>
+      <span class="px-tag">NEXT</span>
+      {{ store.enemyTip.intent }}<span v-if="store.enemyTip.intentText">: {{ store.enemyTip.intentText }}</span>
     </p>
     <p class="drop">
-      <span class="label">DROPS</span>
-      <span class="pill" :style="{ color: store.enemyTip.rewardTint, borderColor: store.enemyTip.rewardTint }">
-        {{ store.enemyTip.reward }}
-      </span>
+      <span class="px-tag" :style="{ background: store.enemyTip.rewardTint }">DROPS</span>
+      {{ store.enemyTip.reward }}
     </p>
   </div>
 </template>
@@ -36,21 +37,28 @@ const store = useGameStore();
 .tip {
   position: fixed;
   transform: translate(-50%, calc(-100% - 26px));
-  min-width: 170px;
-  max-width: 250px;
-  padding: 8px 10px;
-  border-radius: 4px;
+  min-width: 190px;
+  max-width: 260px;
+  padding: 9px 11px;
   pointer-events: none;
   z-index: 25;
-  font-size: 10px;
-  line-height: 1.5;
+  font-size: 12px;
+  line-height: 1.35;
 }
 .tip p { margin: 0; }
-.name { color: #e8eedd; font-size: 11.5px; display: flex; justify-content: space-between; gap: 10px; }
-.hp { color: #d0644e; }
-.intent { margin-top: 4px; color: #b9c7ae; }
-.guard { margin-top: 3px; color: #e0785f; font-size: 9px; letter-spacing: 0.08em; }
-.drop { margin-top: 5px; display: flex; align-items: center; gap: 6px; }
-.label { color: #6f8377; letter-spacing: 0.1em; margin-right: 4px; }
-.pill { padding: 1px 6px; border: 1px solid; border-radius: 3px; font-size: 8.5px; letter-spacing: 0.1em; }
+.name {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 16px;
+}
+.hp { color: var(--px-red); }
+/* A plain fill rather than cells: a guardian's forty-odd points would not
+   fit as cells, and a bar reads the same at any maximum. */
+.bar { display: block; height: 7px; margin-top: 5px; padding: 1px; background: var(--px-ink); }
+.bar i { display: block; height: 100%; background: var(--px-red); }
+.intent { margin-top: 8px; color: var(--px-soft); }
+.guard { margin-top: 8px; color: var(--px-soft); }
+.drop { margin-top: 6px; color: var(--px-soft); }
+.px-tag.is-red { background: var(--px-red); color: var(--px-text); }
 </style>

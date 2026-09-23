@@ -64,6 +64,32 @@ export interface RendererHooks {
   onFrame?: (dt: number) => void;
 }
 
+/* The HUD's colours and faces, read from the CSS custom properties in
+   main.css so the chips drawn on the canvas match the panels drawn over it.
+   Read once, when the renderer starts; the fallbacks are the same values,
+   for a canvas made before the stylesheet has landed. */
+interface HudPalette {
+  ink: string; panel: string; text: string; muted: string;
+  red: string; yellow: string; green: string; blue: string;
+  font: string;
+}
+
+function readPalette(): HudPalette {
+  const css = getComputedStyle(document.documentElement);
+  const read = (name: string, fallback: string) => css.getPropertyValue(name).trim() || fallback;
+  return {
+    ink: read('--px-ink', '#0b0b17'),
+    panel: read('--px-panel', '#262b44'),
+    text: read('--px-text', '#f4f4f4'),
+    muted: read('--px-muted', '#8b9bb4'),
+    red: read('--px-red', '#e43b44'),
+    yellow: read('--px-yellow', '#feae34'),
+    green: read('--px-green', '#63c74d'),
+    blue: read('--px-blue', '#0099db'),
+    font: read('--px-font', "'Silkscreen', monospace"),
+  };
+}
+
 export class MapRenderer {
   private readonly canvas: HTMLCanvasElement;
   private readonly ctx: CanvasRenderingContext2D;
@@ -87,6 +113,7 @@ export class MapRenderer {
   /* Health and intent belong on top of the scene, not inside it: drawn in
      the depth pass they get painted over by whoever stands in front. */
   private overlay: Array<{ sx: number; top: number; entity: Entity }> = [];
+  private readonly palette: HudPalette = readPalette();
 
   constructor(canvas: HTMLCanvasElement, game: Game, hooks: RendererHooks = {}) {
     this.canvas = canvas;
@@ -356,9 +383,9 @@ export class MapRenderer {
     for (const { sx, top, entity } of this.overlay) {
       this.drawHealthBar(sx, top, entity);
       if (entity.faction !== 'enemy') continue;
-      if (entity.intent) this.drawIntent(sx, top - 14, entity.intent.label);
+      if (entity.intent) this.drawIntent(sx, top - 15, entity.intent.label);
       // What it is carrying, readable before you decide to fight it.
-      if (entity.reward) this.drawRewardPill(sx, top - (entity.intent ? 30 : 16), entity.reward);
+      if (entity.reward) this.drawRewardPill(sx, top - (entity.intent ? 32 : 16), entity.reward);
     }
   }
 
@@ -656,17 +683,24 @@ export class MapRenderer {
     return Math.max(0, height - 1) * LAYER_H;
   }
 
+  /* Chips are pixel-style like the HUD: a black outline, a flat fill, no
+     rounding. Everything is snapped to whole design units so the outline
+     stays one crisp line. */
   private drawHealthBar(sx: number, sy: number, entity: Entity): void {
     const ctx = this.ctx;
+    const { ink, green, red, blue } = this.palette;
     const w = 34;
     const h = 4;
-    ctx.fillStyle = 'rgba(12, 24, 20, 0.7)';
-    ctx.fillRect(sx - w / 2, sy, w, h);
-    ctx.fillStyle = entity.faction === 'player' ? '#a8d06a' : '#d0644e';
-    ctx.fillRect(sx - w / 2, sy, w * Math.max(0, entity.hp / entity.maxHp), h);
+    const x = Math.round(sx - w / 2);
+    const y = Math.round(sy);
+    const tall = entity.block > 0 ? h + 2 : h;
+    ctx.fillStyle = ink;
+    ctx.fillRect(x - 1, y - 1, w + 2, tall + 2);
+    ctx.fillStyle = entity.faction === 'player' ? green : red;
+    ctx.fillRect(x, y, Math.round(w * Math.max(0, entity.hp / entity.maxHp)), h);
     if (entity.block > 0) {
-      ctx.fillStyle = '#7fb4d6';
-      ctx.fillRect(sx - w / 2, sy + h, w * Math.min(1, entity.block / entity.maxHp), 2);
+      ctx.fillStyle = blue;
+      ctx.fillRect(x, y + h, Math.round(w * Math.min(1, entity.block / entity.maxHp)), 2);
     }
   }
 
@@ -684,37 +718,48 @@ export class MapRenderer {
 
   private drawRewardPill(sx: number, sy: number, reward: Reward): void {
     const ctx = this.ctx;
+    const { ink, yellow, green, font } = this.palette;
     const label = rewardLabel(reward);
     const tint = reward.kind === 'gem'
       ? gemDef(reward.gemId).colour
-      : reward.kind === 'talisman' ? '#e2b249' : '#a8d06a';
+      : reward.kind === 'talisman' ? yellow : green;
 
-    ctx.font = '8px "DM Mono", ui-monospace, monospace';
-    const width = ctx.measureText(label).width + 12;
+    ctx.font = `8px ${font}`;
+    const width = Math.ceil(ctx.measureText(label).width) + 8;
+    const x = Math.round(sx - width / 2);
+    const y = Math.round(sy - 10);
 
-    ctx.fillStyle = 'rgba(10, 20, 17, 0.85)';
-    ctx.fillRect(sx - width / 2, sy - 10, width, 12);
+    // A solid tag in the reward's colour, as in the enemy tip.
+    ctx.fillStyle = ink;
+    ctx.fillRect(x - 1, y - 1, width + 2, 14);
     ctx.fillStyle = tint;
-    ctx.fillRect(sx - width / 2, sy - 10, 3, 12);
+    ctx.fillRect(x, y, width, 12);
 
-    ctx.fillStyle = tint;
+    ctx.fillStyle = ink;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(label, sx + 1, sy - 4);
+    ctx.fillText(label, x + width / 2, y + 6);
     ctx.textAlign = 'start';
     ctx.textBaseline = 'alphabetic';
   }
 
   private drawIntent(sx: number, sy: number, label: string): void {
     const ctx = this.ctx;
-    ctx.font = '9px "DM Mono", ui-monospace, monospace';
-    const width = ctx.measureText(label).width + 10;
-    ctx.fillStyle = 'rgba(12, 24, 20, 0.78)';
-    ctx.fillRect(sx - width / 2, sy - 10, width, 13);
-    ctx.fillStyle = '#e7d69a';
+    const { ink, panel, text, font } = this.palette;
+    ctx.font = `8px ${font}`;
+    const upper = label.toUpperCase();
+    const width = Math.ceil(ctx.measureText(upper).width) + 10;
+    const x = Math.round(sx - width / 2);
+    const y = Math.round(sy - 10);
+
+    ctx.fillStyle = ink;
+    ctx.fillRect(x - 1, y - 1, width + 2, 16);
+    ctx.fillStyle = panel;
+    ctx.fillRect(x, y, width, 14);
+    ctx.fillStyle = text;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(label, sx, sy - 3);
+    ctx.fillText(upper, x + width / 2, y + 7);
     ctx.textAlign = 'start';
     ctx.textBaseline = 'alphabetic';
   }

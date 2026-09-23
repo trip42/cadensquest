@@ -1,5 +1,32 @@
+/* The HUD's look: pixel arcade, to sit with the pixel-art sprites. Hard
+   edges, no blur, no rounding, a drop shadow that is an offset block rather
+   than a glow. Every colour and face the components use is one of these, so
+   restyling the HUD is a change here rather than a hunt through them. */
 :root {
   color-scheme: dark;
+
+  --px-ink: #0b0b17;       /* outlines, shadows, the dark of a bar */
+  --px-bg: #1a1c2c;        /* wells: card art, text boxes */
+  --px-panel: #262b44;     /* panel faces */
+  --px-rim: #5a6988;       /* the inner bevel line */
+  --px-text: #f4f4f4;
+  --px-soft: #c0cbdc;
+  --px-muted: #8b9bb4;
+
+  --px-red: #e43b44;       /* health, harm */
+  --px-yellow: #feae34;    /* energy, cost, treasure */
+  --px-cyan: #2ce8f5;      /* movement */
+  --px-cyan-deep: #1ba3b0;
+  --px-cyan-light: #a5f6fb;
+  --px-green: #63c74d;     /* go: the phase, a card drop */
+  --px-blue: #0099db;      /* block */
+
+  /* One face for the whole HUD, always in capitals. Silkscreen is drawn
+     on a 4px pixel grid, so it is only sharp at multiples of 4px — every
+     font-size in the HUD is 8, 12, 16, 20, 24 or 48. Anything between
+     (9, 10, 13...) smears its pixels and its 2, 3 and 8 start to look
+     alike, which is what made the first version hard to read. */
+  --px-font: 'Silkscreen', ui-monospace, monospace;
 }
 
 * { box-sizing: border-box; }
@@ -14,20 +41,70 @@ body {
   margin: 0;
   overflow: hidden;
   background: #12261f;
-  color: #c9d3bd;
-  font-family: 'DM Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 13px;
+  color: var(--px-text);
+  font-family: var(--px-font);
+  font-size: 12px;
+  line-height: 1.35;
+  text-transform: uppercase;
   overscroll-behavior: none;
 }
 
 button:focus-visible,
-canvas:focus-visible { outline: 2px solid #f0c86a; outline-offset: 2px; }
+canvas:focus-visible { outline: 3px solid var(--px-yellow); outline-offset: 2px; }
 
-/* Shared treatment for anything laid over the map: dark enough to read
-   against grass, water or stone without hiding what is under it. */
+/* Shared treatment for anything laid over the map: a solid face, a black
+   outline, a one-pixel bevel inside it and a hard shadow down-right. */
 .panel {
-  background: rgba(14, 30, 25, 0.72);
-  border: 1px solid rgba(208, 220, 155, 0.16);
-  backdrop-filter: blur(7px);
-  -webkit-backdrop-filter: blur(7px);
+  background: var(--px-panel);
+  color: var(--px-text);
+  border: 3px solid var(--px-ink);
+  box-shadow: inset 0 0 0 2px var(--px-rim), 4px 4px 0 var(--px-ink);
+}
+
+/* A chunky arcade button. Colour comes from --btn / --btn-dark /
+   --btn-light, so one rule serves every button that wants the look. */
+.px-button {
+  --btn: var(--px-cyan);
+  --btn-dark: var(--px-cyan-deep);
+  --btn-light: var(--px-cyan-light);
+  padding: 10px 16px;
+  border: 3px solid var(--px-ink);
+  background: var(--btn);
+  color: var(--px-ink);
+  box-shadow: inset -4px -4px 0 var(--btn-dark), inset 4px 4px 0 var(--btn-light), 4px 4px 0 var(--px-ink);
+  font-family: var(--px-font);
+  font-size: 12px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.px-button:hover:not(:disabled) { filter: brightness(1.1); }
+.px-button:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: inset -4px -4px 0 var(--btn-dark), inset 4px 4px 0 var(--btn-light), 2px 2px 0 var(--px-ink);
+}
+.px-button:disabled {
+  --btn: var(--px-panel);
+  --btn-dark: var(--px-ink);
+  --btn-light: var(--px-rim);
+  color: var(--px-muted);
+  cursor: default;
+}
+.px-button.is-yellow { --btn: var(--px-yellow); --btn-dark: #c47c1b; --btn-light: #ffd48a; }
+.px-button.is-green { --btn: var(--px-green); --btn-dark: #3e8948; --btn-light: #a4e38f; }
+.px-button.is-quiet {
+  --btn: var(--px-panel);
+  --btn-dark: var(--px-ink);
+  --btn-light: var(--px-rim);
+  color: var(--px-soft);
+}
+
+/* A small solid label: NEXT, DROPS, GUARDIAN. */
+.px-tag {
+  display: inline-block;
+  padding: 1px 4px;
+  background: var(--px-yellow);
+  color: var(--px-ink);
+  font-family: var(--px-font);
+  font-size: 12px;
+  line-height: 1.3;
 }

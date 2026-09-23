@@ -97,7 +97,7 @@ block, power and attack, in whatever mix suits it — and draws one per turn,
 reshuffling when the deck runs out.
 
 While you still hold cards the button at bottom right offers to trade the
-lot in at once — *DISCARD ALL FOR n MOVE*. It only becomes *END PHASE* once
+lot in at once — *DISCARD ALL: +n MOVE*. It only becomes *END PHASE* once
 your hand is empty, because until then there is always something left to
 spend.
 
@@ -233,19 +233,17 @@ function that has heard of pixels.
 
 ## The hand
 
-Cards are portrait rectangles held in a shallow arch: each one pivots about
-a point below itself, so the outer cards lean out while the middle ones rise
-off the baseline. Name and energy cost across the top, artwork in the
-middle, rules text along the bottom.
+Cards are portrait rectangles held in a flat row, alternate ones stepped up
+a few pixels so each edge reads against its neighbour — pixel frames do not
+rotate cleanly, so there is no fan. Name and energy cost across the top,
+artwork in the middle, rules text along the bottom.
 
 `--art-h` in `HandBar.vue` is the one number that sets the shape — the rest
 of the card is fixed, so the art window's height decides the card's. At
-75px it lands on 126x176, the proportions of a real trading card. The fan's
-tilt is capped by `MAX_ANGLE`, so a hand of nine sits as tidily above the
-bottom edge as a hand of three.
+75px it lands on 126x176, the proportions of a real trading card.
 
-The frame colour is the card's rarity — black for normal, blue for rare,
-gold for mythic — so `rarity` is a field on `CardDefinition` alongside cost
+The frame colour is the card's rarity — grey for starter, pale for normal,
+cyan for rare, yellow for mythic — so `rarity` is a field on `CardDefinition` alongside cost
 and text, not something the UI decides.
 
 At rest the cards overlap by `--overlap`, which hides part of the one
@@ -259,9 +257,13 @@ down, and movement comes back.
 
 Drawing a card deals it in from off the bottom of the screen, aimed at the
 middle, staggered so a fresh hand arrives one card at a time. That lives on
-a slot element wrapping each card rather than the card itself: the arch is a
-transform, the deal is a transform, and `TransitionGroup` would fight the
-arch for the property if they shared an element.
+a slot element wrapping each card rather than the card itself: the stagger
+is a transform, the deal is a transform, and `TransitionGroup` would fight
+the stagger for the property if they shared an element.
+
+The whole HUD is styled pixel arcade — colours and fonts are `--px-*`
+variables in `app/assets/css/main.css`, and the canvas chips read the same
+variables. See CLAUDE.md, *HUD style*.
 
 Artwork is a stroked glyph per card for now, keyed by the card's `art`
 field, so real images replace one map in `HandBar.vue`.

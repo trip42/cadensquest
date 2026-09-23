@@ -325,10 +325,10 @@ export const useGameStore = defineStore('game', () => {
       reward: foe.reward ? rewardLabel(foe.reward) : 'NOTHING',
       guardian: !!def.guardian,
       rewardTint: !foe.reward
-        ? '#7e938a'
+        ? 'var(--px-muted)'
         : foe.reward.kind === 'gem'
           ? gemDef(foe.reward.gemId).colour
-          : foe.reward.kind === 'talisman' ? '#e2b249' : '#a8d06a',
+          : foe.reward.kind === 'talisman' ? 'var(--px-yellow)' : 'var(--px-green)',
       x: Math.round(point.x),
       y: Math.round(point.y),
     };

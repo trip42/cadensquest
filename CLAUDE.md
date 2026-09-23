@@ -160,7 +160,7 @@ enemy phase.
 
 **The one button at bottom right has two modes**, and which one shows is
 decided purely by whether the hand is empty. With cards in it, there is
-always something left to spend, so it reads *DISCARD ALL FOR n MOVE* and
+always something left to spend, so it reads *DISCARD ALL: +n MOVE* and
 trades the whole hand in (`discardAllForMovement`, worth exactly the same
 as discarding each card by hand — a test pins that). Only an empty hand
 offers *END PHASE*.
@@ -344,12 +344,15 @@ is worth, art, gem sockets, rules text. The hand, the spoils screen and the
 gem screen all use it, so a card looks the same wherever it appears — they
 drifted apart once already, which is why it exists.
 
-It knows nothing about being *held*. The arch, the lift, the spread, the
+It knows nothing about being *held*. The stagger, the lift, the spread, the
 deal animation and the discard offer belong to `HandBar`, which positions
 it; `HandBar`'s `.card` rule carries transform, cursor and opacity only, and
 nothing about the card's own face. Size comes from `--card-w` and `--art-h`
-on whatever contains it, so the same component reads at hand size (126px)
-and in the gem grid (104px).
+on whatever contains it, and `--card-scale` grows its text and badges to
+match, so the same component reads at hand size (158px, scale 1.25) and in
+the gem grid (104px, scale 1). The hand's overlap is a minimum: past
+`--hand-max` (860px) it tightens, so a big hand never runs into the log or
+the buttons.
 
 Its root is a `<button>`, so listeners, `disabled` and `title` fall through
 from whichever screen is using it.
@@ -395,6 +398,39 @@ Verifying delivery: **PostHog silently drops events from headless Chrome**
 upload URLs with `Network.setBlockedURLs` so a test run doesn't land in the
 real project.
 
+## HUD style
+
+The HUD is **pixel arcade**, to sit with the pixel-art sprites: hard
+3px outlines, a one-pixel bevel, an offset block shadow, no blur, no
+rounding, no gradients. Every colour and face is a `--px-*` custom property
+in `assets/css/main.css`; components use those, never a hex. Shared pieces
+live there too: `.panel`, `.px-button` (coloured by `--btn`,
+`--btn-dark`, `--btn-light`, with `is-yellow`/`is-green`/`is-quiet`) and
+`.px-tag`.
+
+Fonts are self-hosted through `@fontsource` (registered in
+`nuxt.config.ts`). **DotGothic16** (`--px-body`) carries everything that is
+read — rules text, names, the log, buttons — and **every number**: HP,
+energy, costs, counts, the canvas chips. **Silkscreen** (`--px-display`) is
+only for big titles (SPOILS, GAME OVER) and short tags with no digits in
+them (NEXT, DROPS, the phase). Pixelify Sans was tried first and dropped:
+its 2, 3 and 8 read alike ("Draw 2" looked like "Draw 8") and its e closes
+up; Silkscreen's digits have the same problem, which is why numbers never
+use it. Ten pixel faces were compared on real game text before choosing.
+
+The canvas chips (intent labels, reward tags, health bars) are drawn by the
+renderer, which reads the same custom properties once at start
+(`readPalette`), so the map and the panels over it agree. Restyle by
+changing the variables, not the drawing code.
+
+The hand is a flat row with a small alternating stagger, not a fan:
+pixel frames do not rotate cleanly. Because each card covers the right
+edge of the one before it, anything a card must show while held (cost,
+the discard value) sits on its left.
+
+The design was chosen from mockups on a design canvas; the two runners-up
+there (Storybook, Tidepool) were never built.
+
 ## Store bridge
 
 `app/stores/game.ts` holds the raw `Game` object as a plain closure
@@ -427,14 +463,11 @@ silently skipping the deal animation.
   makes the zone work. Verify changes here by creeping a synthetic pointer
   along the path and sampling the lift; it must not dip.
 - **`TransitionGroup` and CSS transforms fight.** The deal animation lives
-  on a slot element *wrapping* each card; the arch transform lives on the
+  on a slot element *wrapping* each card; the stagger transform lives on the
   card. They would clobber each other on one element.
 - **`window.__game`** is exposed in dev (`MapStage.vue`) with `store`,
   `renderer`, `game`, `makeEntity`, `entityDef`. Drive it over CDP to verify
   behaviour in a real browser rather than guessing.
-- **`'DM Mono'` is referenced in CSS but never loaded.** Everything renders
-  in the system monospace fallback. Left deliberately; decide before
-  treating the current metrics as final.
 - **When patching files with a script, assert your search string matched.**
   Two template edits silently no-op'd because indentation had shifted.
 - **Enemy cards and player cards are separate tables.** Enemy cards live

@@ -1,10 +1,10 @@
 <script setup lang="ts">
 /* The hand.
 
-   Cards are fanned in a shallow arch: each pivots about a point below
-   itself, so the outer ones lean out while the middle rise off the
-   baseline. Hovering lifts a card clear and offers to spend it as movement
-   instead of playing it.
+   Cards sit in a flat row, stepping a few pixels up and down so each
+   edge reads against its neighbour — pixel frames do not rotate cleanly,
+   so there is no fan. Hovering lifts a card clear and offers to spend it
+   as movement instead of playing it.
 
    The card itself is <GameCard>; everything here is about *holding* cards —
    the arch, the lift, the spread, the deal, and the discard offer that
@@ -21,19 +21,12 @@ const ghost = ref({ x: 0, y: 0 });
 
 const cards = computed(() => store.view?.hand ?? []);
 
-/** How far the fan spreads. Small on purpose: a slight arch, not a peacock. */
-const ANGLE_STEP = 3.2;
-/** Cap on the outermost card's tilt. Without it a big hand fans wider and
- *  wider, and the rotated bottom corners start hanging off the screen. */
-const MAX_ANGLE = 10;
-/** Curve of the arch, per card away from the middle. The outer cards rest
- *  on the baseline and the middle ones rise off it — rather than the edges
- *  hanging below, which would push the whole hand up the screen. */
-const LIFT_STEP = 3.2;
+/** How far alternate cards step up out of the row. */
+const STAGGER = 6;
 /** Horizontal pitch between cards — card width less the overlap. */
-const PITCH = 96;
+const PITCH = 138;
 /** How far the rest of the hand steps aside for a hovered card. */
-const SPREAD = 38;
+const SPREAD = 46;
 
 function slotVars(index: number): Record<string, string> {
   const middle = (cards.value.length - 1) / 2;
@@ -42,10 +35,10 @@ function slotVars(index: number): Record<string, string> {
   // opens a gap wide enough to read the whole card being pointed at.
   const focus = hovered.value;
   const shift = focus === null || focus === index ? 0 : (index < focus ? -SPREAD : SPREAD);
-  const step = middle > 0 ? Math.min(ANGLE_STEP, MAX_ANGLE / middle) : 0;
-  const lift = (middle * middle - offset * offset) * LIFT_STEP;
+  // Counted from the middle, so the centre card is always one of the
+  // raised ones whatever the hand size.
+  const lift = Math.round(Math.abs(offset)) % 2 === 0 ? STAGGER : 0;
   return {
-    '--angle': `${offset * step}deg`,
     '--drop': `${-lift}px`,
     '--shift': `${shift}px`,
     // New cards fly in from the bottom centre of the screen, so each one
@@ -54,6 +47,14 @@ function slotVars(index: number): Record<string, string> {
     '--index': String(index),
   };
 }
+
+/* The overlap tightens once the hand would outgrow --hand-max, so a big
+   hand never runs into the log or the buttons either side. CSS does the
+   arithmetic, since it knows the card width at each breakpoint. */
+const handVars = computed(() => ({
+  '--count': String(cards.value.length),
+  '--gaps': String(Math.max(1, cards.value.length - 1)),
+}));
 
 /* ------------------------------ dragging ------------------------------- */
 
@@ -90,7 +91,7 @@ function onPointerUp(event: PointerEvent): void {
   <!-- One root element, so the class the page puts on <HandBar> lands
        somewhere: a fragment root cannot inherit it. -->
   <div class="hand-wrap">
-    <TransitionGroup tag="div" name="deal" class="hand">
+    <TransitionGroup tag="div" name="deal" class="hand" :style="handVars">
       <div
         v-for="(card, index) in cards"
         :key="card.uid"
@@ -145,27 +146,31 @@ function onPointerUp(event: PointerEvent): void {
 .hand-wrap { position: relative; }
 
 .hand {
-  --card-w: 126px;
-  /* The art window sets the card's height: everything else is fixed, so
+  /* A quarter bigger than the card's base size (126 x 75 art), text and
+     all — the hand is where cards are actually read. */
+  --card-scale: 1.25;
+  --card-w: 158px;
+  /* The art window sets the card's height: everything else scales, so
      this is the one number to turn for a taller or shorter card. */
-  --art-h: 75px;
-  /* How much of a card its neighbour covers at rest. */
-  --overlap: 30px;
+  --art-h: 94px;
+  /* How much of a card its neighbour covers at rest — at least. */
+  --overlap: 20px;
+  /* The widest the hand may be before cards start to overlap more. */
+  --hand-max: 860px;
   position: relative;
   pointer-events: auto;
   display: flex;
   justify-content: center;
   align-items: flex-end;
-  /* Room above for a card to lift on hover. Little is needed below: the
-     arch rises from the baseline, so only the rotated corners hang over. */
-  padding: 30px 0 12px;
+  /* Room above for a card to lift on hover, and below for its shadow. */
+  padding: 30px 0 10px;
 }
 
-/* The slot carries dealing and reflow; the card inside carries the arch. */
+/* The slot carries dealing and reflow; the card inside carries the stagger. */
 .slot {
   position: relative;
   width: var(--card-w);
-  margin: 0 calc(var(--overlap) / -2);
+  margin: 0 calc(max(var(--overlap), (var(--count) * var(--card-w) - var(--hand-max)) / var(--gaps)) / -2);
 }
 .slot.is-focused { z-index: 10; }
 
@@ -189,10 +194,8 @@ function onPointerUp(event: PointerEvent): void {
   z-index: 1;
   cursor: not-allowed;
   opacity: 0.45;
-  /* Pivot below the card, the way a fanned hand turns about the wrist. */
-  transform-origin: 50% 165%;
-  transform: translate(var(--shift, 0px), var(--drop)) rotate(var(--angle));
-  transition: transform 0.26s cubic-bezier(0.22, 0.9, 0.3, 1), opacity 0.16s, filter 0.16s;
+  transform: translate(var(--shift, 0px), var(--drop));
+  transition: transform 0.2s cubic-bezier(0.22, 0.9, 0.3, 1), opacity 0.16s, filter 0.16s;
   will-change: transform;
 }
 .card.is-playable { opacity: 1; cursor: grab; }
@@ -204,11 +207,11 @@ function onPointerUp(event: PointerEvent): void {
 .slot.is-focused .card,
 .card.is-selected {
   /* Lifted far enough to clear the discard button underneath it. */
-  transform: translate(var(--shift, 0px), calc(var(--drop) - 46px)) rotate(var(--angle)) scale(1.05);
+  transform: translate(var(--shift, 0px), calc(var(--drop) - 46px));
   opacity: 1;
   z-index: 5;
 }
-.card.is-selected { filter: drop-shadow(0 0 7px rgba(240, 200, 106, 0.55)); }
+.card.is-selected { outline: 3px solid var(--px-yellow); outline-offset: 2px; }
 .card.is-dragging { opacity: 0.4; }
 
 .discard {
@@ -216,28 +219,28 @@ function onPointerUp(event: PointerEvent): void {
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
-  padding: 5px 9px;
+  padding: 4px 8px;
   white-space: nowrap;
-  border: 1px solid rgba(118, 199, 232, 0.5);
-  border-radius: 4px;
-  background: rgba(10, 30, 40, 0.94);
-  color: #a9dcf2;
-  font: inherit;
-  font-size: 9px;
-  letter-spacing: 0.06em;
+  border: 3px solid var(--px-ink);
+  background: var(--px-panel);
+  box-shadow: 3px 3px 0 var(--px-ink);
+  color: var(--px-cyan);
+  font-family: var(--px-font);
+  font-size: 12px;
   cursor: pointer;
   z-index: 11;
 }
-.discard:hover { background: #76c7e8; color: #08242f; border-color: #76c7e8; }
+.discard:hover { background: var(--px-cyan); color: var(--px-ink); }
 
 .ghost {
   position: fixed;
   transform: translate(-50%, -50%);
   padding: 3px 8px;
-  color: #16302b;
-  background: #f0c86a;
-  font-size: 9px;
-  letter-spacing: 0.14em;
+  border: 2px solid var(--px-ink);
+  color: var(--px-ink);
+  background: var(--px-yellow);
+  font-family: var(--px-font);
+  font-size: 12px;
   pointer-events: none;
   z-index: 40;
 }
@@ -272,6 +275,6 @@ function onPointerUp(event: PointerEvent): void {
 }
 
 @media (max-width: 860px) {
-  .hand { --card-w: 100px; --art-h: 58px; --overlap: 22px; }
+  .hand { --card-scale: 1; --card-w: 100px; --art-h: 58px; --overlap: 22px; --hand-max: calc(100vw - 24px); }
 }
 </style>

@@ -69,10 +69,10 @@ function skip(): void {
       </div>
 
       <footer class="actions">
-        <button class="ghost" type="button" @click="skip()">SKIP</button>
+        <button class="px-button is-quiet" type="button" @click="skip()">SKIP</button>
         <span v-if="pickedCard" class="pair">
-          <button class="ghost" type="button" @click="picked = null">BACK</button>
-          <button class="take" type="button" @click="confirm()">TAKE {{ pickedCard.def.name.toUpperCase() }}</button>
+          <button class="px-button is-quiet" type="button" @click="picked = null">BACK</button>
+          <button class="px-button is-green" type="button" @click="confirm()">TAKE {{ pickedCard.def.name.toUpperCase() }}</button>
         </span>
         <span v-else class="prompt">Choose a card</span>
       </footer>
@@ -103,10 +103,10 @@ function skip(): void {
       </div>
 
       <footer class="actions">
-        <button class="ghost" type="button" @click="skip()">SKIP</button>
+        <button class="px-button is-quiet" type="button" @click="skip()">SKIP</button>
         <span v-if="pickedCard" class="pair">
-          <button class="ghost" type="button" @click="picked = null">BACK</button>
-          <button class="take" type="button" @click="confirm()">
+          <button class="px-button is-quiet" type="button" @click="picked = null">BACK</button>
+          <button class="px-button is-green" type="button" @click="confirm()">
             SET INTO {{ pickedCard.def.name.toUpperCase() }}
           </button>
         </span>
@@ -136,7 +136,7 @@ function skip(): void {
           </ul>
         </div>
       </div>
-      <button class="take-relic" type="button" @click="store.takeTalisman()">TAKE IT</button>
+      <button class="take-relic px-button is-yellow" type="button" @click="store.takeTalisman()">TAKE IT</button>
     </section>
   </div>
 </template>
@@ -148,15 +148,27 @@ function skip(): void {
   display: grid;
   place-items: center;
   padding: 24px;
-  background: rgba(8, 18, 15, 0.82);
+  background: rgba(11, 11, 23, 0.82);
   z-index: 50;
 }
-.sheet { width: min(640px, 100%); padding: 20px; border-radius: 8px; }
-.sheet.wide { width: min(860px, 100%); }
-header { margin-bottom: 16px; text-align: center; }
-h2 { margin: 0; color: #e8eedd; font-size: 17px; font-weight: 500; letter-spacing: 0.02em; display: flex; align-items: center; justify-content: center; gap: 8px; }
-header p { margin: 6px 0 0; color: #8ea393; font-size: 10.5px; }
-.bead { width: 12px; height: 12px; border-radius: 50%; }
+.sheet { width: min(660px, 100%); padding: 20px 22px 22px; }
+.sheet.wide { width: min(880px, 100%); }
+header { margin-bottom: 18px; text-align: center; }
+h2 {
+  margin: 0;
+  color: var(--px-yellow);
+  font-family: var(--px-font);
+  font-size: 24px;
+  font-weight: 400;
+  text-transform: uppercase;
+  text-shadow: 3px 3px 0 var(--px-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+header p { margin: 8px 0 0; color: var(--px-soft); font-size: 12px; }
+.bead { width: 14px; height: 14px; border: 2px solid var(--px-ink); }
 
 /* ------------------------------ card offer ----------------------------- */
 
@@ -165,11 +177,11 @@ header p { margin: 6px 0 0; color: #8ea393; font-size: 10.5px; }
   --card-w: 136px;
   --art-h: 84px;
   display: flex;
-  gap: 12px;
+  gap: 16px;
   justify-content: center;
   flex-wrap: wrap;
 }
-.pick { cursor: pointer; transition: transform 0.14s ease; }
+.pick { cursor: pointer; transition: transform 0.12s steps(3); }
 .pick:hover { transform: translateY(-6px); }
 
 /* ------------------------------ gem grid ------------------------------- */
@@ -178,14 +190,15 @@ header p { margin: 6px 0 0; color: #8ea393; font-size: 10.5px; }
   --card-w: 104px;
   --art-h: 52px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
   justify-items: center;
-  gap: 10px;
+  gap: 14px 10px;
   max-height: 52vh;
   overflow-y: auto;
-  padding: 2px;
+  /* Room for the cards' hard shadows and the chosen outline. */
+  padding: 6px 8px 10px 4px;
 }
-.target { cursor: pointer; transition: transform 0.12s ease, opacity 0.12s; }
+.target { cursor: pointer; transition: transform 0.12s steps(3), opacity 0.12s; }
 .target:hover:not(:disabled) { transform: translateY(-4px); }
 .target.is-full { opacity: 0.35; cursor: not-allowed; }
 
@@ -195,7 +208,8 @@ header p { margin: 6px 0 0; color: #8ea393; font-size: 10.5px; }
 .pick.is-chosen,
 .target.is-chosen {
   transform: translateY(-8px);
-  filter: drop-shadow(0 0 9px rgba(240, 200, 106, 0.6));
+  outline: 3px solid var(--px-yellow);
+  outline-offset: 2px;
 }
 
 .actions {
@@ -203,49 +217,27 @@ header p { margin: 6px 0 0; color: #8ea393; font-size: 10.5px; }
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 18px;
-  padding-top: 14px;
-  border-top: 1px solid rgba(208, 220, 155, 0.12);
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 3px solid var(--px-ink);
 }
-.pair { display: flex; align-items: center; gap: 8px; }
-.prompt { color: #6f8377; font-size: 10px; letter-spacing: 0.06em; }
-
-.ghost {
-  padding: 9px 16px;
-  border: 1px solid rgba(208, 220, 155, 0.28);
-  border-radius: 4px;
-  background: transparent;
-  color: #8ea393;
-  font: inherit;
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  cursor: pointer;
-  transition: border-color 0.12s, color 0.12s;
-}
-.ghost:hover { border-color: rgba(208, 220, 155, 0.6); color: #d7e0c9; }
-
-.take {
-  padding: 9px 18px;
-  /* Same 1px as the ghost buttons beside it, so all three are one height. */
-  border: 1px solid transparent;
-  border-radius: 4px;
-  background: #d0dc9b;
-  color: #16302b;
-  font: inherit;
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  cursor: pointer;
-}
-.take:hover { background: #e2edb0; }
+.pair { display: flex; align-items: center; gap: 12px; }
+.prompt { color: var(--px-muted); font-size: 12px; }
 
 /* ------------------------------ talisman ------------------------------- */
-.relic { display: flex; gap: 14px; align-items: flex-start; }
-.relic-icon { flex: none; width: 56px; height: 56px; display: grid; place-items: center; border: 1px solid rgba(226, 178, 73, 0.4); border-radius: 6px; }
-.relic-icon svg { width: 30px; fill: none; stroke: #e2b249; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-.relic-text { margin: 0; color: #d7e0c9; font-size: 12px; }
-.effects { margin: 8px 0 0; padding-left: 16px; color: #8ea393; font-size: 10px; line-height: 1.6; }
-/* Its own class: sharing `.take` with the footer buttons pushed them down
-   18px and turned them gold. */
-.take-relic { display: block; margin: 18px auto 0; padding: 10px 22px; border: 0; border-radius: 4px; background: #e2b249; color: #23180a; font: inherit; font-size: 11px; letter-spacing: 0.14em; cursor: pointer; }
-.take-relic:hover { background: #f0c86a; }
+.relic { display: flex; gap: 16px; align-items: flex-start; }
+.relic-icon {
+  flex: none;
+  width: 60px;
+  height: 60px;
+  display: grid;
+  place-items: center;
+  background: var(--px-bg);
+  border: 3px solid var(--px-ink);
+  box-shadow: inset 0 0 0 2px var(--px-yellow);
+}
+.relic-icon svg { width: 30px; fill: none; stroke: var(--px-yellow); stroke-width: 2; stroke-linecap: square; stroke-linejoin: miter; }
+.relic-text { margin: 0; color: var(--px-text); font-size: 16px; }
+.effects { margin: 8px 0 0; padding-left: 16px; color: var(--px-soft); font-size: 12px; line-height: 1.4; }
+.take-relic { display: block; margin: 20px auto 0; }
 </style>

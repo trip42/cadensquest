@@ -41,41 +41,39 @@ const open = ref<number | null>(null);
 <style scoped>
 .rail {
   position: absolute;
-  top: 58px;
+  top: 64px;
   left: 12px;
   bottom: 12px;
   display: flex;
   flex-direction: column;
   flex-wrap: wrap;
   align-content: flex-start;
-  gap: 8px;
+  gap: 10px;
   pointer-events: none;
 }
 .slot { position: relative; pointer-events: auto; }
 .box {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   display: grid;
   place-items: center;
-  border-radius: 5px;
   cursor: help;
 }
-.box svg { width: 20px; height: 20px; fill: none; stroke: #e2b249; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-.slot:hover .box { border-color: #e2b249; }
+.box svg { width: 20px; height: 20px; fill: none; stroke: var(--px-yellow); stroke-width: 2; stroke-linecap: square; stroke-linejoin: miter; }
+.slot:hover .box { box-shadow: inset 0 0 0 2px var(--px-yellow), 4px 4px 0 var(--px-ink); }
 
 .detail {
   position: absolute;
-  left: calc(100% + 8px);
+  left: calc(100% + 10px);
   top: 0;
-  width: 200px;
+  width: 220px;
   padding: 8px 10px;
-  border-radius: 4px;
-  font-size: 10px;
-  line-height: 1.5;
+  font-size: 12px;
+  line-height: 1.25;
   z-index: 20;
 }
 .detail p { margin: 0; }
-.name { color: #e2b249; font-size: 11px; }
-.text { margin-top: 3px !important; color: #b9c7ae; }
-.effects { margin: 5px 0 0; padding-left: 14px; color: #8ea393; }
+.name { color: var(--px-yellow); font-size: 16px; }
+.text { margin-top: 4px !important; color: var(--px-text); }
+.effects { margin: 6px 0 0; padding-left: 14px; color: var(--px-soft); }
 </style>

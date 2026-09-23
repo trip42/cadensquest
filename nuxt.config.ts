@@ -4,7 +4,11 @@ export default defineNuxtConfig({
   // and map endpoints under server/api.
   ssr: false,
   modules: ['@pinia/nuxt'],
-  css: ['~/assets/css/main.css'],
+  // Self-hosted pixel face: Silkscreen, for everything, in capitals.
+  css: [
+    '@fontsource/silkscreen/400.css',
+    '~/assets/css/main.css',
+  ],
   devtools: { enabled: false },
   compatibilityDate: '2025-07-15',
   typescript: { strict: true },
