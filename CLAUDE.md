@@ -14,14 +14,17 @@ Nuxt 4 + Vue 3 + Pinia + TypeScript. Client-only (`ssr: false`). Vitest for
 tests, which run headless with no browser.
 
 ```bash
-npm run dev          # http://localhost:3000
-npm test           # map invariants, turn loop, RNG, cards, entities, rewards
+npm run dev          # http://localhost:3000, and the content editor at /editor
+npm test             # vitest: map invariants, rules, content, every effect
 npm run typecheck    # vue-tsc --build across app, server and tests
 npm run build
 ```
 
 `?seed=90210` on the URL replays a run exactly. Use it when reproducing
-anything — the whole world comes from that number.
+anything — the whole world comes from that number (and from the content
+files, which are the other half of a run). `?try=card:fire` (or `enemy:`,
+`enemy-card:`, `gem:`, `talisman:`) starts a run with one thing arranged up
+front — the editor's "Try it", and the quickest way to test anything.
 
 ## Commits: always leave a state you can roll back to
 
@@ -51,6 +54,15 @@ points and any one of them can be returned to.
 - **Commit on the current branch. Never push, rebase, amend or force** unless
   asked.
 
+**When a file holds both your change and the user's uncommitted one** (they
+edit content in the editor while you work), commit only yours without
+touching theirs: build the file as HEAD plus your change, then
+`git hash-object -w <that file>` and
+`git update-index --cacheinfo 100644,<sha>,<path>` to stage it. Then prove
+the *staged* tree is valid, not just the working one:
+`git checkout-index -a --prefix=<scratch>/`, symlink `node_modules` and
+`.nuxt` into it, and run `npx vitest run` there.
+
 To roll back: `git log --oneline` to find the point, then `git revert <sha>` to
 undo one commit while keeping later ones, or `git switch -c <name> <sha>` to
 look at or continue from an older state.
@@ -74,36 +86,51 @@ If you find yourself wanting `document` or an `import … from '*.png'` inside
 ## Layout
 
 ```
-app/game/          the simulation — no Vue, no DOM
-  rng.ts             seeded, serialisable randomness (mulberry32)
-  state.ts           GameState, createGame, entity/card lookups
-  actions.ts         the turn loop and every rule that mutates state
+app/game/            the simulation — no Vue, no DOM (see the rule above)
+  rng.ts               seeded, serialisable randomness (mulberry32)
+  state.ts             GameState, createGame, makeEntity, lookups (player,
+                       enemies, allies, entityAt), terrain/summon state
+  actions.ts           the turn loop and every rule that mutates state:
+                       resolveEffect, the enemy/ally step, terrain, summoning,
+                       taming, targeting (isValidTarget), movement, rewards
+  effects.ts           the effect vocabulary: shapes, verbs (EFFECT_INFO),
+                       amounts, describe*/nowText/previewAmounts
+  stats.ts             BASE_STATS, stat modifiers, STAT_NAMES
+  cards/               registries CARDS (player) and INTENTS (enemy cards),
+                       types (Cost, Targeting, Rarity), energySpent
+  entities/            the player's definition, the ENTITIES registry, clips
+  gems.ts talismans.ts rewards.ts   registries and reward rolling
+  telemetry.ts         GameEvent, record(), the run tally
+  sandbox.ts           trials: a run with one thing arranged (?try=)
+  content/             schema.ts (zod), validate.ts, install.ts
   map/
-    tiles.ts         tile letters, zones, palettes, ZONE_ROWS
-    generate.ts      seeded chunk generator — the braid invariants live here
-    world.ts         chunk cache; stackAt() is the single read path
-    audit.ts         invariant checks, used by tests
-    navigation.ts    walkability, reachable(), A* findPath()
-  telemetry.ts       GameEvent, record(), the run tally
-  content/           schema, validator and installer for content/*.json
-  sandbox.ts         "Try it": a run with one thing arranged up front
-  cards/             card registries + types; rarity and movement values
-  entities/          the player's definition, the enemy registry, clips
-app/render/        canvas renderer — DOM, still no Vue
-  iso.ts             projection, design units, DESIGN_W/H, ZOOM, FOCUS_Y
-  sprites.ts         sheet registry, frame lookup, placeholder art
-  renderer.ts        the frame loop, depth order, highlights, entity drawing
-app/stores/game.ts bridge: raw game in, view snapshot out
-app/components/    MapStage (canvas), GameCard, HandBar, RewardModal,
-                   TalismanRail, EnemyTip
-app/pages/index.vue the screen: full-bleed map with the HUD floating over it
-app/pages/editor.vue the content editor (dev only); forms in components/editor
-app/stores/editor.ts the editor's draft, validation, save, "Try it"
-app/plugins/content.ts loads content/*.json before anything starts
-content/           the game's content as JSON — see "Content" below
+    tiles.ts           tile letters, zones (terrain + palette), ZONE_ROWS
+    generate.ts        seeded chunk generator — the braid invariants live here
+    world.ts           chunk cache; stackAt() is the single read path
+    audit.ts           invariant checks, used by tests
+    navigation.ts      walkability, reachable() (Dijkstra), findPath() (A*)
+app/render/          canvas renderer — DOM, still no Vue
+  iso.ts               projection, design units, DESIGN_W/H, ZOOM, FOCUS_Y
+  sprites.ts           SHEET_FILES registry, frameFor, placeholder art
+  glyphs.ts            placeholder line art for cards and talismans
+  renderer.ts          frame loop, depth order, highlights, entities, marked
+                       tiles (drawMarks), ally/summon rings, chips
+app/stores/game.ts   bridge: raw game in, view snapshot out, tooltips
+app/stores/editor.ts the content editor's draft, validation, save, "Try it"
+app/pages/index.vue  the game screen: full-bleed map, HUD floating over it
+app/pages/editor.vue the content editor (dev only)
+app/components/      MapStage (canvas), GameCard, HandBar, RewardModal,
+                     TalismanRail, EnemyTip, TileTip, GroundLines
+app/components/editor/  the editor's forms (Form*), EffectList (nested for
+                     terrain), AmountInput, DeckBuilder, pickers, Preview
+app/plugins/         content.ts (loads content before anything starts),
+                     posthog.ts (analytics sink)
+app/utils/           analytics.ts, contentText.ts ("Write it from the
+                     effects"), editorProblems.ts
+content/             the game's content as JSON — see "Content"
 server/api/content.put.ts  the editor's save endpoint (dev only)
-test/              runs in Node
-legacy/            the original single-file prototype this grew from
+test/                runs in Node; setup.ts installs content/ first
+legacy/              the original single-file prototype this grew from
 ```
 
 ## Map
@@ -181,13 +208,18 @@ rules in the generator:
 
 ## Turn loop
 
-1. **refresh** — block clears, energy resets, hand is drawn, each enemy
-   draws a card from its own deck and telegraphs it. Synchronous; not a
-   state you wait in.
+1. **refresh** (`beginTurn`) — a new round: terrain marks and summon
+   lifetimes count down (`ageTerrain`, `ageSummons`); block clears, energy
+   and movement reset, the hand is drawn; the player is hit by any marked
+   tile he starts on; every enemy **and ally** draws a card from its own
+   deck and telegraphs it. Synchronous; not a state you wait in.
 2. **player** — play cards, discard cards for movement, walk.
-3. **enemy** — each enemy plays the card it drew, one effect per queue
-   entry (`{ entityId, cardId, index }`), so an `advance` plays out before
-   the `damage` after it lands. An enemy's block falls on its first entry.
+3. **enemy** (`endPlayerPhase`, then `tick`) — anything standing on a
+   marked tile is hit; then allies, then enemies, play the card they drew,
+   one effect per queue entry (`{ entityId, cardId, index }`), so an
+   `advance` plays out before the `damage` after it lands. Each acts
+   against its `nearestFoe`, chosen as each effect resolves. A creature's
+   block falls on its first entry.
 4. repeat until the player falls or reaches `goalRow`.
 
 `tick(game, dt)` is the only function that advances the clock. It moves
@@ -225,7 +257,8 @@ Three rules keep fights from being skippable:
   cheapest-first rather than a flood fill, and why `movePlayerTo` charges
   `pathCost`, not `path.length`. Enemies are not subject to it.
 - **Enemies close in.** Most enemy cards open with `advance`: an enemy
-  three tiles away walks up and hits you in the same turn.
+  three tiles away walks up and hits you (or your nearest ally) in the same
+  turn.
 - **Guardians hold the zone boundaries.** Each zone may name a `guardian`,
   placed on the trail of its last row (`gateRowOf`) — always a canonical,
   full-width row. While it stands, `barred()` shuts every row past it, for
@@ -288,21 +321,25 @@ production builds (`pages:extend` hook) and the endpoint 404s there.
 ## Enemy decks
 
 An enemy's behaviour is data: `deck` on its entry in `content/enemies.json`
-lists card ids from `content/enemy-cards.json`. It draws from its own `drawPile`, reshuffling the whole
-deck when it runs dry, so a deck of two lunges and two circles never lunges
-three turns running. There are no enemy stats for speed, reach or damage —
-each card carries them:
+lists card ids from `content/enemy-cards.json`. It draws from its own
+`drawPile`, reshuffling the whole deck when it runs dry, so a deck of two
+lunges and two circles never lunges three turns running. There are no enemy
+stats for speed, reach or damage — each card carries them:
 
-- `advance n` walks up to n tiles toward the player, stopping as soon as
-  the card's `range` reaches — a spitter does not walk into melee.
-- `damage n` lands only if the player is within `range` when it resolves,
-  and adds the enemy's `power`.
+- `advance n` walks up to n tiles toward its foe, stopping as soon as the
+  card's `range` reaches — a spitter does not walk into melee.
+- `damage n` lands only if the foe is within `range` when it resolves, and
+  adds the enemy's `power`.
 - `block`, `heal` and `power` apply to the enemy itself.
 
-`resolveEffect` is the same function the player's cards go through, with
-an `actor`; verbs only the player has (`movement`, `energy`, `draw`,
-`step`) are no-ops for an enemy. A new enemy behaviour is a new card and a
-line in a deck; a new verb is one case in that switch.
+Its **foe** is `nearestFoe`: the nearest of the player and his allies. The
+same cards are played by **allies** (tamed or summoned creatures keep their
+deck), against the nearest enemy — so **enemy card text must be worded
+without "you"** ("Runs up to 6 closer", not "toward you"); the validator
+warns on "you". `resolveEffect` is the same function the player's cards go
+through, with an `actor`; verbs only the player has (`movement`, `energy`,
+`draw`, `step`, `tame`, `mend`) are no-ops for an enemy. A new behaviour is
+a new card and a line in a deck.
 
 ## Stats, and why nothing reads a constant
 
@@ -319,104 +356,123 @@ might want to modify, put it in `BASE_STATS` rather than inlining it.
 `syncStats` runs after the talismans change; it is what hands over the extra
 health when `maxHp` goes up instead of leaving a dent.
 
-## Effects, gems, talismans, rewards
+## Effects
 
-`game/effects.ts` is the shared verb list — `damage`, `block`, `loseBlock`,
-`movement`, `energy`, `draw`, `heal`, `step`, `advance`, `power`.
+Cards, enemy cards, gems and talisman triggers all describe what they do
+with the same tagged objects from `game/effects.ts`, and `resolveEffect` in
+actions.ts is the only place that knows what any of them do. A new gem or
+card is data; a new verb or shape is code (checklists at the end).
 
-**An amount is a number or a scaled amount**: `{ "of": "block", "times":
-0.5, "plus": 2 }`, worked out from the *actor* (`amountValues`) at the
-moment the effect resolves — after the earlier effects on the same card, so
-Guard-then-"damage equal to your block" counts the new block. Rounded down,
-never below zero: direction belongs to the verb (Block gains, Lose block
-spends), which is why there is no negative block. Deliberately data, not a
-formula string — content may come from a server one day, and an evaluated
-string is code; a test pins that a string is refused. Sources: `block`,
-`health`, `missingHealth`, `power`, `energy`, `hand`, `x`.
+**Three shapes.** A **simple** effect is `{ kind, amount }` with a verb
+from `EFFECT_INFO`: `damage`, `block`, `loseBlock`, `heal`, `power`,
+`movement`, `energy`, `draw`, `step` (Leap), `advance`, `tame`, `mend`.
+**Terrain** is `{ kind: "terrain", rounds, colour, effects: [simple...] }`.
+**Summon** is `{ kind: "summon", entity, amount, rounds? }`. Code tells them
+apart with `isTerrain` / `isSummon`; content validates them with a zod
+discriminated union.
 
-**Terrain.** An effect can be `{ "kind": "terrain", "rounds", "colour",
-"effects": [...] }`: it marks a tile — the card's target, or with no target
-the actor's own — and whoever is on it gets those simple effects as if they
-played them on themselves (Damage hurts them; no bonuses). Leap, Advance and
-terrain-in-terrain are refused on a tile. Amounts and rounds are fixed when
-the mark is made, from its maker (so "Fire X" keeps its X). State lives in
-`state.terrain` (by `row,col`, a list of `TerrainLayer`s — marks stack as
-layers with their own colour and rounds) and `state.terrainHits`. A tile hits
-an entity when it steps on (`tick`, as a step completes), as that entity's
-turn begins (Caden in `beginTurn`, enemies in `endPlayerPhase`), and at once
-when marked while occupied — **at most once per round per tile**, so crossing
-fire burns once, standing in it burns every round, and pacing a healing tile
-heals once a round. Rounds count down in `beginTurn` (`ageTerrain`). Enemies
-do not path around marks, on purpose: fire is a way to route them. A
-cell-targeted card that only marks may target an occupied tile; one that
-leaps still needs an empty one. The renderer (`drawMarks`) draws a mark in three
-layers so it reads as standing on the ground, not tinting it: a faint round
-stain on the tile, a smaller round plate hovering above it (bobbing,
-water-style highlights drifting across it) joined to the ground by the glowing
-front of a short cylinder, and motes rising off it. Circles are ellipses at
-the tile's 2:1 proportions (`markCircle`); the shared `diamondPath` in iso.ts
-is left alone because every tile top and highlight uses it. Each has a stripe per mark in its colour (newest three,
-then a count) rather than a blend; mote positions come from `hash` so they
-never crawl with the camera. Tuning dials are at the top of `drawMarks`
-(lift, alphas, `MOTES`, `RISE`); hovering a
-tile (`TileTip`) or an enemy on one lists the effects and rounds left, never
-the card that made them.
+**Who an effect lands on.** Every effect is played by an actor. `damage`
+hits the actor's target (never its own side); `block`, `loseBlock`, `heal`,
+`power` land on the actor; `movement`, `energy`, `draw`, `step` only mean
+something for the player; `advance` only for an enemy or ally; `tame` and
+`mend` act on the targeted creature. `EFFECT_INFO[kind]` records which side
+each verb works for (`player`, `enemy`) and whether it can go on a tile
+(`tile`); the validator warns about a verb on the wrong side.
 
-**Allies, Tame and Mend.** A third faction, `ally`, fights on the player's
-side. Two sides: player + allies against enemies (`sameSide`). Every
-non-player creature plays its deck against `nearestFoe` — enemies pick the
-nearest of the player and his allies (so a pet draws attacks), allies the
-nearest enemy within `ENGAGE_RADIUS` (8); an ally with nobody to fight
-advances toward the player instead (`Play.goal`). Damage never lands on its
-own side. Allies draw intents and act first in the enemy phase queue, get
-terrain hits at the phase start like enemies, block the way but do not
-cause zone of control, and are drawn with a cyan ring, a green bar and a
-cyan-edged intent chip; their tooltip says ALLY and has no DROPS.
-`tame` (amount = the health threshold) turns the targeted enemy if its
-health is at most that, it is not a guardian, and `allies < maxAllies` (a
-stat, base 1); it gives up its reward and draws an intent at once so it acts
-this round. A card that *opens* with Tame only lights up enemies it can turn
-(`canTame`), so no card is wasted. `mend` heals the targeted creature on the
-actor's side — an ally, or the enemy the same card just tamed (Heal only
-ever heals the actor). Cards can target `ally`. Telemetry: `enemy_tamed`,
-`ally_fell`, and `enemy_killed.by` (who landed the blow). Enemy card text is
-written from the enemy's side ("toward you"), which reads oddly on an ally.
-
-**Summon.** `{ "kind": "summon", "entity", "amount", "rounds"? }` brings an
-enemy definition (never a guardian) into play on the side of whoever plays
-it — an ally for the player (or an ally), another enemy for an enemy.
-`amount` is its health (so "based on" and X work); `rounds`, if given, is its
-lifetime, counted down in `beginTurn` (`ageSummons`) — at 0 it fades, with
-nothing left behind. It stands on the card's target tile if that is free
-(and, for the player's side, not past a shut gate), else on the nearest
-free tile to its summoner (`summonSpot`). Limits: the player's side shares
-`maxAllies` with tamed creatures; an enemy keeps at most
-`MAX_SUMMONS_PER_ENEMY` (2) summons alive. It draws an intent at once and
-acts from the next enemy phase. Summoned creatures drop nothing
-(`reward: null`), are marked by `summonedBy`/`expires` on the entity, stand
-in a dashed, slowly turning ring (cyan on the player's side, red on the
-enemy's — a tamed ally's ring is solid), and their tooltip says SUMMONED
-with rounds left. Telemetry: `summoned`, `summon_faded`, and
-`enemy_killed.summoned`.
+**Amounts.** A number, or `{ "of": source, "times"?, "plus"? }` worked out
+from the *actor* (`amountValues`) at the moment the effect resolves — after
+the earlier effects on the same card, so Guard-then-"damage equal to your
+block" counts the new block. Rounded down, never below zero: direction
+belongs to the verb (Block gains, Lose block spends), which is why there is
+no negative block. Deliberately data, not a formula string — content may
+come from a server one day, and an evaluated string is code; a test pins
+that a string is refused. Sources: `block`, `health`, `missingHealth`,
+`power`, `energy`, `hand`, `x`. For a played card, `energy` and `hand` are
+*after* paying for it and removing it from the hand. An enemy has no energy
+or hand (always 0), and its block falls as it starts to act, so "its block"
+is only what that card gave it — the validator warns about both. Bonuses:
+damage adds `power` and `damageBonus`; `loseBlock` takes no `blockBonus`.
+`nowText` / `previewAmounts` simulate a card in order to show the live
+"Now" value on cards in hand and in an enemy's tooltip.
 
 **X cost.** `cost` is a number or `"X"`: the card spends all your energy
 (`energySpent`), is playable at 0 (`minimumCost`), and its effects — and
 its gems' — read what it spent as `{ "of": "x" }` (carried on `Play.x`).
 Not `energy`: the cost is paid before effects resolve, so energy is 0 by
-then; that is why X is its own source. X is 0 everywhere else (other
-cards, enemies, talisman triggers), and the validator warns on each, and on
-an X card that never uses X. `card_played` records `energy`, so analytics
-can see how big X was. Text reads it the printed way: "Deal 4X damage". For a played card,
-`energy` and `hand` are *after* paying for it and removing it from the
-hand. An enemy has no energy or hand (always 0), and its block falls as
-it starts to act, so "its block" is only what that card gave it — the
-validator warns about both. Bonuses: damage still adds `power` and
-`damageBonus`; `loseBlock` takes no `blockBonus`. `nowText` /
-`previewAmounts` simulate the card in order to show the live "Now: 8
-damage, −8 block" line on cards in hand and on an enemy's tooltip. Cards, gems and talismans all describe
-themselves with those tagged objects, so `resolveEffect` in actions.ts is
-the only place that knows what any of them do. A new gem is data; a new
-*verb* is one case in that switch.
+then; that is why X is its own source. X is 0 everywhere else, and the
+validator warns on each misuse and on an X card that never uses X.
+`card_played` records `energy`. Text reads it the printed way: "Deal 4X
+damage".
+
+**Terrain.** Marks a tile — the card's target, or with no target the
+actor's own (an enemy or ally with no foe marks nothing) — and whoever is
+on it gets the listed simple effects as if they played them on themselves
+(Damage hurts them; no bonuses). Leap, Advance, Tame, Mend and
+terrain-in-terrain are refused on a tile. Amounts and rounds are fixed when
+the mark is made, from its maker (so "Fire X" keeps its X). State:
+`state.terrain` (by `row,col`, a list of `TerrainLayer`s — marks stack as
+layers with their own colour and rounds) and `state.terrainHits`. A tile
+hits an entity when it steps on (`tick`, as a step completes), as that
+entity's turn begins, and at once when marked while occupied — **at most
+once per round per tile**, so crossing fire burns once, standing in it
+burns every round, and pacing a healing tile heals once a round. Enemies do
+not path around marks, on purpose: fire is a way to route them. A
+cell-targeted card that only marks may target an occupied tile; one that
+leaps still needs an empty one. Drawing: `drawMarks` — a faint round stain,
+a round plate hovering above it (bobbing, with drifting highlights) joined
+to the ground by a glowing cylinder, and rising motes; a stripe per mark in
+its colour (newest three, then a count), never a blend. Circles are
+ellipses at the tile's 2:1 proportions (`markCircle`); the shared
+`diamondPath` is left alone because every tile top and highlight uses it.
+Tuning dials are at the top of `drawMarks`. Hovering a tile (`TileTip`) or
+a creature on one lists the effects and rounds left, never the card that
+made them.
+
+**Allies, Tame and Mend.** A third faction, `ally`, fights on the player's
+side; `sameSide` groups player + allies against enemies. Every non-player
+creature plays its deck against `nearestFoe` — enemies pick the nearest of
+the player and his allies (so a pet draws attacks), allies the nearest
+enemy within `ENGAGE_RADIUS` (8); an ally with nobody to fight advances
+toward the player instead (`Play.goal`). Allies act first in the enemy
+phase, are hit by terrain, block the way but cause no zone of control, and
+drop nothing. They are drawn with a pulsing cyan ring, a green bar and a
+cyan-edged intent chip; their tooltip says ALLY. `tame` (amount = the
+health threshold) turns the targeted enemy if its health is at most that,
+it is not a guardian, and `allies < maxAllies` (a stat, base 1); it gives up
+its reward and draws an intent at once. A card that *opens* with Tame only
+lights up enemies it can turn (`canTame`). `mend` heals the targeted
+creature on the actor's side — an ally, or the enemy the same card just
+tamed (`heal` only ever heals the actor). Cards can target `ally`.
+
+**Summon.** Brings an enemy definition (never a guardian) into play on the
+summoner's side — an ally for the player, another enemy for an enemy.
+`amount` is its health; `rounds`, if given, its lifetime (`ageSummons`; at
+0 it fades, leaving nothing). It stands on the target tile if free (and,
+for the player's side, not past a shut gate), else the nearest free tile to
+its summoner (`summonSpot`). Limits: the player's side shares `maxAllies`
+with tamed creatures; an enemy keeps at most `MAX_SUMMONS_PER_ENEMY` (2)
+alive. It draws an intent at once and acts from the next enemy phase. It
+drops nothing; `summonedBy`/`expires` on the entity mark it; it stands in a
+dashed, turning ring (cyan for the player's side, red for the enemy's — a
+tamed ally's ring is solid); its tooltip says SUMMONED with rounds left.
+
+**Adding a verb** (a simple effect): the `EffectKind` union and
+`EFFECT_INFO` in effects.ts (label, help, sides, tile), a case in
+`resolveEffect` (and in `applyTile` if it can go on a tile), its wording in
+`describeEffect`, `NOW_SHORT`/`NOW_LABELS`, and the phrases in
+`utils/contentText.ts`, plus `previewAmounts` if it changes a value later
+effects read. The schema, the editor's dropdown and the validator's side
+warnings pick it up from `EFFECT_INFO`. Add a test.
+
+**Adding a shape** (like terrain or summon): an interface in effects.ts
+joined to `Effect`, an `isX` guard, a branch at the top of `resolveEffect`,
+a zod schema in the discriminated union, and handling in `previewAmounts`,
+`nowText`, `hasScaledAmount`, `describeEffect`, the validator's
+`amountsIn`/`offSide`, `contentText`, the editor's `EffectList` (`setKind`
+and the row), and `Preview`. The typechecker finds most of these once the
+union changes — follow its errors.
+
+## Gems, talismans, rewards
 
 - **Gems** (`game/gems.ts`) socket into a `CardInstance`, not a definition —
   `card.gems`, capped at `GEM_SLOTS`. Playing a card resolves its own
@@ -633,7 +689,16 @@ about.
 It publishes a `view` snapshot that the HUD binds to, refreshed only when a
 cheap signature changes. **That signature must identify the hand's cards,
 not count them** — a bug once made a same-size hand swap fail to repaint,
-silently skipping the deal animation.
+silently skipping the deal animation. Anything a card's live "Now" value
+reads (block, health, energy, power, the hand) is in the signature too.
+
+The tooltips (`enemyTip` — enemies and allies — and `tileTip`) are tracked
+every frame from the hover cell, but only written when something changed.
+
+`store.run` counts runs, and the page keys `MapStage` on it: the renderer is
+built around one game object, so a new run (NEW RUN, or coming back from
+the editor) needs a new one. Without the key the map kept drawing the old
+game.
 
 ## Gotchas already paid for
 
@@ -670,10 +735,31 @@ silently skipping the deal animation.
 - **The editor reformats files under you.** `cards/definitions.ts` (back
   when it held the cards) was reflowed to double quotes and one property
   per line mid-session, which silently broke single-line search strings.
-  Card data is JSON in `content/` now — change it through the editor or
-  by parsing and re-serialising, never by string patching. Match structurally — a regex
-  keyed on the card's `id` that tolerates either quote style — rather than
-  on an exact line, and always assert the substitution count.
+  Card data is JSON in `content/` now — change it through the editor or by
+  parsing and re-serialising, never by string patching. For code, match
+  structurally rather than on an exact line, and always assert the
+  substitution count.
+- **Global class names collide.** GameCard's teleported tooltip styles
+  `.tip` globally (`position: fixed`), and the editor styles `.bar` (its
+  header) unscoped. A preview panel named `.tip` flew off over the form; a
+  health bar named `.bar` vanished. Pick specific names (`foe-tip`,
+  `hp-bar`) for anything new.
+- **A `watch` in `<script setup>` runs its getter immediately**, during
+  setup. One that read a `const` declared further down threw (temporal
+  dead zone) and silently took the whole component with it — the editor's
+  preview disappeared. Put watchers after everything they read.
+- **The first page load after adding a dependency can fail** with "Failed
+  to fetch dynamically imported module": Vite re-optimises deps and
+  invalidates the page mid-load. Reload; it is not a code error.
+- **zod infers `string` from a cast enum list.** Cast to the real union
+  (`KINDS as [EffectKind, ...EffectKind[]]`), not `[string, ...string[]]`,
+  or every inferred content type widens and the editor stops typechecking.
+- **New fields on `Entity` or `GameState`** must be initialised in
+  `makeEntity` / `createGame` — tests and the sandbox build entities there.
+- **The log only reports what nearby creatures do.** `noteNear` drops lines
+  about enemies and allies more than `ENGAGE_RADIUS` from the player; hits
+  and falls are always logged. Use it for any new creature line, or distant
+  enemies bury the fight in front of the player.
 
 ## Verifying UI work
 
@@ -686,3 +772,20 @@ were enemies correctly clearing them as they resolved.
 
 Note that `--virtual-time-budget` does **not** advance `requestAnimationFrame`
 reliably; use real elapsed time for anything animated.
+
+The quickest way to set up a scene: start `npm run dev` on a spare port,
+open `/?seed=90210&try=<kind>:<id>` in headless Chrome, then drive the dev
+handle `window.__game` (`store`, `renderer`, `game`, `makeEntity`,
+`entityDef`, `rollReward`, `movementRange`):
+
+- play a card: `store.select(uid)`, then `store.commitCell({ row, col })`
+- see what it can target: `renderer.highlights` (entries of kind `target`)
+- open a tooltip: `store.hover({ row, col })`, then read `.tip` /
+  `.tile-tip` from the DOM
+- end the turn: `store.endPhase()`, and wait for `game.state.phase` to be
+  `player` again
+- zoom in on something: `Page.captureScreenshot` with a `clip` and
+  `scale: 2`; take two a moment apart to see motion
+
+Anything the editor saves during a browser check lands in `content/` —
+undo it before committing.
