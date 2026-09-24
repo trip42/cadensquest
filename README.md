@@ -381,9 +381,9 @@ files read-only and has no editor and no way to write.
 
 ## Where to go next
 
-- **Art** — the enemies are still one still each. Give them cycle sheets
-  like Caden's and raise `frames`; the transform-based motion bows out on
-  its own. Caden still wants a hurt and a death row.
+- **Art** — everything on screen is placeholder art. The brief for an
+  artist — what's needed, the style, sheet layout, sizes, effects, card and
+  talisman art, delivery format — is [docs/ART_SPEC.md](docs/ART_SPEC.md).
 - **Cards, enemies, gems, talismans** — in the editor. A new effect *kind*
   needs one case in `resolveEffect` and an entry in `EFFECT_INFO`.
 - **Hosting content elsewhere** — the game loads `/content/*.json` in
