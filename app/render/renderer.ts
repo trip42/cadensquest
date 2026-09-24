@@ -419,6 +419,50 @@ export class MapRenderer {
     const top = this.paletteFor(row, stack[stack.length - 1] as TileLetter);
     const ty = sy - (stack.length - 1) * LAYER_H - top.elev;
 
+    const highlight = this.highlights.get(cellKey(row, col));
+    const hovered = this.hover && this.hover.row === row && this.hover.col === col;
+
+    /* In layers, from the ground up: the gate line and the grid highlights
+       (movement, targets, the path) belong to the tile's surface, so they
+       go down first; terrain marks sit on top of them, as things standing
+       on the ground; then the area-aim preview; and the hover outline last,
+       so the pointer's own feedback is never covered. */
+
+    // The first row past a standing guardian, marked so the barrier reads
+    // before you walk into it.
+    if (this.isGateLine(row)) {
+      ctx.save();
+      diamondPath(ctx, sx, ty);
+      ctx.fillStyle = 'rgba(190, 58, 44, 0.3)';
+      ctx.fill();
+      ctx.strokeStyle = '#e0785f';
+      ctx.lineWidth = 2;
+      ctx.shadowColor = '#e0785f';
+      ctx.shadowBlur = 6;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    if (highlight || hovered) {
+      const style = HIGHLIGHT[highlight ?? 'hover'];
+      diamondPath(ctx, sx, ty);
+      ctx.fillStyle = style.fill;
+      ctx.fill();
+
+      if (style.stroke) {
+        ctx.save();
+        ctx.strokeStyle = style.stroke;
+        ctx.lineWidth = 2;
+        if (style.glow) {
+          ctx.shadowColor = style.stroke;
+          ctx.shadowBlur = style.glow;
+        }
+        diamondPath(ctx, sx, ty);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
     const marks = this.game.state.terrain[`${row},${col}`];
     if (marks?.length) this.drawMarks(sx, ty, marks, row, col, now);
 
@@ -431,45 +475,6 @@ export class MapRenderer {
       ctx.setLineDash([4, 3]);
       ctx.strokeStyle = this.palette.yellow;
       ctx.lineWidth = 1.5;
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    const highlight = this.highlights.get(cellKey(row, col));
-    const hovered = this.hover && this.hover.row === row && this.hover.col === col;
-    const shut = this.isGateLine(row);
-    if (!highlight && !hovered && !shut) return;
-
-    // The first row past a standing guardian, marked so the barrier reads
-    // before you walk into it.
-    if (shut) {
-      ctx.save();
-      diamondPath(ctx, sx, ty);
-      ctx.fillStyle = 'rgba(190, 58, 44, 0.3)';
-      ctx.fill();
-      ctx.strokeStyle = '#e0785f';
-      ctx.lineWidth = 2;
-      ctx.shadowColor = '#e0785f';
-      ctx.shadowBlur = 6;
-      ctx.stroke();
-      ctx.restore();
-      if (!highlight && !hovered) return;
-    }
-    const style = HIGHLIGHT[highlight ?? 'hover'];
-
-    diamondPath(ctx, sx, ty);
-    ctx.fillStyle = style.fill;
-    ctx.fill();
-
-    if (style.stroke) {
-      ctx.save();
-      ctx.strokeStyle = style.stroke;
-      ctx.lineWidth = 2;
-      if (style.glow) {
-        ctx.shadowColor = style.stroke;
-        ctx.shadowBlur = style.glow;
-      }
-      diamondPath(ctx, sx, ty);
       ctx.stroke();
       ctx.restore();
     }
