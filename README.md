@@ -393,6 +393,9 @@ files read-only and has no editor and no way to write.
 - **Art** — everything on screen is placeholder art. The brief for an
   artist — what's needed, the style, sheet layout, sizes, effects, card and
   talisman art, delivery format — is [docs/ART_SPEC.md](docs/ART_SPEC.md).
+- **Marketing** — how to build an audience to pay for that art: a daily
+  seed, itch.io and Steam, clips, devlogs, crowdfunding, and what to measure
+  first. The plan is [docs/MARKETING.md](docs/MARKETING.md).
 - **Cards, enemies, gems, talismans** — in the editor. A new effect *kind*
   needs one case in `resolveEffect` and an entry in `EFFECT_INFO`.
 - **Hosting content elsewhere** — the game loads `/content/*.json` in

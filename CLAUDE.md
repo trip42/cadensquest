@@ -132,6 +132,8 @@ app/utils/           analytics.ts, contentText.ts ("Write it from the
 content/             the game's content as JSON — see "Content"
 server/api/content.put.ts  the editor's save endpoint (dev only)
 test/                runs in Node; setup.ts installs content/ first
+docs/                ART_SPEC.md (the brief for an artist), MARKETING.md
+                     (the plan for finding an audience)
 legacy/              the original single-file prototype this grew from
 ```
 
