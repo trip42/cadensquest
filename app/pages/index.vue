@@ -208,7 +208,8 @@ const energyCells = computed(() => {
   font-size: 12px;
   line-height: 1.35;
 }
-.log li:last-child { color: var(--px-text); }
+/* The log is newest first, so the newest line is the one to light. */
+.log li:first-child { color: var(--px-text); }
 
 .hand-area { justify-self: center; }
 
