@@ -15,9 +15,20 @@ export class World {
   readonly seed: number;
   readonly width = MAP_WIDTH;
   private readonly chunks = new Map<number, Chunk>();
+  /* The rows that exist. The whole map by default; a run narrows it to the
+     floor the player is on, so that floor is all there is — the map ends
+     at its edges, and the floors above and below are open air. */
+  private first = 0;
+  private last = LAST_ROW;
 
   constructor(seed: number) {
     this.seed = seed >>> 0;
+  }
+
+  /** Make only these rows exist — the floor being played. */
+  setBounds(first: number, last: number): void {
+    this.first = Math.max(0, first);
+    this.last = Math.min(LAST_ROW, last);
   }
 
   chunk(index: number): Chunk {
@@ -29,10 +40,10 @@ export class World {
     return chunk;
   }
 
-  /** Is this row part of the map at all? The map has two ends: it begins at
-   *  row 0 and finishes on LAST_ROW. */
+  /** Is this row part of the map at all? The map has two ends: the whole
+   *  run's (row 0 and LAST_ROW), or the current floor's once bounded. */
   contains(row: number): boolean {
-    return row >= 0 && row <= LAST_ROW;
+    return row >= this.first && row <= this.last;
   }
 
   stackAt(row: number, col: number): Stack {

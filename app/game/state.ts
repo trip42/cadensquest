@@ -7,7 +7,7 @@ import { cardDef, STARTING_DECK } from "./cards/definitions";
 import type { CardInstance } from "./cards/types";
 import { entityDef } from "./entities/definitions";
 import type { Entity } from "./entities/types";
-import { LAST_ROW, START_ROW, surfaceKind } from "./map/tiles";
+import { floorRows, START_ROW, surfaceKind } from "./map/tiles";
 import { World } from "./map/world";
 import { createRng, type Rng, shuffle } from "./rng";
 import type { TileEffect } from "./effects";
@@ -40,8 +40,14 @@ export interface TerrainLayer {
   rounds: number;
   /** Who marked it, so a death by fire is credited to them. */
   ownerId: string;
+  /** A way off the floor rather than a hazard: `down` to the next floor,
+   *  `out` of the last one, ending the run. Portals never run out, and take
+   *  only the player. */
+  portal?: 'down' | 'out';
 }
 
+/** A floor's guardian, standing on its last row. The portal off the floor
+ *  opens where it falls. */
 export interface Gate {
   row: number;
   guardianId: string;
@@ -91,8 +97,12 @@ export interface GameState {
   /** Recent area bursts, newest last, for the renderer to flash. Nothing in
    *  the rules reads them. */
   bursts: Array<{ id: string; cells: Cell[]; colour: string }>;
-  /** The last row of the map. Reaching it wins the run. */
-  goalRow: number;
+  /** The floor the player is on — the index of its zone. Only its rows
+   *  exist; the portal at its end leads to the next, and out of the last
+   *  one wins the run. */
+  floor: number;
+  /** Set when the player steps onto a portal; `tick` takes him down. */
+  descending: boolean;
 
   queue: QueuedAction[];
   log: string[];
@@ -150,27 +160,34 @@ export const makeCard = (defId: string): CardInstance => ({
   gems: [],
 });
 
+/** Where the player arrives on a floor: a few rows in rather than right on
+ *  the edge, on the trail where there is one. */
+export function arrivalOn(world: World, floor: number): { row: number; col: number } {
+  const row = floorRows(floor).first + START_ROW;
+  let col = Math.floor(world.width / 2);
+  const walkable: number[] = [];
+  for (let c = 0; c < world.width; c += 1) {
+    if (world.walkable(row, c)) walkable.push(c);
+  }
+  if (walkable.length) {
+    // Prefer the trail itself; fall back to any footing on the row.
+    const onTrail = walkable.filter((c) => surfaceKind(world.stackAt(row, c)) === "trail");
+    const choices = onTrail.length ? onTrail : walkable;
+    col = choices[Math.floor(choices.length / 2)]!;
+  }
+  return { row, col };
+}
+
 export function createGame(seed: number): Game {
   const world = new World(seed);
   const rng = createRng(seed ^ 0x9e3779b9);
 
-  /* A few rows in rather than right on the edge, so there is map behind him
-     at the start and the opening view is not half empty. */
-  let startCol = Math.floor(world.width / 2);
-  const walkable: number[] = [];
-  for (let col = 0; col < world.width; col += 1) {
-    if (world.walkable(START_ROW, col)) walkable.push(col);
-  }
-  if (walkable.length) {
-    // Prefer the trail itself; fall back to any footing on the row.
-    const onTrail = walkable.filter(
-      (col) => surfaceKind(world.stackAt(START_ROW, col)) === "trail",
-    );
-    const choices = onTrail.length ? onTrail : walkable;
-    startCol = choices[Math.floor(choices.length / 2)]!;
-  }
+  // A run starts on the first floor, and only that floor exists.
+  const { first, last } = floorRows(0);
+  world.setBounds(first, last);
+  const start = arrivalOn(world, 0);
 
-  const self = makeEntity("caden", START_ROW, startCol);
+  const self = makeEntity("caden", start.row, start.col);
   self.maxHp = resolveStat("maxHp", []);
   self.hp = self.maxHp;
 
@@ -194,7 +211,8 @@ export function createGame(seed: number): Game {
     terrain: {},
     terrainHits: {},
     bursts: [],
-    goalRow: LAST_ROW,
+    floor: 0,
+    descending: false,
     queue: [],
     log: [],
     events: [],

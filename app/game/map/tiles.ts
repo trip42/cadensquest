@@ -233,13 +233,15 @@ export const ZONES: Zone[] = [
 ];
 
 /** Rows each zone occupies. A multiple of CHUNK_ROWS keeps zone edges on
- *  chunk boundaries, so a chunk only ever belongs to one zone. */
+ *  chunk boundaries, so a chunk only ever belongs to one zone — and to one
+ *  floor, which is what lets a floor populate each of its chunks exactly
+ *  once, as the player arrives. A test pins it. */
 export const ZONE_ROWS = 48;
 
 /** The map is finite: every zone once, in order, and then the far end. */
 export const MAP_ROWS = ZONES.length * ZONE_ROWS;
 
-/** The row that ends the run. */
+/** The last row of the last floor, where the way out waits. */
 export const LAST_ROW = MAP_ROWS - 1;
 
 /** The row a zone's guardian holds: the last row of that zone. Every zone
@@ -247,7 +249,25 @@ export const LAST_ROW = MAP_ROWS - 1;
  *  full width, trail across the middle. */
 export const gateRowOf = (zoneIndex: number): number => (zoneIndex + 1) * ZONE_ROWS - 1;
 
-/** Where a run begins — a little way in, not on the very edge. */
+/* Floors. Each zone is a floor of its own, like a level of a dungeon: the
+   run goes down through them in order, and only the one the player is on
+   exists while he is on it — the map ends at its first and last rows. A
+   floor is simply its zone's rows of the one continuous world, so the
+   generator, its invariants and every seed are untouched, and analytics
+   still count depth in the same rows as before. */
+
+/** How many floors a run goes down through: one per zone. */
+export const FLOORS = ZONES.length;
+
+/** The rows a floor spans: its zone's, from its canonical first row to the
+ *  canonical last row its guardian holds. */
+export const floorRows = (floor: number): { first: number; last: number } => ({
+  first: floor * ZONE_ROWS,
+  last: gateRowOf(floor),
+});
+
+/** How far into each floor the player arrives — a little way in, not on the
+ *  very edge, so there is map behind him and the view is not half empty. */
 export const START_ROW = 1;
 
 /* Zones do not cycle. Past the last one the map is over, so anything asking

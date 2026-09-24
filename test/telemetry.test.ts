@@ -5,6 +5,7 @@ import {
   discardAllForMovement,
   discardForMovement,
   endPlayerPhase,
+  enterFloor,
   isBusy,
   playCard,
   skipReward,
@@ -12,6 +13,7 @@ import {
   takeTalismanReward,
   tick,
 } from '~/game/actions';
+import { FLOORS } from '~/game/map/tiles';
 import { entityCell } from '~/game/entities/types';
 import { reachable } from '~/game/map/navigation';
 import { ZONE_ROWS } from '~/game/map/tiles';
@@ -110,7 +112,8 @@ describe('run events', () => {
 
   it('reports a win and its summary', () => {
     const game = fresh();
-    player(game.state).row = game.state.goalRow;
+    enterFloor(game, FLOORS - 1);
+    game.state.descending = true;
     tick(game, 1 / 60);
     expect(of(game, 'run_won')).toHaveLength(1);
     expect(of(game, 'run_ended')[0]!.outcome).toBe('won');

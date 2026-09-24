@@ -297,6 +297,14 @@ export class MapRenderer {
     if (!self) return;
 
     const target = visualCell(self);
+    // A new floor: jump straight there rather than gliding across the gap,
+    // and drop any drag, which was looking at the floor he left.
+    if (Math.abs(target.row - this.camera.row) > 12) {
+      this.camera.row = target.row;
+      this.camera.col = target.col;
+      this.camera.panX = 0;
+      this.camera.panY = 0;
+    }
     // Critically damped enough to feel attached without snapping.
     const k = 1 - Math.exp(-6 * dt);
     this.camera.row += (target.row - this.camera.row) * k;
@@ -326,16 +334,6 @@ export class MapRenderer {
   }
 
   /* ------------------------------ drawing ------------------------------ */
-
-  /** Is this the first row beyond a guardian that still stands? */
-  private isGateLine(row: number): boolean {
-    const { state } = this.game;
-    return state.gates.some((gate) => {
-      if (gate.row + 1 !== row) return false;
-      const guardian = state.entities.find((entity) => entity.id === gate.guardianId);
-      return !!guardian && !guardian.dead;
-    });
-  }
 
   /** Deep water, a few shades under the zone's own shallows. */
   private backdrop(): string {
@@ -422,26 +420,11 @@ export class MapRenderer {
     const highlight = this.highlights.get(cellKey(row, col));
     const hovered = this.hover && this.hover.row === row && this.hover.col === col;
 
-    /* In layers, from the ground up: the gate line and the grid highlights
-       (movement, targets, the path) belong to the tile's surface, so they
-       go down first; terrain marks sit on top of them, as things standing
-       on the ground; then the area-aim preview; and the hover outline last,
-       so the pointer's own feedback is never covered. */
-
-    // The first row past a standing guardian, marked so the barrier reads
-    // before you walk into it.
-    if (this.isGateLine(row)) {
-      ctx.save();
-      diamondPath(ctx, sx, ty);
-      ctx.fillStyle = 'rgba(190, 58, 44, 0.3)';
-      ctx.fill();
-      ctx.strokeStyle = '#e0785f';
-      ctx.lineWidth = 2;
-      ctx.shadowColor = '#e0785f';
-      ctx.shadowBlur = 6;
-      ctx.stroke();
-      ctx.restore();
-    }
+    /* In layers, from the ground up: the grid highlights (movement,
+       targets, the path) belong to the tile's surface, so they go down
+       first; terrain marks — portals among them — sit on top, as things
+       standing on the ground; then the area-aim preview; and the hover
+       outline last, so the pointer's own feedback is never covered. */
 
     if (highlight || hovered) {
       const style = HIGHLIGHT[highlight ?? 'hover'];

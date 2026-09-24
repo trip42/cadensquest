@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  barred,
   beginTurn,
+  enterFloor,
   endPlayerPhase,
   isValidTarget,
   movePlayerTo,
@@ -175,6 +175,7 @@ describe('guardians', () => {
   function nearGate(zoneIndex: number): Game {
     resetUids();
     const game = createGame(90210);
+    enterFloor(game, zoneIndex);
     const self = player(game.state);
     const row = gateRowOf(zoneIndex) - 6;
     const col = Array.from({ length: game.world.width }, (_, c) => c).find((c) => game.world.walkable(row, c))!;
@@ -193,30 +194,6 @@ describe('guardians', () => {
       expect(guardian.defId).toBe(zone.guardian);
       expect(guardian.row).toBe(gateRowOf(index));
     }
-  });
-
-  it('bars everything past its row, even a leap', () => {
-    const game = nearGate(0);
-    const gateRow = gateRowOf(0);
-    expect(barred(game.state, gateRow)).toBe(false);
-    expect(barred(game.state, gateRow + 1)).toBe(true);
-
-    game.state.movement = 40;
-    const rows = [...movementRange(game).values()].map((entry) => entry.cell.row);
-    expect(Math.max(...rows)).toBeLessThanOrEqual(gateRow);
-
-    game.state.hand = [{ uid: 'leap', defId: 'vault', gems: [] }];
-    const col = Array.from({ length: game.world.width }, (_, c) => c)
-      .find((c) => game.world.walkable(gateRow + 1, c))!;
-    expect(isValidTarget(game, 'leap', { row: gateRow + 1, col })).toBe(false);
-  });
-
-  it('opens the way when it falls', () => {
-    const game = nearGate(0);
-    const gate = game.state.gates[0]!;
-    const guardian = game.state.entities.find((e) => e.id === gate.guardianId)!;
-    guardian.dead = true;
-    expect(barred(game.state, gate.row + 1)).toBe(false);
   });
 
   it('keeps its post instead of chasing', () => {

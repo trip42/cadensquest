@@ -12,7 +12,7 @@ const store = useGameStore();
     class="tile-tip panel"
     :style="{ left: `${store.tileTip.x}px`, top: `${store.tileTip.y}px` }"
   >
-    <p class="title">Whoever is here</p>
+    <p class="title">{{ store.tileTip.title }}</p>
     <GroundLines :lines="store.tileTip.lines" />
   </div>
 </template>

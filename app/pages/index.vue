@@ -75,8 +75,12 @@ const energyCells = computed(() => {
             <strong class="move">{{ store.view.movement }}</strong>
           </span>
           <span class="meter">
+            <span class="label">FLOOR</span>
+            <strong>{{ store.view.floor }}/{{ store.view.floors }}</strong>
+          </span>
+          <span class="meter">
             <span class="label">ROW</span>
-            <strong>{{ store.view.row }}/{{ store.view.goalRow }}</strong>
+            <strong>{{ store.view.row }}/{{ store.view.lastRow }}</strong>
           </span>
         </div>
       </header>
@@ -112,7 +116,7 @@ const energyCells = computed(() => {
           <div class="piles panel">
             <span>DRAW {{ store.view.drawCount }}</span>
             <span>DISC {{ store.view.discardCount }}</span>
-            <span class="foes">FOES {{ store.enemyCount }}</span>
+            <span class="foes">FOES {{ store.view.foes }}</span>
           </div>
           <p class="hint">DRAG: PAN · 2X CLICK: CENTRE</p>
           <NuxtLink v-if="isDev" to="/editor" class="to-editor">CONTENT EDITOR</NuxtLink>
@@ -129,7 +133,7 @@ const energyCells = computed(() => {
       <p class="headline" :class="`is-${store.view.phase}`">
         {{ store.view.phase === 'victory' ? 'YOU MADE IT' : 'GAME OVER' }}
       </p>
-      <p>{{ store.view.phase === 'victory' ? 'You reached the far end.' : 'Caden has fallen.' }}</p>
+      <p>{{ store.view.phase === 'victory' ? 'You found the way out.' : 'Caden has fallen.' }}</p>
       <button class="px-button is-yellow" type="button" @click="store.start()">NEW RUN</button>
     </div>
   </main>

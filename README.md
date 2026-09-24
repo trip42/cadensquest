@@ -1,8 +1,9 @@
 # Caden's Quest
 
-An isometric, card-driven roguelike. The player walks a procedurally
-generated ribbon of terrain, playing cards from a hand to move, fight and
-survive long enough to reach the far end of the map.
+An isometric, card-driven roguelike. The player goes down through a run of
+floors, each a procedurally generated ribbon of terrain with a guardian at
+its end, playing cards from a hand to move, fight and survive long enough to
+find the way out of the last one.
 
 ```bash
 npm run dev         # http://localhost:3000
@@ -61,17 +62,26 @@ Letters are semantic, not visual: a zone supplies the palette, so the marsh
 and the highlands look nothing alike while the generator reasons about
 ground and trail.
 
-The map is finite and has two edges: it begins at row 0, runs each zone once
-in order, and reaching the last row wins the run. There is nothing before
-the start or past the finish — just open air. You start a few rows in rather than on the edge.
+The run goes down through **floors**, one per zone, in order — like the
+levels of a dungeon. Only the floor you are on exists: the map ends at its
+first and last rows, with nothing before or beyond but open air. A guardian
+stands on the trail of each floor's last row, and where it falls a white
+portal opens. Step on it and you go down to the next floor, arriving a row
+in, on fresh ground, with a fresh turn. Your deck, health, talismans and
+allies come with you; the floor you left does not. The last floor has no
+guardian: its portal is the way out, and taking it wins the run.
 
-Four properties are guaranteed **by construction**, not checked after the
+Underneath, the floors are still one continuous world — a floor is simply
+its zone's rows of it — so the generator, its guarantees and every seed are
+untouched, and analytics count depth in the same rows as before.
+
+Five properties are guaranteed **by construction**, not checked after the
 fact — a validator that fails at runtime still means a broken world on
 someone's screen:
 
 - the walkable ground is one connected landmass that forks and rejoins
 - the trail through it is likewise continuous, splitting and merging
-- no strand is ever narrower than four tiles
+- no strand is ever narrower than three tiles
 - no tile is stranded: every one has a neighbour within a layer, so peaks
   are terraces rather than towers
 - and you can actually walk it end to end: a step of more than one layer is
@@ -91,7 +101,7 @@ dropped and rebuilt in any order while still joining up.
    each enemy draws a card from its own deck and telegraphs it above its head
 2. **player** — play cards and move until energy and movement run out
 3. **enemy** — each enemy plays its card, effect by effect, one enemy at a time
-4. repeat until the player falls or reaches `goalRow`
+4. repeat until the player falls or takes the way out of the last floor
 
 Cards are dragged onto the map to pick a target square; cards that need no
 target resolve as soon as they are picked up. Enemy behaviour is a deck too:
@@ -111,9 +121,8 @@ the button is for.
 You get 3 movement every turn, raised by cards, gems and talismans like any
 other stat. Discarding a card buys one more step when that runs short.
 Enemies make running past them costly: stepping away from one you are next
-to costs an extra step, every enemy walks up *and* acts on its turn, and a
-guardian holds the last row of each zone — the way on stays shut until it
-falls.
+to costs an extra step, every enemy walks up *and* acts on its turn, and
+each floor ends at its guardian — the way down only opens where it falls.
 
 `tick(game, dt)` is the only function that advances the clock. It moves
 characters between cells, steps animation frames, and pulls the next enemy
@@ -390,6 +399,9 @@ files read-only and has no editor and no way to write.
   `app/plugins/content.ts`; point that at a server and it needs nothing
   else. The editor's save goes through `PUT /api/content`.
 - **Zones** — add to `ZONES` in `map/tiles.ts` (a palette and generation
-  parameters), then give it an entry in `content/zones.json`. `ZONE_ROWS` is a multiple of `CHUNK_ROWS`, so a
-  chunk only ever belongs to one zone.
-- **The end of the map** is still provisional: `goalRow` in `state.ts`.
+  parameters), then give it an entry in `content/zones.json`. A new zone is
+  a new floor, with nothing else to change. `ZONE_ROWS` is a multiple of
+  `CHUNK_ROWS`, so a chunk only ever belongs to one zone, and one floor.
+- **Floors** — `floorRows` in `map/tiles.ts` says which rows each spans;
+  `enterFloor` and `descend` in `actions.ts` move the run from one to the
+  next. A zone without a guardian has its way down open from the start.

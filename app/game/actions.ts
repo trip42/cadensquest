@@ -36,13 +36,14 @@ import {
   pathCost,
   reachable,
 } from './map/navigation';
-import { gateRowOf, surfaceKind, ZONES } from './map/tiles';
+import { FLOORS, floorRows, gateRowOf, surfaceKind, ZONES } from './map/tiles';
 import { chunkIndexForRow } from './map/world';
 import { rollReward } from './rewards';
 import { record } from './telemetry';
 import { nextInt, pick, shuffle } from './rng';
 import { talismanEffects } from './talismans';
 import {
+  arrivalOn,
   allies,
   nextUid,
   enemies,
@@ -102,15 +103,6 @@ export function threatened(state: GameState, cell: Cell): boolean {
   return enemies(state).some((enemy) => cellDistance(entityCell(enemy), cell) === 1);
 }
 
-/** Is this row shut behind a guardian that still stands? */
-export function barred(state: GameState, row: number): boolean {
-  return state.gates.some((gate) => {
-    if (row <= gate.row) return false;
-    const guardian = state.entities.find((entity) => entity.id === gate.guardianId);
-    return !!guardian && !guardian.dead;
-  });
-}
-
 /* How the player moves. Two rules on top of plain pathfinding:
 
    Zone of control — a step away from a tile next to an enemy costs
@@ -118,14 +110,15 @@ export function barred(state: GameState, row: number): boolean {
    one is not, so slipping past a fight costs you the turn you were trying
    to save.
 
-   Gates — nothing beyond a guardian's row can be entered while it stands. */
+   There is no gate to guard: a floor ends at its guardian's row, and the
+   rows beyond do not exist until the way down is taken. */
 export function playerMoveOptions(game: Game): MoveOptions {
   const { state } = game;
   const self = player(state);
   const toll = stat(state, 'disengageCost');
   const standing = occupied(state, self);
   return {
-    blocked: (row, col) => standing(row, col) || barred(state, row),
+    blocked: standing,
     stepCost: (from) => 1 + (threatened(state, from) ? toll : 0),
   };
 }
@@ -162,10 +155,10 @@ export function isValidTarget(game: Game, uid: string, cell: Cell): boolean {
     return !!target && target.faction === 'ally' && !target.dead;
   }
   if (!game.world.walkable(cell.row, cell.col)) return false;
-  // A leap needs somewhere to land, and does not clear a gate. A card that
-  // only marks the tile can go anywhere walkable — under an enemy too.
+  // A leap needs somewhere to land. A card that only marks the tile can go
+  // anywhere walkable — under an enemy too.
   const leaps = def.effects.some((effect) => effect.kind === 'step');
-  return !leaps || (!entityAt(game.state, cell.row, cell.col) && !barred(game.state, cell.row));
+  return !leaps || !entityAt(game.state, cell.row, cell.col);
 }
 
 /* ------------------------------ cards ---------------------------------- */
@@ -211,6 +204,8 @@ function dealDamage(game: Game, target: Entity, amount: number, source?: Entity)
       });
       // What it was carrying was decided when it spawned.
       if (target.reward) state.pendingRewards.push(target.reward);
+      // A floor's guardian falling opens the way off the floor, where it fell.
+      if (state.gates.some((gate) => gate.guardianId === target.id)) openPortal(game, entityCell(target));
       fire(game, 'enemyDefeated');
     }
   } else {
@@ -316,15 +311,10 @@ function canTame(game: Game, def: CardDefinition, target: Entity): boolean {
 const MAX_SUMMONS_PER_ENEMY = 2;
 
 /* Where a summon stands: the tile the card targets, if it is free to stand
-   on, or else the nearest free tile to its summoner. The player's side may
-   not summon past a shut gate — that would be a way round the guardian. */
+   on, or else the nearest free tile to its summoner. */
 function summonSpot(game: Game, actor: Entity, target: Cell | null): Cell | null {
   const { state, world } = game;
-  const playersSide = onPlayersSide(actor);
-  const free = (cell: Cell) =>
-    world.walkable(cell.row, cell.col)
-    && !entityAt(state, cell.row, cell.col)
-    && !(playersSide && barred(state, cell.row));
+  const free = (cell: Cell) => world.walkable(cell.row, cell.col) && !entityAt(state, cell.row, cell.col);
   if (target && free(target)) return target;
   return [...reachable(world, entityCell(actor), 3).values()]
     .filter((entry) => entry.cost >= 1 && free(entry.cell))
@@ -557,6 +547,12 @@ function triggerTile(game: Game, entity: Entity): void {
   const key = terrainKey(entityCell(entity));
   const layers = state.terrain[key];
   if (!layers?.length) return;
+  // A portal is a way, not a hazard: it takes the player whenever he steps
+  // on, and nobody else. The next tick carries him down.
+  if (entity.id === state.playerId && layers.some((layer) => layer.portal)) {
+    entity.path = [];
+    state.descending = true;
+  }
   const hit = `${entity.id}@${key}`;
   if (state.terrainHits[hit] === state.turn) return;
   state.terrainHits[hit] = state.turn;
@@ -566,7 +562,8 @@ function triggerTile(game: Game, entity: Entity): void {
 /** A new round: every mark loses one, and the ones that run out are gone. */
 function ageTerrain(state: GameState): void {
   for (const [key, layers] of Object.entries(state.terrain)) {
-    const left = layers.filter((layer) => (layer.rounds -= 1) > 0);
+    // Portals never run out; every other mark loses a round.
+    const left = layers.filter((layer) => layer.portal || (layer.rounds -= 1) > 0);
     if (left.length) state.terrain[key] = left;
     else delete state.terrain[key];
   }
@@ -849,20 +846,104 @@ export function movePlayerTo(game: Game, cell: Cell): boolean {
   return true;
 }
 
+/* ------------------------------ floors ---------------------------------- */
+
+/** A portal is drawn as a white mark. */
+const PORTAL_COLOUR = '#ffffff';
+
+/* A way off the floor: a white mark that never fades and takes only the
+   player — down to the next floor, or, on the last, out, ending the run. */
+function openPortal(game: Game, cell: Cell): void {
+  const { state } = game;
+  const key = terrainKey(cell);
+  if (state.terrain[key]?.some((layer) => layer.portal)) return;
+  const kind = state.floor >= FLOORS - 1 ? 'out' : 'down';
+  (state.terrain[key] ??= []).push({
+    id: nextUid('portal'),
+    effects: [],
+    colour: PORTAL_COLOUR,
+    rounds: 0,
+    ownerId: state.playerId,
+    portal: kind,
+  });
+  note(state, kind === 'out' ? 'The way out opens.' : 'A way down opens.');
+}
+
+function settleOn(entity: Entity, cell: Cell): void {
+  entity.row = cell.row;
+  entity.col = cell.col;
+  entity.motion = null;
+  entity.path = [];
+  setAnimation(entity, 'idle');
+}
+
+/** Put the run on a floor. Only its rows exist from now on; the player
+ *  arrives a few rows in, with his allies as close beside him as there is
+ *  room; and everything of the floor he left — its enemies, marks and
+ *  bursts — is gone. What he carries stays: deck, health, talismans. */
+export function enterFloor(game: Game, floor: number): void {
+  const { state, world } = game;
+  const self = player(state);
+  const party = allies(state);
+  const { first, last } = floorRows(floor);
+  state.floor = floor;
+  world.setBounds(first, last);
+
+  const arrival = arrivalOn(world, floor);
+  settleOn(self, arrival);
+  state.entities = [self];
+  const spots = [...reachable(world, arrival, 4).values()]
+    .filter((entry) => entry.cost >= 1)
+    .sort((a, b) => a.cost - b.cost || a.cell.row - b.cell.row || a.cell.col - b.cell.col)
+    .map((entry) => entry.cell);
+  for (const friend of party) {
+    const spot = spots.find((cell) => !entityAt(state, cell.row, cell.col));
+    if (!spot) break;
+    settleOn(friend, spot);
+    state.entities.push(friend);
+  }
+
+  state.terrain = {};
+  state.terrainHits = {};
+  state.bursts = [];
+  state.gates = [];
+  state.queue = [];
+  state.descending = false;
+}
+
+/* Through a portal: down to the next floor as a fresh turn on fresh
+   ground — or out of the last floor, which wins the run. */
+function descend(game: Game): void {
+  const { state } = game;
+  state.descending = false;
+  if (state.floor >= FLOORS - 1) {
+    note(state, 'Out into the light.');
+    record(state, { type: 'run_won', turn: state.turn });
+    endRun(state, 'won');
+    state.phase = 'victory';
+    return;
+  }
+  enterFloor(game, state.floor + 1);
+  note(state, `Down to ${ZONES[state.floor]!.name}.`);
+  // Recorded now, as he arrives: rows are counted as depth through the
+  // whole run, so the new floor's first rows — and its zone — are progress.
+  trackProgress(game);
+  beginTurn(game);
+}
+
 /* ------------------------------ spawning -------------------------------- */
 
-/* The last row of a zone is a canonical row — full width, trail across the
-   middle — so a guardian stood on the trail there is squarely in the way.
-   It holds that row, and `barred` keeps everything past it shut until it
-   falls. */
+/* A floor's last row is canonical — full width, trail across the middle —
+   and it is where the floor ends. Its guardian stands on the trail there;
+   when it falls, the portal off the floor opens on its tile. A floor with
+   no guardian (none named, or disabled) has its portal waiting there from
+   the start. */
 function placeGuardians(game: Game, chunkIndex: number): void {
   const { state, world } = game;
   const first = chunkIndex * CHUNK_ROWS;
   const last = first + CHUNK_ROWS - 1;
 
   ZONES.forEach((zone, zoneIndex) => {
-    // A disabled guardian leaves its zone open.
-    if (!zone.guardian || !GUARDIAN_IDS.includes(zone.guardian)) return;
     const row = gateRowOf(zoneIndex);
     if (row < first || row > last || !world.contains(row)) return;
     if (state.gates.some((gate) => gate.row === row)) return;
@@ -873,6 +954,12 @@ function placeGuardians(game: Game, chunkIndex: number): void {
     const onTrail = cols.filter((col) => surfaceKind(world.stackAt(row, col)) === 'trail');
     const choices = onTrail.length ? onTrail : cols;
     const col = choices[Math.floor(choices.length / 2)]!;
+
+    // No guardian to beat: the way off the floor is open from the start.
+    if (!zone.guardian || !GUARDIAN_IDS.includes(zone.guardian)) {
+      openPortal(game, { row, col });
+      return;
+    }
 
     const guardian = makeEntity(zone.guardian, row, col);
     guardian.facing = -1;
@@ -890,6 +977,9 @@ export function ensureSpawns(game: Game): void {
   const from = chunkIndexForRow(self.row);
 
   for (let index = from; index <= from + SPAWN_LOOKAHEAD; index += 1) {
+    // Only the floor being played. A chunk of the next floor is left for
+    // when the player gets there, not marked as spawned-with-nothing now.
+    if (!world.contains(index * CHUNK_ROWS)) continue;
     if (state.spawnedChunks.includes(index)) continue;
     state.spawnedChunks.push(index);
 
@@ -1122,15 +1212,7 @@ function checkEnding(game: Game): boolean {
     state.phase = 'defeat';
     return true;
   }
-  if (self.row >= state.goalRow) {
-    if (state.phase !== 'victory') {
-      note(state, 'The far end of the map.');
-      record(state, { type: 'run_won', turn: state.turn });
-      endRun(state, 'won');
-    }
-    state.phase = 'victory';
-    return true;
-  }
+  // Winning is taking the way out of the last floor: `descend`.
   return false;
 }
 
@@ -1197,6 +1279,12 @@ export function tick(game: Game, dt: number): void {
   state.entities = state.entities.filter(
     (entity) => entity.id === state.playerId || !(entity.dead && entity.anim.state === 'die' && entity.anim.done),
   );
+
+  // He stepped onto a portal: down to the next floor, or out of the last.
+  if (state.descending) {
+    descend(game);
+    return;
+  }
 
   trackProgress(game);
   if (checkEnding(game)) return;

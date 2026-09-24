@@ -5,6 +5,7 @@ import {
   discardForMovement,
   handMovementValue,
   endPlayerPhase,
+  enterFloor,
   isBusy,
   movePlayerTo,
   movementRange,
@@ -14,7 +15,8 @@ import {
 import { cardDef, energySpent, minimumCost, MOVEMENT_BY_RARITY } from '~/game/cards/definitions';
 import { entityDef } from '~/game/entities/definitions';
 import { entityCell } from '~/game/entities/types';
-import { LAST_ROW, START_ROW } from '~/game/map/tiles';
+import { FLOORS, floorRows, START_ROW } from '~/game/map/tiles';
+import { chunkIndexForRow } from '~/game/map/world';
 import { createGame, enemies, type Game, player, resetUids, stat } from '~/game/state';
 
 const settle = (game: Game, limit = 4000): void => {
@@ -39,9 +41,11 @@ describe('the turn loop', () => {
       expect(game.world.walkable(self.row, self.col)).toBe(true);
       expect(self.col).toBeGreaterThanOrEqual(0);
       expect(self.col).toBeLessThan(game.world.width);
-      // And the finish is still the whole map away.
-      expect(game.state.goalRow).toBe(LAST_ROW);
-      expect(game.state.goalRow - self.row).toBeGreaterThan(100);
+      // On the first floor, with the whole floor ahead and nothing beyond it.
+      const { last } = floorRows(0);
+      expect(game.state.floor).toBe(0);
+      expect(last - self.row).toBeGreaterThan(40);
+      expect(game.world.contains(last + 1)).toBe(false);
     }
   });
 
@@ -294,23 +298,25 @@ describe('the turn loop', () => {
     expect(game.state.hand).toHaveLength(stat(game.state, 'handSize'));
   });
 
-  it('keeps enemies coming as the player moves down the map', () => {
+  it('populates a floor as it is entered — and nothing beyond it', () => {
     const game = createGame(2024);
     beginTurn(game);
-    const first = enemies(game.state).length;
 
-    // Teleport ahead, as a long run would.
-    player(game.state).row += 40;
-    beginTurn(game);
-
-    expect(game.state.spawnedChunks.length).toBeGreaterThan(3);
-    expect(enemies(game.state).length).toBeGreaterThan(first);
+    // Three chunks to a floor, spawned two ahead: the whole floor fills on
+    // arrival, and the next floor's chunks wait until the player gets there.
+    const { last } = floorRows(0);
+    const lastChunk = chunkIndexForRow(last);
+    expect([...game.state.spawnedChunks].sort((a, b) => a - b))
+      .toEqual(Array.from({ length: lastChunk + 1 }, (_, i) => i));
+    expect(enemies(game.state).length).toBeGreaterThan(0);
+    expect(enemies(game.state).every((enemy) => enemy.row <= last)).toBe(true);
   });
 
-  it('ends the run when the player reaches the far end', () => {
+  it('ends the run when the player takes the way out of the last floor', () => {
     const game = createGame(11);
     beginTurn(game);
-    player(game.state).row = game.state.goalRow;
+    enterFloor(game, FLOORS - 1);
+    game.state.descending = true;
     tick(game, 1 / 60);
     expect(game.state.phase).toBe('victory');
   });

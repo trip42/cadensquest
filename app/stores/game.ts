@@ -40,8 +40,10 @@ import { talismanDef, type TalismanDefinition } from '~/game/talismans';
 import { entityDef } from '~/game/entities/definitions';
 import { rewardLabel } from '~/game/rewards';
 import type { Cell } from '~/game/map/navigation';
+import { FLOORS, floorRows, ZONES } from '~/game/map/tiles';
 import {
   createGame,
+  enemies,
   entityAt,
   type Game,
   type GameState,
@@ -117,6 +119,8 @@ export interface GroundLine {
 }
 
 export interface TileTipView {
+  /** What the tile is: a way off the floor, or ground that acts on you. */
+  title: string;
   lines: GroundLine[];
   x: number;
   y: number;
@@ -133,8 +137,14 @@ export interface GameView {
   hp: number;
   maxHp: number;
   block: number;
+  /** How far into the current floor the player is, and how far it goes. */
   row: number;
-  goalRow: number;
+  lastRow: number;
+  /** Which floor this is, counting from 1, and how many there are. */
+  floor: number;
+  floors: number;
+  /** Enemies still standing — on this floor, since no other exists. */
+  foes: number;
   drawCount: number;
   discardCount: number;
   hand: HandCardView[];
@@ -173,8 +183,11 @@ export const useGameStore = defineStore('game', () => {
       hp: self.hp,
       maxHp: self.maxHp,
       block: self.block,
-      row: self.row,
-      goalRow: state.goalRow,
+      row: self.row - floorRows(state.floor).first,
+      lastRow: floorRows(state.floor).last - floorRows(state.floor).first,
+      floor: state.floor + 1,
+      floors: FLOORS,
+      foes: enemies(state).length,
       drawCount: state.drawPile.length,
       discardCount: state.discardPile.length,
       hand: state.hand.map((card) => ({
@@ -233,12 +246,12 @@ export const useGameStore = defineStore('game', () => {
     const { state } = current;
     const self = player(state);
     return [
-      state.turn, state.phase, state.energy, state.movement,
+      state.turn, state.phase, state.floor, state.energy, state.movement,
       self.hp, self.block, self.power, self.row, self.col,
       // Which cards, not how many: a hand that swaps for another of the
       // same size still has to repaint, or the deal animation never runs.
       state.hand.map((card) => `${card.uid}:${(card.gems ?? []).join('+')}`).join(','),
-      state.entities.length, state.log.length,
+      state.entities.length, enemies(state).length, state.log.length,
       isBusy(state) ? 1 : 0, selectedUid.value ?? '',
       state.talismans.join(','),
       state.activeReward ? state.activeReward.reward.kind : '',
@@ -369,9 +382,14 @@ export const useGameStore = defineStore('game', () => {
   /** A tile's marks, one line each: "take 3 damage · 2 rounds". */
   function groundOf(cell: Cell): GroundLine[] {
     if (!game) return [];
-    return terrainAt(game.state, cell).map((layer) => ({
+    const { state } = game;
+    return terrainAt(state, cell).map((layer) => ({
       colour: layer.colour,
-      text: `${layer.effects.map(describeTileEffect).join(', ')} · ${layer.rounds} round${layer.rounds === 1 ? '' : 's'}`,
+      text: layer.portal === 'out'
+        ? 'Step on to leave, and win the run'
+        : layer.portal === 'down'
+          ? `Step on to go down to ${ZONES[state.floor + 1]?.name ?? 'the next floor'}`
+          : `${layer.effects.map(describeTileEffect).join(', ')} · ${layer.rounds} round${layer.rounds === 1 ? '' : 's'}`,
     }));
   }
 
@@ -386,9 +404,12 @@ export const useGameStore = defineStore('game', () => {
       if (tileTip.value) tileTip.value = null;
       return;
     }
-    const next: TileTipView = { lines, x: Math.round(point.x), y: Math.round(point.y) };
+    // A portal takes only the player, so "whoever is here" would be wrong.
+    const portal = game && cell ? terrainAt(game.state, cell).find((layer) => layer.portal)?.portal : undefined;
+    const title = portal === 'out' ? 'The way out' : portal === 'down' ? 'The way down' : 'Whoever is here';
+    const next: TileTipView = { title, lines, x: Math.round(point.x), y: Math.round(point.y) };
     const old = tileTip.value;
-    if (!old || old.x !== next.x || old.y !== next.y || JSON.stringify(old.lines) !== JSON.stringify(next.lines)) {
+    if (!old || old.title !== next.title || old.x !== next.x || old.y !== next.y || JSON.stringify(old.lines) !== JSON.stringify(next.lines)) {
       tileTip.value = next;
     }
   }
@@ -537,18 +558,13 @@ export const useGameStore = defineStore('game', () => {
     view.value?.hand.find((card) => card.uid === selectedUid.value) ?? null,
   );
 
-  const enemyCount = computed(() => {
-    if (!game) return 0;
-    return game.state.entities.filter((entity) => entity.faction === 'enemy' && !entity.dead).length;
-  });
-
   const rawGame = (): Game => {
     if (!game) throw new Error('game not started');
     return game;
   };
 
   return {
-    view, selected, selectedUid, hoverCell, enemyCount, enemyTip, tileTip, run,
+    view, selected, selectedUid, hoverCell, enemyTip, tileTip, run,
     start, attach, detach, frame,
     select, commitCell, hover, pickAt, discard, discardAll, endPhase,
     chooseCard, socketGem, takeTalisman, skip,

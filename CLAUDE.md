@@ -8,7 +8,8 @@ and mistakes that have already been made once.
 
 Caden's Quest: an isometric, card-driven roguelike. The player walks a
 procedurally generated ribbon of terrain, spending cards to fight and
-discarding cards to move, trying to reach the far end of the map.
+discarding cards to move, going down through one floor per zone to find the
+way out of the last.
 
 Nuxt 4 + Vue 3 + Pinia + TypeScript. Client-only (`ssr: false`). Vitest for
 tests, which run headless with no browser.
@@ -106,7 +107,8 @@ app/game/            the simulation — no Vue, no DOM (see the rule above)
   map/
     tiles.ts           tile letters, zones (terrain + palette), ZONE_ROWS
     generate.ts        seeded chunk generator — the braid invariants live here
-    world.ts           chunk cache; stackAt() is the single read path
+    world.ts           chunk cache, bounded to the current floor; stackAt()
+                       is the single read path
     audit.ts           invariant checks, used by tests
     navigation.ts      walkability, reachable() (Dijkstra), findPath() (A*)
 app/render/          canvas renderer — DOM, still no Vue
@@ -168,17 +170,25 @@ across the middle, at the zone's opening height), which is what makes a
 chunk a pure function of `(seed, index)` — buildable, droppable and
 rebuildable in any order.
 
-**The map is finite, and bounded at both ends.** `MAP_ROWS` is every zone
-once, in order; `zoneForRow` clamps past the end rather than cycling. A run
-starts at `START_ROW` and is won on `LAST_ROW`.
+**The map is finite, and only one floor of it exists at a time.**
+`MAP_ROWS` is every zone once, in order; `zoneForRow` clamps past the end
+rather than cycling. Each zone is a floor (`floorRows`: its first row to its
+gate row) — simply its rows of the one continuous world, so the generator,
+its invariants and every seed are untouched, and analytics still count rows
+as depth through the whole run. See **Floors** below.
 
-`World.stackAt` returns open air outside `0..LAST_ROW`. Without that bound
-the world really did extend backwards for ever: the renderer draws rows well
-behind the camera, and each one generated chunk -1, -2 and on down — so the
-player could walk off the start of the map into terrain that should not have
-existed. The generator itself is unbounded and does not need to know; the
-bound belongs to the `World`, which is why the chunk tests still work on raw
-`generateChunk` output.
+`World.setBounds(first, last)` bounds the world to the current floor:
+`stackAt` returns open air outside it, and `contains(row)` says whether a
+row is in play. Without a bound the world really did extend backwards for
+ever: the renderer draws rows well behind the camera, and each one generated
+chunk -1, -2 and on down — so the player could walk off the start of the map
+into terrain that should not have existed. The generator itself is
+unbounded and does not need to know; the bound belongs to the `World`, which
+is why the chunk tests still work on raw `generateChunk` output.
+
+`ZONE_ROWS` must stay a multiple of `CHUNK_ROWS` (a test pins it).
+`ensureSpawns` populates a chunk once, when it lies on the current floor, so
+a chunk straddling two floors would leave part of the second one empty.
 
 **A fifth invariant: nothing is stranded.** Every walkable tile has at least
 one neighbour within a layer, so there are no spires you cannot climb and no
@@ -206,6 +216,39 @@ rules in the generator:
   merges already-drifted strands, so its height is clamped against the
   banks as they were, not as they became.
 
+## Floors
+
+A run goes down through the zones in order, one floor each, like the levels
+of a dungeon. `state.floor` is the zone's index.
+
+- **A floor ends at its guardian.** `placeGuardians` stands the zone's
+  guardian on the trail of its last row and records a `Gate`. When it dies,
+  `dealDamage` calls `openPortal` on its tile. A zone with no guardian — none
+  named, or disabled in content — has its portal open from the start; the
+  last zone names none, so its way out is simply waiting.
+- **A portal is a terrain layer** with `portal: 'down' | 'out'`: white, no
+  effects. `ageTerrain` never ages it out. It takes only the player:
+  `triggerTile` sets `state.descending` when he steps on, *before* the
+  once-per-round guard, so stepping off and back on still works. Allies and
+  enemies walk over it.
+- **`tick` carries him down** first thing after clearing the fallen.
+  `descend` either wins the run (the `out` portal of the last floor — the
+  only way to win; `checkEnding` only knows defeat) or calls
+  `enterFloor(next)`, records progress and calls `beginTurn`. That is a
+  fresh turn: the unspent hand is discarded, and the floor left behind gets
+  no enemy phase.
+- **`enterFloor`** bounds the world, puts the player at `arrivalOn` (on the
+  trail, `START_ROW` rows in) and his allies on the nearest free tiles
+  within four steps — any that do not fit are left behind — and clears the
+  old floor: enemies, terrain, hits, bursts, gates, queue. What he carries
+  stays: deck, health, talismans, pending rewards. Tests use it to start on
+  any floor.
+
+The HUD's ROW is floor-relative (`view.row` of `view.lastRow`), with FLOOR
+n/N beside it. The renderer snaps the camera rather than easing it when the
+player moves more than 12 rows at once — otherwise the arrival swept across
+a floor that no longer exists.
+
 ## Turn loop
 
 1. **refresh** (`beginTurn`) — a new round: terrain marks and summon
@@ -220,7 +263,8 @@ rules in the generator:
    `advance` plays out before the `damage` after it lands. Each acts
    against its `nearestFoe`, chosen as each effect resolves. A creature's
    block falls on its first entry.
-4. repeat until the player falls or reaches `goalRow`.
+4. repeat until the player falls or takes the way out of the last floor.
+   A portal leaves the loop mid-phase: see **Floors**.
 
 `tick(game, dt)` is the only function that advances the clock. It moves
 characters between cells, steps animation frames, and pulls the next enemy
@@ -259,12 +303,12 @@ Three rules keep fights from being skippable:
 - **Enemies close in.** Most enemy cards open with `advance`: an enemy
   three tiles away walks up and hits you (or your nearest ally) in the same
   turn.
-- **Guardians hold the zone boundaries.** Each zone may name a `guardian`,
-  placed on the trail of its last row (`gateRowOf`) — always a canonical,
-  full-width row. While it stands, `barred()` shuts every row past it, for
-  walking and for Vault's leap alike; the renderer outlines the shut row in
-  red. Guardians keep their post (no card in their decks advances — a test
-  pins that), always carry a talisman,
+- **Guardians end each floor.** Each zone may name a `guardian`, placed on
+  the trail of its last row (`gateRowOf`) — always a canonical, full-width
+  row, and the last row that exists. There is no barrier: nothing lies past
+  it, and the way down is a portal that opens only where the guardian falls
+  (see **Floors**). Guardians keep their post (no card in their decks
+  advances — a test pins that), always carry a talisman,
   and use the dark column of the enemies sheet. `ENEMY_IDS` excludes them;
   `GUARDIAN_IDS` lists them.
 
@@ -296,7 +340,8 @@ wins.
 **`enabled`** is applied only in `installContent`: a disabled item stays
 defined (anything holding one keeps working) but drops out of `REWARD_POOL`,
 `GEM_IDS`, `TALISMAN_IDS`, `ENEMY_IDS` (spawns filter zone rosters through
-it) and `GUARDIAN_IDS` (a zone whose guardian is disabled has no gate).
+it) and `GUARDIAN_IDS` (a floor whose guardian is disabled has its portal open
+from the start).
 With everything enabled the rng draws are exactly as before, so seeds
 replay unchanged.
 
@@ -448,11 +493,10 @@ tamed (`heal` only ever heals the actor). Cards can target `ally`.
 **Summon.** Brings an enemy definition (never a guardian) into play on the
 summoner's side — an ally for the player, another enemy for an enemy.
 `amount` is its health; `rounds`, if given, its lifetime (`ageSummons`; at
-0 it fades, leaving nothing). It stands on the target tile if free (and,
-for the player's side, not past a shut gate), else the nearest free tile to
-its summoner (`summonSpot`). Limits: the player's side shares `maxAllies`
-with tamed creatures; an enemy keeps at most `MAX_SUMMONS_PER_ENEMY` (2)
-alive. It draws an intent at once and acts from the next enemy phase. It
+0 it fades, leaving nothing). It stands on the target tile if free, else
+the nearest free tile to its summoner (`summonSpot`). Limits: the player's
+side shares `maxAllies` with tamed creatures; an enemy keeps at most
+`MAX_SUMMONS_PER_ENEMY` (2) alive. It draws an intent at once and acts from the next enemy phase. It
 drops nothing; `summonedBy`/`expires` on the entity mark it; it stands in a
 dashed, turning ring (cyan for the player's side, red for the enemy's — a
 tamed ally's ring is solid); its tooltip says SUMMONED with rounds left.
@@ -710,6 +754,12 @@ cheap signature changes. **That signature must identify the hand's cards,
 not count them** — a bug once made a same-size hand swap fail to repaint,
 silently skipping the deal animation. Anything a card's live "Now" value
 reads (block, health, energy, power, the hand) is in the signature too.
+
+**Never put a `computed` over the game object.** It is not reactive, so a
+computed that reads only the game has no dependencies: Vue runs it once and
+serves that value for ever. The FOES counter did exactly that — it showed
+the run's first count all run, through kills and new floors. Anything the
+HUD shows goes into the `view` snapshot, and its signature.
 
 The tooltips (`enemyTip` — enemies and allies — and `tileTip`) are tracked
 every frame from the hover cell, but only written when something changed.
