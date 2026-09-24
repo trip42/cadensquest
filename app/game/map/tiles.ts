@@ -73,7 +73,10 @@ export interface Zone {
   id: string;
   name: string;
   palette: Record<TileKind, FacePalette>;
-  /** Which enemy definitions spawn here. */
+  /* Who lives here is content — content/zones.json, keyed by `id` — and is
+     filled in by `installContent`. The terrain and palette stay in code. */
+  /** Which enemy definitions spawn here. A name listed twice is twice as
+   *  likely. */
   enemies: string[];
   /** Enemies per chunk. */
   density: number;
@@ -86,9 +89,9 @@ export const ZONES: Zone[] = [
   {
     id: "meadow",
     name: "North Basin",
-    enemies: ["slime", "chicken", "bug"],
-    guardian: "warden",
-    density: 3,
+    // Who spawns here comes from content/zones.json.
+    enemies: [],
+    density: 0,
     palette: {
       ground: {
         top: "#8fb063",
@@ -134,9 +137,9 @@ export const ZONES: Zone[] = [
   {
     id: "marsh",
     name: "Sunken Reach",
-    enemies: ["slime", "bug", "spider"],
-    guardian: "wyrm",
-    density: 4,
+    // Who spawns here comes from content/zones.json.
+    enemies: [],
+    density: 0,
     palette: {
       ground: {
         top: "#6f8a56",
@@ -182,8 +185,9 @@ export const ZONES: Zone[] = [
   {
     id: "highlands",
     name: "Pale Shelf",
-    enemies: ["wolf", "spider", "dragon"],
-    density: 3,
+    // Who spawns here comes from content/zones.json.
+    enemies: [],
+    density: 0,
     palette: {
       ground: {
         top: "#a8b189",

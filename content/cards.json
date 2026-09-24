@@ -1,0 +1,276 @@
+[
+  {
+    "id": "strike",
+    "name": "Strike",
+    "enabled": true,
+    "rarity": "starter",
+    "art": "slash",
+    "cost": 1,
+    "targeting": "enemy",
+    "range": 1,
+    "text": "Deal 6 damage to an adjacent enemy.",
+    "effects": [
+      {
+        "kind": "damage",
+        "amount": 6
+      }
+    ]
+  },
+  {
+    "id": "bolt",
+    "name": "Bolt",
+    "enabled": true,
+    "rarity": "rare",
+    "art": "bolt",
+    "cost": 1,
+    "targeting": "enemy",
+    "range": 4,
+    "text": "Deal 4 damage at range.",
+    "effects": [
+      {
+        "kind": "damage",
+        "amount": 4
+      }
+    ]
+  },
+  {
+    "id": "guard",
+    "name": "Guard",
+    "enabled": true,
+    "rarity": "starter",
+    "art": "shield",
+    "cost": 1,
+    "targeting": "self",
+    "range": 0,
+    "text": "Gain 5 block.",
+    "effects": [
+      {
+        "kind": "block",
+        "amount": 5
+      }
+    ]
+  },
+  {
+    "id": "survey",
+    "name": "Survey",
+    "enabled": true,
+    "rarity": "rare",
+    "art": "eye",
+    "cost": 0,
+    "targeting": "self",
+    "range": 0,
+    "text": "Draw 2 cards.",
+    "effects": [
+      {
+        "kind": "draw",
+        "amount": 2
+      }
+    ]
+  },
+  {
+    "id": "jab",
+    "name": "Jab",
+    "enabled": true,
+    "rarity": "normal",
+    "art": "slash",
+    "cost": 1,
+    "targeting": "enemy",
+    "range": 1,
+    "text": "Deal 4 damage to an adjacent enemy.",
+    "effects": [
+      {
+        "kind": "damage",
+        "amount": 4
+      }
+    ]
+  },
+  {
+    "id": "shrug",
+    "name": "Shrug",
+    "enabled": true,
+    "rarity": "normal",
+    "art": "shield",
+    "cost": 0,
+    "targeting": "self",
+    "range": 0,
+    "text": "Gain 3 block.",
+    "effects": [
+      {
+        "kind": "block",
+        "amount": 3
+      }
+    ]
+  },
+  {
+    "id": "scout",
+    "name": "Scout",
+    "enabled": true,
+    "rarity": "normal",
+    "art": "eye",
+    "cost": 0,
+    "targeting": "self",
+    "range": 0,
+    "text": "Draw a card.",
+    "effects": [
+      {
+        "kind": "draw",
+        "amount": 1
+      }
+    ]
+  },
+  {
+    "id": "cleave",
+    "name": "Cleave",
+    "enabled": true,
+    "rarity": "rare",
+    "art": "slash",
+    "cost": 2,
+    "targeting": "enemy",
+    "range": 1,
+    "text": "Deal 11 damage to an adjacent enemy.",
+    "effects": [
+      {
+        "kind": "damage",
+        "amount": 11
+      }
+    ]
+  },
+  {
+    "id": "mend",
+    "name": "Mend",
+    "enabled": true,
+    "rarity": "normal",
+    "art": "heart",
+    "cost": 1,
+    "targeting": "self",
+    "range": 0,
+    "text": "Heal 5.",
+    "effects": [
+      {
+        "kind": "heal",
+        "amount": 5
+      }
+    ]
+  },
+  {
+    "id": "harry",
+    "name": "Harry",
+    "enabled": true,
+    "rarity": "rare",
+    "art": "bolt",
+    "cost": 1,
+    "targeting": "enemy",
+    "range": 3,
+    "text": "Deal 3 damage and draw a card.",
+    "effects": [
+      {
+        "kind": "damage",
+        "amount": 3
+      },
+      {
+        "kind": "draw",
+        "amount": 1
+      }
+    ]
+  },
+  {
+    "id": "surge",
+    "name": "Surge",
+    "enabled": true,
+    "rarity": "mythic",
+    "art": "bolt",
+    "cost": 0,
+    "targeting": "self",
+    "range": 0,
+    "text": "Gain 2 energy and draw a card.",
+    "effects": [
+      {
+        "kind": "energy",
+        "amount": 2
+      },
+      {
+        "kind": "draw",
+        "amount": 1
+      }
+    ]
+  },
+  {
+    "id": "bulwark",
+    "name": "Bulwark",
+    "enabled": true,
+    "rarity": "mythic",
+    "art": "shield",
+    "cost": 2,
+    "targeting": "self",
+    "range": 0,
+    "text": "Gain 14 block.",
+    "effects": [
+      {
+        "kind": "block",
+        "amount": 14
+      }
+    ]
+  },
+  {
+    "id": "vault",
+    "name": "Vault",
+    "enabled": true,
+    "rarity": "mythic",
+    "art": "arc",
+    "cost": 1,
+    "targeting": "cell",
+    "range": 3,
+    "text": "Leap to a cell within 3.",
+    "effects": [
+      {
+        "kind": "step",
+        "amount": 0
+      }
+    ]
+  },
+  {
+    "id": "shield_slam",
+    "name": "Shield Slam",
+    "enabled": false,
+    "rarity": "rare",
+    "art": "shield",
+    "cost": 1,
+    "targeting": "enemy",
+    "range": 1,
+    "text": "Deal damage equal to your block. Lose it all.",
+    "effects": [
+      {
+        "kind": "damage",
+        "amount": {
+          "of": "block"
+        }
+      },
+      {
+        "kind": "loseBlock",
+        "amount": {
+          "of": "block"
+        }
+      }
+    ]
+  },
+  {
+    "id": "flurry",
+    "name": "Flurry",
+    "enabled": false,
+    "rarity": "rare",
+    "art": "slash",
+    "cost": "X",
+    "targeting": "enemy",
+    "range": 1,
+    "text": "Deal 4X damage to an adjacent enemy.",
+    "effects": [
+      {
+        "kind": "damage",
+        "amount": {
+          "of": "x",
+          "times": 4
+        }
+      }
+    ]
+  }
+]

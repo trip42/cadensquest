@@ -4,11 +4,10 @@
    rarity frame, cost, what it is worth as movement, its art, its sockets
    and its rules text.
 
-   It knows nothing about being held. The arch, the lift and the discard
-   offer belong to the hand, which positions this. Size comes from
-   `--card-w` and `--art-h` on whatever contains it, so the same component
-   reads at hand size and at grid size; `--card-scale` grows the text and
-   badges with it, so a bigger card is also an easier one to read. */
+   It knows nothing about being held. The stagger, the lift and the discard
+   offer belong to the hand, which positions this. It is one size wherever
+   it appears — `--card-w` and `--card-art-h` in main.css — so no screen
+   sets its own; they drifted apart once already. */
 
 import { computed, onBeforeUnmount, ref } from 'vue';
 import type { CardDefinition } from '~/game/cards/types';
@@ -21,9 +20,15 @@ const props = withDefaults(defineProps<{
   gems?: GemDefinition[];
   /** What discarding it is worth. Hidden when not given. */
   movement?: number | null;
+  /** What its "based on" amounts come to right now, in hand: in full for
+   *  the tooltip, and short for the band across the art. */
+  now?: string | null;
+  nowShort?: string | null;
 }>(), {
   gems: () => [],
   movement: null,
+  now: null,
+  nowShort: null,
 });
 
 /* ------------------------------ the tooltip ---------------------------- */
@@ -101,6 +106,7 @@ onBeforeUnmount(hide);
 
       <span class="art">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path :d="glyph(def.art)" /></svg>
+        <span v-if="nowShort" class="now" :title="now ? `Right now: ${now}` : undefined">{{ nowShort }}</span>
 
         <span class="sockets">
           <i
@@ -131,6 +137,7 @@ onBeforeUnmount(hide);
         </span>
 
         <span class="tip-text">{{ def.text }}</span>
+        <span v-if="now" class="tip-now">Right now: {{ now }}</span>
 
         <span class="tip-meta">
           <span><b>Target</b> {{ targeting }}</span>
@@ -159,8 +166,8 @@ onBeforeUnmount(hide);
    smooth next to the sprites. */
 .game-card {
   --frame: var(--px-muted);
-  width: var(--card-w, 126px);
-  /* Height follows the contents, so --art-h sets the card's shape. */
+  width: var(--card-w);
+  /* Height follows the contents, so --card-art-h sets the card's shape. */
   height: auto;
   padding: 0;
   border: 3px solid var(--px-ink);
@@ -185,34 +192,35 @@ onBeforeUnmount(hide);
   position: relative;
   display: flex;
   flex-direction: column;
-  padding: calc(7px * var(--card-scale, 1)) calc(7px * var(--card-scale, 1)) calc(8px * var(--card-scale, 1));
+  padding: 8px 8px 9px;
 }
 
 .head {
   display: flex;
   align-items: center;
-  gap: calc(5px * var(--card-scale, 1));
-  min-height: calc(20px * var(--card-scale, 1));
+  gap: 6px;
+  min-height: 22px;
 }
 .cost {
   flex: none;
-  width: calc(19px * var(--card-scale, 1));
-  height: calc(19px * var(--card-scale, 1));
+  width: 22px;
+  height: 22px;
   display: grid;
   place-items: center;
   background: var(--px-yellow);
   color: var(--px-ink);
   box-shadow: 2px 2px 0 var(--px-ink);
   font-family: var(--px-font);
-  /* Whole grid steps only: 12px on the spoils screen, 16px in hand. */
-  font-size: round(nearest, calc(12px * var(--card-scale, 1)), 4px);
+  font-size: 16px;
 }
 .name {
   flex: 1;
   min-width: 0;
   color: var(--px-text);
   font-family: var(--px-font);
-  font-size: round(nearest, calc(12px * var(--card-scale, 1)), 4px);
+  /* 12px, not 16: at 16 the wide capitals fit nine to a line, and
+     "Shield Slam" was already cut short. */
+  font-size: 12px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -224,9 +232,9 @@ onBeforeUnmount(hide);
    right edge. */
 .stride {
   position: absolute;
-  top: calc(34px * var(--card-scale, 1));
-  left: calc(10px * var(--card-scale, 1));
-  padding: 0 calc(3px * var(--card-scale, 1));
+  top: 40px;
+  left: 12px;
+  padding: 0 3px;
   background: var(--px-cyan);
   color: var(--px-ink);
   font-family: var(--px-font);
@@ -239,8 +247,8 @@ onBeforeUnmount(hide);
 .art {
   position: relative;
   flex: none;
-  height: var(--art-h, 75px);
-  margin: calc(5px * var(--card-scale, 1)) 0;
+  height: var(--card-art-h);
+  margin: 6px 0;
   display: grid;
   place-items: center;
   background: var(--px-bg);
@@ -273,12 +281,36 @@ onBeforeUnmount(hide);
 }
 .sockets i.is-set { border-color: var(--px-ink); }
 
+/* A live number for cards whose amounts are "based on" something: the
+   printed text says "equal to your block", this says 8. It rides across
+   the bottom of the art rather than under the rules text, so the text
+   keeps all five of its lines however big the numbers get. */
+.now {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 1px 4px;
+  background: var(--px-cyan);
+  color: var(--px-ink);
+  font-size: 12px;
+  line-height: 1.3;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* The sockets move up out of its way when it is there. */
+.art:has(.now) .sockets { bottom: auto; top: 4px; }
+
 .text {
   flex: none;
-  min-height: calc(54px * var(--card-scale, 1));
+  /* A fixed five lines, so every card is the same height whatever it
+     says. Text that needs more is cut off — the content editor measures
+     the real card and warns before that can ship. */
+  height: 78px;
+  overflow: hidden;
   color: var(--px-soft);
-  /* Held at 12px even in hand: at 16px the wide capitals fit a dozen to a
-     line and a rules sentence runs to five lines. */
   font-size: 12px;
   line-height: 1.3;
 }
@@ -319,6 +351,7 @@ onBeforeUnmount(hide);
 :global(.tip-rarity.is-mythic) { color: var(--px-yellow); }
 
 :global(.tip-text) { color: var(--px-text); }
+:global(.tip-now) { color: var(--px-cyan); }
 :global(.tip-meta) {
   display: flex; flex-direction: column; gap: 2px;
   padding-top: 6px; border-top: 2px solid var(--px-ink);

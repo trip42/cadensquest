@@ -5,5 +5,5 @@ export default defineConfig({
   resolve: {
     alias: { '~': fileURLToPath(new URL('./app', import.meta.url)) },
   },
-  test: { include: ['test/**/*.test.ts'] },
+  test: { include: ['test/**/*.test.ts'], setupFiles: ['test/setup.ts'] },
 });

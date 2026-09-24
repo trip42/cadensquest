@@ -105,6 +105,8 @@ export interface EntityDefinition {
   /** Holds the crossing into the next zone. While it stands, nothing past
    *  its row can be entered. Placed by the zone, never spawned at random. */
   guardian?: boolean;
+  /** Off: never spawned, and a disabled guardian leaves its zone open. */
+  enabled?: boolean;
 }
 
 export interface Motion {

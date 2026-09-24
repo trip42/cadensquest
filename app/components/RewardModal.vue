@@ -151,8 +151,9 @@ function skip(): void {
   background: rgba(11, 11, 23, 0.82);
   z-index: 50;
 }
-.sheet { width: min(660px, 100%); padding: 20px 22px 22px; }
-.sheet.wide { width: min(880px, 100%); }
+.sheet { width: min(780px, 100%); padding: 20px 22px 22px; }
+/* Four cards across without wrapping — the dragon offers four. */
+.sheet.wide { width: min(980px, 100%); }
 header { margin-bottom: 18px; text-align: center; }
 h2 {
   margin: 0;
@@ -172,10 +173,9 @@ header p { margin: 8px 0 0; color: var(--px-soft); font-size: 12px; }
 
 /* ------------------------------ card offer ----------------------------- */
 
-/* Placement only. The frame, cost, sockets and text are the card's own. */
+/* Placement only. The size, frame, cost, sockets and text are the card's
+   own — the same card as in the hand. */
 .offer {
-  --card-w: 136px;
-  --art-h: 84px;
   display: flex;
   gap: 16px;
   justify-content: center;
@@ -187,10 +187,8 @@ header p { margin: 8px 0 0; color: var(--px-soft); font-size: 12px; }
 /* ------------------------------ gem grid ------------------------------- */
 
 .deck {
-  --card-w: 104px;
-  --art-h: 52px;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--card-w) + 10px), 1fr));
   justify-items: center;
   gap: 14px 10px;
   max-height: 52vh;

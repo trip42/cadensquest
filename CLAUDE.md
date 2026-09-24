@@ -23,6 +23,38 @@ npm run build
 `?seed=90210` on the URL replays a run exactly. Use it when reproducing
 anything — the whole world comes from that number.
 
+## Commits: always leave a state you can roll back to
+
+Commit after every meaningful change, so the history is a series of known-good
+points and any one of them can be returned to.
+
+- **What counts as meaningful:** a feature, a fix, a refactor, a batch of
+  content changes, a docs update that stands on its own. One logical change
+  per commit — don't bundle unrelated work, and don't commit every small edit
+  on the way to one change.
+- **Only commit a valid state.** `npm test` and `npm run typecheck` pass, and
+  `npm run build` too for anything touching config, dependencies, `server/` or
+  pages. Never commit something broken to save progress: finish it, or leave it
+  uncommitted and say so.
+- **Commit as each change is finished**, before starting the next — not all at
+  the end of a session, which leaves nothing to roll back to in between.
+- **Say what changed.** A short imperative summary line (72 characters or
+  fewer), a blank line, then a body: what was added or changed, how behaviour
+  differs, and anything someone rolling back needs to know (for example, the
+  content files changed shape). End with the attribution line.
+- **Stage files by name**, not `git add -A`, and check `git status` first.
+  Never commit `.env`, `.output/` or scratch files. Undo anything a browser
+  check left behind (an editor test that saved to `content/`) before
+  committing.
+- **Only your own work.** If the tree already has uncommitted changes you did
+  not make, leave them out and mention them.
+- **Commit on the current branch. Never push, rebase, amend or force** unless
+  asked.
+
+To roll back: `git log --oneline` to find the point, then `git revert <sha>` to
+undo one commit while keeping later ones, or `git switch -c <name> <sha>` to
+look at or continue from an older state.
+
 ## The one rule that matters
 
 **`app/game/**` imports nothing from Vue, Nuxt, the DOM, or an asset file.**
@@ -53,8 +85,10 @@ app/game/          the simulation — no Vue, no DOM
     audit.ts         invariant checks, used by tests
     navigation.ts    walkability, reachable(), A* findPath()
   telemetry.ts       GameEvent, record(), the run tally
-  cards/             definitions + effect types; rarity and movement values
-  entities/          stats, sprite refs, animation clips
+  content/           schema, validator and installer for content/*.json
+  sandbox.ts         "Try it": a run with one thing arranged up front
+  cards/             card registries + types; rarity and movement values
+  entities/          the player's definition, the enemy registry, clips
 app/render/        canvas renderer — DOM, still no Vue
   iso.ts             projection, design units, DESIGN_W/H, ZOOM, FOCUS_Y
   sprites.ts         sheet registry, frame lookup, placeholder art
@@ -63,7 +97,11 @@ app/stores/game.ts bridge: raw game in, view snapshot out
 app/components/    MapStage (canvas), GameCard, HandBar, RewardModal,
                    TalismanRail, EnemyTip
 app/pages/index.vue the screen: full-bleed map with the HUD floating over it
-server/api/        card data over HTTP, to show the seam
+app/pages/editor.vue the content editor (dev only); forms in components/editor
+app/stores/editor.ts the editor's draft, validation, save, "Try it"
+app/plugins/content.ts loads content/*.json before anything starts
+content/           the game's content as JSON — see "Content" below
+server/api/content.put.ts  the editor's save endpoint (dev only)
 test/              runs in Node
 legacy/            the original single-file prototype this grew from
 ```
@@ -197,10 +235,60 @@ Three rules keep fights from being skippable:
   and use the dark column of the enemies sheet. `ENEMY_IDS` excludes them;
   `GUARDIAN_IDS` lists them.
 
+## Content
+
+Cards, enemy cards, enemies, gems, talismans, zone spawn tables and the
+starting deck are **JSON in `content/`**, not code. What stays in code: the
+effect verbs (`resolveEffect`), the player's definition, sprite sheet
+files, glyphs, and each zone's terrain and palette.
+
+**The flow.** `app/plugins/content.ts` fetches `/content/<file>.json` (Nitro
+serves the folder via `publicAssets`) and calls `loadContent`, which
+validates and then `installContent`s. Tests do the same from disk in
+`test/setup.ts`. `app/game` never fetches: it is handed content, which is
+what lets the source become a server later.
+
+**Fetched, not imported, on purpose.** A static JSON import puts the file
+in Vite's module graph, so every save from the editor would hot-reload the
+page under it and lose its place. Served files are outside the graph.
+
+**The registries are refilled in place.** `CARDS`, `INTENTS`, `ENTITIES`,
+`GEMS`, `TALISMANS`, the `*_IDS`/`*_POOL` arrays, `STARTING_DECK`,
+`DEFAULT_REWARD_CONFIG.gemWeights` and the `ZONES` spawn fields are the
+same objects for the life of the page; `installContent` clears and refills
+them. Never reassign one — modules that imported it early would keep the
+stale copy. A second install (the editor's "Try it" with a draft) simply
+wins.
+
+**`enabled`** is applied only in `installContent`: a disabled item stays
+defined (anything holding one keeps working) but drops out of `REWARD_POOL`,
+`GEM_IDS`, `TALISMAN_IDS`, `ENEMY_IDS` (spawns filter zone rosters through
+it) and `GUARDIAN_IDS` (a zone whose guardian is disabled has no gate).
+With everything enabled the rng draws are exactly as before, so seeds
+replay unchanged.
+
+**Validation** (`content/validate.ts`) is one function used by the game,
+the tests and the save endpoint: zod for shape (`content/schema.ts`), then
+cross-checks — unique ids, decks and the starting deck name things that
+exist and are enabled, guardians never `advance`, zones match the code's
+zones, and warnings for verbs that do nothing for their side. Errors stop
+the game loading and the editor saving; warnings don't. `npm test` asserts
+the committed content has **no errors and no warnings**.
+
+**The editor** (`/editor`, dev only): a tab per file, a form per item, and
+a live preview drawn with the game's own `GameCard`, sprite crop and HUD
+panels. It keeps a draft in a Pinia store, validates on every change,
+and saves changed files together through `PUT /api/content` (re-validated
+server-side; nothing is written if anything is an error). Files are written
+pretty-printed in schema order so git diffs are line by line. Ids are
+editable only until first saved. "Try it" installs the draft — saved or
+not — and starts `/?try=kind:id` (`sandbox.ts`). The route is removed from
+production builds (`pages:extend` hook) and the endpoint 404s there.
+
 ## Enemy decks
 
-An enemy's behaviour is data: `deck` on its definition lists card ids from
-`cards/intents.ts`. It draws from its own `drawPile`, reshuffling the whole
+An enemy's behaviour is data: `deck` on its entry in `content/enemies.json`
+lists card ids from `content/enemy-cards.json`. It draws from its own `drawPile`, reshuffling the whole
 deck when it runs dry, so a deck of two lunges and two circles never lunges
 three turns running. There are no enemy stats for speed, reach or damage —
 each card carries them:
@@ -233,8 +321,34 @@ health when `maxHp` goes up instead of leaving a dent.
 
 ## Effects, gems, talismans, rewards
 
-`game/effects.ts` is the shared verb list — `damage`, `block`, `movement`,
-`energy`, `draw`, `heal`, `step`. Cards, gems and talismans all describe
+`game/effects.ts` is the shared verb list — `damage`, `block`, `loseBlock`,
+`movement`, `energy`, `draw`, `heal`, `step`, `advance`, `power`.
+
+**An amount is a number or a scaled amount**: `{ "of": "block", "times":
+0.5, "plus": 2 }`, worked out from the *actor* (`amountValues`) at the
+moment the effect resolves — after the earlier effects on the same card, so
+Guard-then-"damage equal to your block" counts the new block. Rounded down,
+never below zero: direction belongs to the verb (Block gains, Lose block
+spends), which is why there is no negative block. Deliberately data, not a
+formula string — content may come from a server one day, and an evaluated
+string is code; a test pins that a string is refused. Sources: `block`,
+`health`, `missingHealth`, `power`, `energy`, `hand`, `x`.
+
+**X cost.** `cost` is a number or `"X"`: the card spends all your energy
+(`energySpent`), is playable at 0 (`minimumCost`), and its effects — and
+its gems' — read what it spent as `{ "of": "x" }` (carried on `Play.x`).
+Not `energy`: the cost is paid before effects resolve, so energy is 0 by
+then; that is why X is its own source. X is 0 everywhere else (other
+cards, enemies, talisman triggers), and the validator warns on each, and on
+an X card that never uses X. `card_played` records `energy`, so analytics
+can see how big X was. Text reads it the printed way: "Deal 4X damage". For a played card,
+`energy` and `hand` are *after* paying for it and removing it from the
+hand. An enemy has no energy or hand (always 0), and its block falls as
+it starts to act, so "its block" is only what that card gave it — the
+validator warns about both. Bonuses: damage still adds `power` and
+`damageBonus`; `loseBlock` takes no `blockBonus`. `nowText` /
+`previewAmounts` simulate the card in order to show the live "Now: 8
+damage, −8 block" line on cards in hand and on an enemy's tooltip. Cards, gems and talismans all describe
 themselves with those tagged objects, so `resolveEffect` in actions.ts is
 the only place that knows what any of them do. A new gem is data; a new
 *verb* is one case in that switch.
@@ -347,10 +461,21 @@ drifted apart once already, which is why it exists.
 It knows nothing about being *held*. The stagger, the lift, the spread, the
 deal animation and the discard offer belong to `HandBar`, which positions
 it; `HandBar`'s `.card` rule carries transform, cursor and opacity only, and
-nothing about the card's own face. Size comes from `--card-w` and `--art-h`
-on whatever contains it, and `--card-scale` grows its text and badges to
-match, so the same component reads at hand size (158px, scale 1.25) and in
-the gem grid (104px, scale 1). The hand's overlap is a minimum: past
+nothing about the card's own face.
+
+**One card size, everywhere**: 164 × 211, set only by `--card-w` and
+`--card-art-h` in `main.css` (phones get 112 wide, still the same on every
+screen). No screen overrides it — the hand, the spoils, the gem grid and
+the editor preview all used to set their own, and drifted. The height is
+fixed too: the rules text gets exactly five 12px lines (`height: 78px`,
+overflow hidden), and the name one 12px line (about 13 capitals). Content
+that does not fit is cut off, so the editor preview **measures the real
+card** (scrollWidth/scrollHeight once fonts are ready) and warns; a test
+run deals every card onto the spoils screen to check none is cut. The live
+"Now" value rides in a band across the bottom of the art (`nowText(...,
+'short')`, "18 DMG −18 BLK"), not under the rules text, so big numbers can
+never push the text out of its box; the tooltip has the full wording. The
+hand's overlap is a minimum: past
 `--hand-max` (860px) it tightens, so a big hand never runs into the log or
 the buttons.
 
@@ -408,15 +533,17 @@ live there too: `.panel`, `.px-button` (coloured by `--btn`,
 `--btn-dark`, `--btn-light`, with `is-yellow`/`is-green`/`is-quiet`) and
 `.px-tag`.
 
-Fonts are self-hosted through `@fontsource` (registered in
-`nuxt.config.ts`). **DotGothic16** (`--px-body`) carries everything that is
-read — rules text, names, the log, buttons — and **every number**: HP,
-energy, costs, counts, the canvas chips. **Silkscreen** (`--px-display`) is
-only for big titles (SPOILS, GAME OVER) and short tags with no digits in
-them (NEXT, DROPS, the phase). Pixelify Sans was tried first and dropped:
-its 2, 3 and 8 read alike ("Draw 2" looked like "Draw 8") and its e closes
-up; Silkscreen's digits have the same problem, which is why numbers never
-use it. Ten pixel faces were compared on real game text before choosing.
+The whole HUD is **Silkscreen, in capitals** (`--px-font`, self-hosted
+through `@fontsource`; `body` sets `text-transform: uppercase`, and the
+teleported card tooltip sets it again).
+
+**Every font-size is a multiple of 4px** — 8, 12, 16, 20, 24, 48 — because
+Silkscreen is drawn on a 4px pixel grid and is only sharp on it. In between (9, 10, 13px...) the pixels smear and 2, 3 and 8 blur together:
+that, not the typeface, is what made the first version hard to read. Two
+detours were tried and dropped on the way here: Pixelify Sans (its digits
+are ambiguous at any size) and DotGothic16 (clear, but the user did not
+like it). Card names and rules text are 12px — at 16px the wide capitals fit
+nine to a line and "Shield Slam" was cut short; the cost digit is 16px.
 
 The canvas chips (intent labels, reward tags, health bars) are drawn by the
 renderer, which reads the same custom properties once at start
@@ -475,9 +602,11 @@ silently skipping the deal animation.
   knows the player's. They used to share ids (`strike`), and the tip once
   told you a Warden would "deal 6 damage to an adjacent enemy". Enemy card
   ids are prefixed with the enemy (`wolf_lunge`) so they cannot collide.
-- **The editor reformats files under you.** `cards/definitions.ts` has been
-  reflowed to double quotes and one property per line mid-session, which
-  silently broke single-line search strings. Match structurally — a regex
+- **The editor reformats files under you.** `cards/definitions.ts` (back
+  when it held the cards) was reflowed to double quotes and one property
+  per line mid-session, which silently broke single-line search strings.
+  Card data is JSON in `content/` now — change it through the editor or
+  by parsing and re-serialising, never by string patching. Match structurally — a regex
   keyed on the card's `id` that tolerates either quote style — rather than
   on an exact line, and always assert the substitution count.
 

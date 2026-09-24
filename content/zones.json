@@ -1,0 +1,31 @@
+[
+  {
+    "id": "meadow",
+    "enemies": [
+      "slime",
+      "chicken",
+      "bug"
+    ],
+    "guardian": "warden",
+    "density": 3
+  },
+  {
+    "id": "marsh",
+    "enemies": [
+      "slime",
+      "bug",
+      "spider"
+    ],
+    "guardian": "wyrm",
+    "density": 4
+  },
+  {
+    "id": "highlands",
+    "enemies": [
+      "wolf",
+      "spider",
+      "dragon"
+    ],
+    "density": 3
+  }
+]

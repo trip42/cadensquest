@@ -12,12 +12,12 @@
    a test without a browser. `tick` is the one exception: it advances the
    clock, which is what lets movement and attacks play out visibly. */
 
-import { cardDef, cardMovement } from './cards/definitions';
+import { cardDef, cardMovement, energySpent, minimumCost } from './cards/definitions';
 import { intentDef } from './cards/intents';
 import type { CardInstance } from './cards/types';
-import type { Effect, TriggerPoint } from './effects';
+import { amountOf, type AmountValues, type Effect, type TriggerPoint } from './effects';
 import { GEM_SLOTS, gemDef } from './gems';
-import { entityDef } from './entities/definitions';
+import { ENEMY_IDS, entityDef, GUARDIAN_IDS } from './entities/definitions';
 import {
   advanceAnimation,
   type Entity,
@@ -133,7 +133,7 @@ export function movementRange(game: Game): Map<string, { cell: Cell; cost: numbe
 export function canPlay(game: Game, uid: string): boolean {
   const card = handCard(game.state, uid);
   if (!card || game.state.phase !== 'player' || game.state.activeReward) return false;
-  return cardDef(card.defId).cost <= game.state.energy;
+  return minimumCost(cardDef(card.defId)) <= game.state.energy;
 }
 
 /** Is this a legal target for that card? Drives the drag-onto-the-map UI. */
@@ -210,16 +210,39 @@ interface Play {
   target: Cell | null;
   /** The card's reach, which `advance` closes to and `damage` needs. */
   range: number;
+  /** The energy an X card spent — what `{ "of": "x" }` reads. 0 for
+   *  anything else. */
+  x?: number;
+}
+
+/** What a scaled amount can be worked out from, for this actor, right now.
+ *  An enemy has no energy or hand, so those read as zero for it. */
+export function amountValues(state: GameState, actor: Entity, x = 0): AmountValues {
+  const isPlayer = actor.id === state.playerId;
+  return {
+    x,
+    block: actor.block,
+    health: actor.hp,
+    missingHealth: Math.max(0, actor.maxHp - actor.hp),
+    power: actor.power,
+    energy: isPlayer ? state.energy : 0,
+    hand: isPlayer ? state.hand.length : 0,
+  };
 }
 
 /* The one place that knows what every verb does, for both sides. Bonuses
    from the stat table are the player's; an enemy's only bonus is its
    `power`. Verbs that spend a resource only one side has are no-ops for
-   the other, so a stray `draw` in an enemy deck is harmless. */
+   the other, so a stray `draw` in an enemy deck is harmless.
+
+   A scaled amount is worked out here, as the effect happens — after the
+   ones before it on the same card — so "gain 5 block, then deal damage
+   equal to your block" counts the new block. */
 function resolveEffect(game: Game, effect: Effect, play: Play): void {
   const { state } = game;
   const { actor, target, range } = play;
   const isPlayer = actor.id === state.playerId;
+  const amount = amountOf(effect.amount, amountValues(state, actor, play.x));
 
   switch (effect.kind) {
     case 'damage': {
@@ -232,31 +255,35 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
       faceToward(actor, entityCell(victim));
       if (!isPlayer) setAnimation(actor, 'attack');
       const bonus = actor.power + (isPlayer ? stat(state, 'damageBonus') : 0);
-      dealDamage(game, victim, effect.amount + bonus, actor);
+      dealDamage(game, victim, amount + bonus, actor);
       break;
     }
     case 'block':
-      actor.block += effect.amount + (isPlayer ? stat(state, 'blockBonus') : 0);
+      actor.block += amount + (isPlayer ? stat(state, 'blockBonus') : 0);
       if (!isPlayer) note(state, `${entityDef(actor.defId).name} braces.`);
       break;
+    case 'loseBlock':
+      // No bonus: blockBonus makes gaining block better, not losing it worse.
+      actor.block = Math.max(0, actor.block - amount);
+      break;
     case 'heal':
-      actor.hp = Math.min(actor.maxHp, actor.hp + effect.amount);
+      actor.hp = Math.min(actor.maxHp, actor.hp + amount);
       break;
     case 'power':
-      actor.power += effect.amount;
+      actor.power += amount;
       if (!isPlayer) note(state, `${entityDef(actor.defId).name} grows stronger.`);
       break;
     case 'advance':
-      if (!isPlayer) advance(game, actor, effect.amount, range);
+      if (!isPlayer) advance(game, actor, amount, range);
       break;
     case 'movement':
-      if (isPlayer) state.movement += effect.amount;
+      if (isPlayer) state.movement += amount;
       break;
     case 'energy':
-      if (isPlayer) state.energy += effect.amount;
+      if (isPlayer) state.energy += amount;
       break;
     case 'draw':
-      if (isPlayer) drawCards(state, effect.amount);
+      if (isPlayer) drawCards(state, amount);
       break;
     case 'step':
       // A leap: straight to the cell, no path, no movement spent.
@@ -367,11 +394,14 @@ export function playCard(game: Game, uid: string, target: Cell | null = null): b
     if (!target || !isValidTarget(game, uid, target)) return false;
   }
 
-  state.energy -= def.cost;
+  // An X card spends everything, and its effects (and its gems') read how
+  // much that was as X.
+  const spent = energySpent(def, state.energy);
+  state.energy -= spent;
   state.hand = state.hand.filter((item) => item.uid !== uid);
   state.discardPile.push(card);
   note(state, `Played ${def.name}.`);
-  record(state, { type: 'card_played', card: def.id, rarity: def.rarity, gems: gemsOf(card) });
+  record(state, { type: 'card_played', card: def.id, rarity: def.rarity, gems: gemsOf(card), energy: spent });
 
   const self = player(state);
   if (target) {
@@ -381,7 +411,7 @@ export function playCard(game: Game, uid: string, target: Cell | null = null): b
     if (def.targeting === 'enemy') setAnimation(self, def.range > 1 ? 'ranged' : 'attack');
   }
 
-  const play: Play = { actor: self, target, range: def.range };
+  const play: Play = { actor: self, target, range: def.range, x: spent };
   for (const effect of def.effects) resolveEffect(game, effect, play);
   // Gems are socketed into this instance, so only this copy carries them.
   for (const gemId of gemsOf(card)) {
@@ -443,7 +473,8 @@ function placeGuardians(game: Game, chunkIndex: number): void {
   const last = first + CHUNK_ROWS - 1;
 
   ZONES.forEach((zone, zoneIndex) => {
-    if (!zone.guardian) return;
+    // A disabled guardian leaves its zone open.
+    if (!zone.guardian || !GUARDIAN_IDS.includes(zone.guardian)) return;
     const row = gateRowOf(zoneIndex);
     if (row < first || row > last || !world.contains(row)) return;
     if (state.gates.some((gate) => gate.row === row)) return;
@@ -485,12 +516,15 @@ export function ensureSpawns(game: Game): void {
         if (world.walkable(row, col)) candidates.push({ row, col });
       }
     }
-    if (!candidates.length) continue;
+    // Only enabled enemies spawn. With all of them on this is the zone's own
+    // list, so the draws — and every seed — come out as they always did.
+    const roster = chunk.zone.enemies.filter((id) => ENEMY_IDS.includes(id));
+    if (!candidates.length || !roster.length) continue;
 
     for (let n = 0; n < chunk.zone.density; n += 1) {
       const spot = candidates[nextInt(state.rng, candidates.length)]!;
       if (entityAt(state, spot.row, spot.col)) continue;
-      const enemy = makeEntity(pick(state.rng, chunk.zone.enemies), spot.row, spot.col);
+      const enemy = makeEntity(pick(state.rng, roster), spot.row, spot.col);
       enemy.facing = -1;
       enemy.reward = rollReward(state.rng, entityDef(enemy.defId).reward);
       state.entities.push(enemy);

@@ -16,68 +16,16 @@ export interface TalismanDefinition {
   icon: string;
   modifiers?: StatModifier[];
   triggers?: Trigger[];
+  /** Off: no reward offers it. One already held keeps working. */
+  enabled?: boolean;
 }
 
-export const TALISMANS: Record<string, TalismanDefinition> = {
-  satchel: {
-    id: 'satchel',
-    name: 'Worn Satchel',
-    text: 'Draw one more card each turn.',
-    icon: 'bag',
-    modifiers: [{ stat: 'handSize', add: 1 }],
-  },
-  heartstone: {
-    id: 'heartstone',
-    name: 'Heartstone',
-    text: 'Raise your maximum health by 10.',
-    icon: 'heart',
-    modifiers: [{ stat: 'maxHp', add: 10 }],
-  },
-  aegis: {
-    id: 'aegis',
-    name: 'Aegis Shard',
-    text: 'Begin every turn with 3 block.',
-    icon: 'shield',
-    modifiers: [{ stat: 'blockPerRefresh', add: 3 }],
-  },
-  boots: {
-    id: 'boots',
-    name: 'Wayfarer Boots',
-    text: 'Move one more tile every turn.',
-    icon: 'boot',
-    modifiers: [{ stat: 'movePerTurn', add: 1 }],
-  },
-  lodestone: {
-    id: 'lodestone',
-    name: 'Lodestone',
-    text: 'Every card discarded is worth one more step.',
-    icon: 'compass',
-    modifiers: [{ stat: 'movementBonus', add: 1 }],
-  },
-  emberwick: {
-    id: 'emberwick',
-    name: 'Emberwick',
-    text: 'Heal 2 whenever an enemy falls.',
-    icon: 'flame',
-    triggers: [{ on: 'enemyDefeated', effects: [{ kind: 'heal', amount: 2 }] }],
-  },
-  whetstone: {
-    id: 'whetstone',
-    name: 'Whetstone',
-    text: 'Cards deal one more damage.',
-    icon: 'blade',
-    modifiers: [{ stat: 'damageBonus', add: 1 }],
-  },
-  tidecharm: {
-    id: 'tidecharm',
-    name: 'Tidecharm',
-    text: 'Draw an extra card at the end of the enemy phase.',
-    icon: 'wave',
-    triggers: [{ on: 'enemyPhaseEnd', effects: [{ kind: 'draw', amount: 1 }] }],
-  },
-};
+/** Every talisman, enabled or not. Content — `content/talismans.json` —
+ *  put here by `installContent`. */
+export const TALISMANS: Record<string, TalismanDefinition> = {};
 
-export const TALISMAN_IDS = Object.keys(TALISMANS);
+/** The talismans a reward may offer: the enabled ones. */
+export const TALISMAN_IDS: string[] = [];
 
 export const talismanDef = (id: string): TalismanDefinition => {
   const def = TALISMANS[id];

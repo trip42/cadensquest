@@ -27,6 +27,17 @@
      (9, 10, 13...) smears its pixels and its 2, 3 and 8 start to look
      alike, which is what made the first version hard to read. */
   --px-font: 'Silkscreen', ui-monospace, monospace;
+
+  /* The one card size. A card is the same in the hand, on the spoils
+     screen, in the gem grid and in the editor — sized here, nowhere else.
+     164 wide fits a name of about 13 characters at 12px. Phones get a
+     smaller card below, still the same on every screen. */
+  --card-w: 164px;
+  --card-art-h: 76px;
+}
+
+@media (max-width: 860px) {
+  :root { --card-w: 112px; --card-art-h: 48px; }
 }
 
 * { box-sizing: border-box; }

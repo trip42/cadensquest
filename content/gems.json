@@ -1,0 +1,41 @@
+[
+  {
+    "id": "ruby",
+    "name": "Ruby",
+    "enabled": true,
+    "colour": "#d9544d",
+    "text": "Heal 1 when this card is played.",
+    "effects": [
+      {
+        "kind": "heal",
+        "amount": 1
+      }
+    ]
+  },
+  {
+    "id": "sapphire",
+    "name": "Sapphire",
+    "enabled": true,
+    "colour": "#4d8fd9",
+    "text": "Gain 1 movement when this card is played.",
+    "effects": [
+      {
+        "kind": "movement",
+        "amount": 1
+      }
+    ]
+  },
+  {
+    "id": "emerald",
+    "name": "Emerald",
+    "enabled": true,
+    "colour": "#4db97a",
+    "text": "Gain 1 energy when this card is played.",
+    "effects": [
+      {
+        "kind": "energy",
+        "amount": 1
+      }
+    ]
+  }
+]

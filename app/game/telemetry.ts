@@ -16,7 +16,8 @@ export type GameEvent =
   | { type: 'row_reached'; row: number; zone: string }
   | { type: 'zone_entered'; zone: string; row: number }
   | { type: 'card_collected'; card: string; rarity: string; deckSize: number }
-  | { type: 'card_played'; card: string; rarity: string; gems: string[] }
+  /** `energy` is what it cost — for an X card, how big X was. */
+  | { type: 'card_played'; card: string; rarity: string; gems: string[]; energy: number }
   | { type: 'card_discarded'; card: string; rarity: string; movement: number; bulk: boolean }
   | { type: 'gem_collected'; gem: string; card: string }
   | { type: 'talisman_collected'; talisman: string }

@@ -24,12 +24,15 @@ app/game/      the simulation. No Vue, no DOM, no imports from anywhere else.
   state.ts       GameState and what it is made of
   actions.ts     the turn loop: refresh -> player -> enemy -> repeat
   map/           tiles, zones, the generator, streaming, pathfinding
-  cards/         player cards and enemy cards (intents.ts); effects are data
-  entities/      characters, stats, animation clips
+  content/       validates and installs the content files below
+  cards/         card registries; effects are data
+  entities/      characters, animation clips
 app/render/    the canvas renderer. DOM, but still no Vue.
 app/stores/    Pinia: holds the raw game, publishes a snapshot for the HUD
-app/components/ MapStage (the canvas), HandBar (the cards)
-server/api/    card data over HTTP, to show the seam
+app/components/ MapStage (the canvas), HandBar (the cards), editor/
+app/pages/     the game, and /editor (dev only)
+content/       cards, enemies, gems, talismans, zones, starting deck — JSON
+server/api/    the editor's save endpoint (dev only)
 test/          runs headless, no browser
 legacy/        the original single-file prototype this grew from
 ```
@@ -238,9 +241,10 @@ a few pixels so each edge reads against its neighbour — pixel frames do not
 rotate cleanly, so there is no fan. Name and energy cost across the top,
 artwork in the middle, rules text along the bottom.
 
-`--art-h` in `HandBar.vue` is the one number that sets the shape — the rest
-of the card is fixed, so the art window's height decides the card's. At
-75px it lands on 126x176, the proportions of a real trading card.
+A card is one size everywhere it appears — the hand, the spoils screen,
+the gem grid, the editor — set by `--card-w` and `--card-art-h` in
+`app/assets/css/main.css`: 164 × 211. The name gets one line and the rules
+text five; the editor's preview warns if either is too long to fit.
 
 The frame colour is the card's rarity — grey for starter, pale for normal,
 cyan for rare, yellow for mythic — so `rarity` is a field on `CardDefinition` alongside cost
@@ -349,16 +353,43 @@ The events are defined in `app/game/telemetry.ts`. To add one, add a member
 to `GameEvent` and call `record()` where it happens; it reaches PostHog with
 no other change.
 
+## Content and the editor
+
+Everything the game is built from — cards, enemies and their cards, gems,
+talismans, who lives in each zone, the starting deck — is JSON in
+`content/`, one file each. The rules never change for new content: only a
+new *kind* of effect needs code.
+
+Run `npm run dev` and open **http://localhost:3000/editor** (or the
+CONTENT EDITOR link under the buttons in the game):
+
+- A tab for each file, the items down the left, a form in the middle and a
+  **live preview** on the right — the real card, the enemy's sprite on a
+  tile with its tooltip, a gem set into a card, a talisman on the rail.
+- **Enabled** turns anything off without deleting it: a disabled card is
+  never offered, a disabled enemy never spawns. Good for testing things
+  over time.
+- Problems are flagged as you type, next to the field. Errors block
+  saving; warnings ("Draw does nothing for an enemy") don't.
+- **Try it** starts a run with the thing you are editing — the card in
+  your hand, the enemy three steps away — using your unsaved changes.
+- **Save** (or Cmd/Ctrl+S) writes the files. Versions are git: commit
+  `content/` like any other change, and every past version is in history.
+
+The editor only exists in dev. A production build serves the content
+files read-only and has no editor and no way to write.
+
 ## Where to go next
 
 - **Art** — the enemies are still one still each. Give them cycle sheets
   like Caden's and raise `frames`; the transform-based motion bows out on
   its own. Caden still wants a hurt and a death row.
-- **Cards** — add to `cards/definitions.ts` with a `rarity` and an `art`
-  key. A new effect kind needs one case in `resolveEffect`. Effects are
-  data, so they can come from `server/api/cards` without changing the rules
-  engine.
-- **Zones** — add to `ZONES` in `map/tiles.ts`: a palette, an enemy table and
-  generation parameters. `ZONE_ROWS` is a multiple of `CHUNK_ROWS`, so a
+- **Cards, enemies, gems, talismans** — in the editor. A new effect *kind*
+  needs one case in `resolveEffect` and an entry in `EFFECT_INFO`.
+- **Hosting content elsewhere** — the game loads `/content/*.json` in
+  `app/plugins/content.ts`; point that at a server and it needs nothing
+  else. The editor's save goes through `PUT /api/content`.
+- **Zones** — add to `ZONES` in `map/tiles.ts` (a palette and generation
+  parameters), then give it an entry in `content/zones.json`. `ZONE_ROWS` is a multiple of `CHUNK_ROWS`, so a
   chunk only ever belongs to one zone.
 - **The end of the map** is still provisional: `goalRow` in `state.ts`.

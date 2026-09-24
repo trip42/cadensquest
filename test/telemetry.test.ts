@@ -62,7 +62,7 @@ describe('run events', () => {
     discardAllForMovement(game);
 
     expect(of(game, 'card_played')).toEqual([
-      { type: 'card_played', card: 'guard', rarity: 'starter', gems: ['ruby'] },
+      { type: 'card_played', card: 'guard', rarity: 'starter', gems: ['ruby'], energy: 1 },
     ]);
     const discards = of(game, 'card_discarded');
     expect(discards.map((event) => [event.card, event.bulk])).toEqual([['guard', false], ['mend', true]]);

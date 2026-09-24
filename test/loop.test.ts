@@ -11,7 +11,7 @@ import {
   playCard,
   tick,
 } from '~/game/actions';
-import { cardDef, MOVEMENT_BY_RARITY } from '~/game/cards/definitions';
+import { cardDef, energySpent, minimumCost, MOVEMENT_BY_RARITY } from '~/game/cards/definitions';
 import { entityDef } from '~/game/entities/definitions';
 import { entityCell } from '~/game/entities/types';
 import { LAST_ROW, START_ROW } from '~/game/map/tiles';
@@ -173,7 +173,7 @@ describe('the turn loop', () => {
     const before = state.energy;
 
     expect(playCard(game, card!.uid)).toBe(true);
-    expect(state.energy).toBe(before - cardDef(card!.defId).cost);
+    expect(state.energy).toBe(before - energySpent(cardDef(card!.defId), before));
     expect(state.hand.find((item) => item.uid === card!.uid)).toBeUndefined();
     expect(state.discardPile.map((item) => item.uid)).toContain(card!.uid);
   });
@@ -372,7 +372,7 @@ describe('the turn loop', () => {
       beginTurn(game);
       for (let turn = 0; turn < 4; turn += 1) {
         const playable = game.state.hand.find(
-          (item) => cardDef(item.defId).targeting === 'self' && cardDef(item.defId).cost <= game.state.energy,
+          (item) => cardDef(item.defId).targeting === 'self' && minimumCost(cardDef(item.defId)) <= game.state.energy,
         );
         if (playable) playCard(game, playable.uid);
         runEnemyPhase(game);

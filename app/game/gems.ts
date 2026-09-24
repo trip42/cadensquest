@@ -15,33 +15,16 @@ export interface GemDefinition {
   colour: string;
   text: string;
   effects: Effect[];
+  /** Off: no reward offers it. A gem already socketed keeps working. */
+  enabled?: boolean;
 }
 
-export const GEMS: Record<string, GemDefinition> = {
-  ruby: {
-    id: 'ruby',
-    name: 'Ruby',
-    colour: '#d9544d',
-    text: 'Heal 1 when this card is played.',
-    effects: [{ kind: 'heal', amount: 1 }],
-  },
-  sapphire: {
-    id: 'sapphire',
-    name: 'Sapphire',
-    colour: '#4d8fd9',
-    text: 'Gain 1 movement when this card is played.',
-    effects: [{ kind: 'movement', amount: 1 }],
-  },
-  emerald: {
-    id: 'emerald',
-    name: 'Emerald',
-    colour: '#4db97a',
-    text: 'Gain 1 energy when this card is played.',
-    effects: [{ kind: 'energy', amount: 1 }],
-  },
-};
+/** Every gem, enabled or not. Content — `content/gems.json` — put here by
+ *  `installContent`. */
+export const GEMS: Record<string, GemDefinition> = {};
 
-export const GEM_IDS = Object.keys(GEMS);
+/** The gems a reward may offer: the enabled ones. */
+export const GEM_IDS: string[] = [];
 
 export const gemDef = (id: string): GemDefinition => {
   const def = GEMS[id];

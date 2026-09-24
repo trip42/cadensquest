@@ -24,7 +24,7 @@ const cards = computed(() => store.view?.hand ?? []);
 /** How far alternate cards step up out of the row. */
 const STAGGER = 6;
 /** Horizontal pitch between cards — card width less the overlap. */
-const PITCH = 138;
+const PITCH = 144;
 /** How far the rest of the hand steps aside for a hovered card. */
 const SPREAD = 46;
 
@@ -119,6 +119,8 @@ function onPointerUp(event: PointerEvent): void {
           :def="card.def"
           :gems="card.gems"
           :movement="card.movement"
+          :now="card.now"
+          :now-short="card.nowShort"
           @pointerdown="onPointerDown($event, card.uid, card.def.targeting === 'cell' || card.def.targeting === 'enemy')"
           @pointermove="onPointerMove"
           @pointerup="onPointerUp"
@@ -146,14 +148,8 @@ function onPointerUp(event: PointerEvent): void {
 .hand-wrap { position: relative; }
 
 .hand {
-  /* A quarter bigger than the card's base size (126 x 75 art), text and
-     all — the hand is where cards are actually read. */
-  --card-scale: 1.25;
-  --card-w: 158px;
-  /* The art window sets the card's height: everything else scales, so
-     this is the one number to turn for a taller or shorter card. */
-  --art-h: 94px;
-  /* How much of a card its neighbour covers at rest — at least. */
+  /* Card size is main.css's --card-w, the same as every other screen.
+     How much of a card its neighbour covers at rest — at least. */
   --overlap: 20px;
   /* The widest the hand may be before cards start to overlap more. */
   --hand-max: 860px;
@@ -275,6 +271,6 @@ function onPointerUp(event: PointerEvent): void {
 }
 
 @media (max-width: 860px) {
-  .hand { --card-scale: 1; --card-w: 100px; --art-h: 58px; --overlap: 22px; --hand-max: calc(100vw - 24px); }
+  .hand { --overlap: 22px; --hand-max: calc(100vw - 24px); }
 }
 </style>

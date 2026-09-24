@@ -14,6 +14,7 @@ import { pickWeighted, type Rng } from "./rng";
 import { TALISMAN_IDS } from "./talismans";
 
 export type RewardKind = "card" | "gem" | "talisman";
+export const REWARD_KINDS: RewardKind[] = ["card", "gem", "talisman"];
 
 export interface CardReward {
   kind: "card";
@@ -52,7 +53,10 @@ export const DEFAULT_REWARD_CONFIG: RewardConfig = {
   // Starter cards are not in the reward pool at all; the zero is only here
   // because the table covers every rarity.
   cardRarity: { starter: 0, normal: 65, rare: 28, mythic: 7 },
-  gemWeights: { ruby: 1, sapphire: 1, emerald: 1 },
+  // Every enabled gem, evenly, and every enabled talisman. Both are filled
+  // in when content is installed; these are the same objects, updated in
+  // place, so nothing that already holds them goes stale.
+  gemWeights: {},
   talismanPool: TALISMAN_IDS,
 };
 

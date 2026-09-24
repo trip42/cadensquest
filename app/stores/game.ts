@@ -10,6 +10,7 @@ import { defineStore } from 'pinia';
 import { track } from '~/utils/analytics';
 import { computed, ref, shallowRef } from 'vue';
 import {
+  amountValues,
   beginTurn,
   canPlay,
   chooseCardReward,
@@ -27,8 +28,10 @@ import {
   takeTalismanReward,
   tick,
 } from '~/game/actions';
-import { cardDef, cardMovement } from '~/game/cards/definitions';
+import { cardDef, cardMovement, energySpent } from '~/game/cards/definitions';
+import { nowText } from '~/game/effects';
 import { intentDef } from '~/game/cards/intents';
+import { applyTrial, type Trial, trialText } from '~/game/sandbox';
 import type { CardDefinition, CardInstance } from '~/game/cards/types';
 import { GEM_SLOTS, gemDef, type GemDefinition } from '~/game/gems';
 import { talismanDef, type TalismanDefinition } from '~/game/talismans';
@@ -39,6 +42,7 @@ import {
   createGame,
   entityAt,
   type Game,
+  type GameState,
   gemsOf,
   type Phase,
   player,
@@ -60,6 +64,10 @@ export interface CardView {
   playable?: boolean;
   /** Gem screen only: no sockets left. */
   full?: boolean;
+  /** Hand only: what its "based on" amounts come to if played now — in
+   *  full for the tooltip, short for the band across the art. */
+  now?: string | null;
+  nowShort?: string | null;
 }
 
 export type HandCardView = CardView;
@@ -149,6 +157,8 @@ export const useGameStore = defineStore('game', () => {
       hand: state.hand.map((card) => ({
         ...describeCard(card),
         playable: canPlay(current, card.uid),
+        now: nowOf(state, card, 'full'),
+        nowShort: nowOf(state, card, 'short'),
       })),
       handMovement: handMovementValue(state),
       log: state.log.slice(-6).reverse(),
@@ -157,6 +167,17 @@ export const useGameStore = defineStore('game', () => {
       reward: describeReward(current),
     };
   };
+
+  /** What a card's "based on" amounts come to if it were played now. By
+   *  then it has left the hand and its cost is paid, and its gems resolve
+   *  after it — so the preview starts from there too. */
+  function nowOf(state: GameState, card: CardInstance, style: 'full' | 'short'): string | null {
+    const def = cardDef(card.defId);
+    const effects = [...def.effects, ...gemsOf(card).flatMap((id) => gemDef(id).effects)];
+    const values = amountValues(state, player(state));
+    const spent = energySpent(def, state.energy);
+    return nowText(effects, { ...values, energy: values.energy - spent, hand: values.hand - 1, x: spent }, style);
+  }
 
   /** A card as every screen shows it. */
   const describeCard = (card: CardInstance): CardView => ({
@@ -190,7 +211,7 @@ export const useGameStore = defineStore('game', () => {
     const self = player(state);
     return [
       state.turn, state.phase, state.energy, state.movement,
-      self.hp, self.block, self.row, self.col,
+      self.hp, self.block, self.power, self.row, self.col,
       // Which cards, not how many: a hand that swaps for another of the
       // same size still has to repaint, or the deal animation never runs.
       state.hand.map((card) => `${card.uid}:${(card.gems ?? []).join('+')}`).join(','),
@@ -266,10 +287,19 @@ export const useGameStore = defineStore('game', () => {
 
   /* ------------------------------ lifecycle ---------------------------- */
 
-  function start(seed: number = Math.floor(Math.random() * 0xffffffff)): void {
+  /** Begin a run. A trial arranges one thing up front — the content
+   *  editor's "Try it" — and is otherwise an ordinary run. */
+  /* Counts runs. The map is keyed on it: its renderer is built once, around
+     one game object, so a new run needs a new renderer — without this, NEW
+     RUN (or coming back from the editor) kept drawing the old game. */
+  const run = ref(0);
+
+  function start(seed: number = Math.floor(Math.random() * 0xffffffff), trial: Trial | null = null): void {
     runId = crypto.randomUUID();
+    run.value += 1;
     game = createGame(seed);
     beginTurn(game);
+    if (trial && !applyTrial(game, trial)) console.warn(`[try] could not arrange ${trialText(trial)}`);
     selectedUid.value = null;
     signature = '';
     sync(true);
@@ -312,8 +342,11 @@ export const useGameStore = defineStore('game', () => {
     const intent = foe.intent ? intentDef(foe.intent.cardId) : null;
     // The card says what it does; power it has built up hits on top of that.
     const empowered = intent?.effects.some((effect) => effect.kind === 'damage') && foe.power > 0;
+    // Its block falls as it starts to act, so work "based on" amounts out
+    // from there, as resolving the card will.
+    const now = intent ? nowText(intent.effects, { ...amountValues(game.state, foe), block: 0 }) : null;
     const intentText = intent
-      ? empowered ? `${intent.text} (+${foe.power} power)` : intent.text
+      ? [intent.text, empowered ? `(+${foe.power} power)` : '', now ? `(now: ${now})` : ''].filter(Boolean).join(' ')
       : null;
     const next: EnemyTipView = {
       id: foe.id,
@@ -443,7 +476,7 @@ export const useGameStore = defineStore('game', () => {
   };
 
   return {
-    view, selected, selectedUid, hoverCell, enemyCount, enemyTip,
+    view, selected, selectedUid, hoverCell, enemyCount, enemyTip, run,
     start, attach, detach, frame,
     select, commitCell, hover, pickAt, discard, discardAll, endPhase,
     chooseCard, socketGem, takeTalisman, skip,

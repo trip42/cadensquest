@@ -1,16 +1,23 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
+import { parseTrial } from '~/game/sandbox';
 import { useGameStore } from '~/stores/game';
 
 const store = useGameStore();
 const route = useRoute();
 
 // ?seed=123 replays a run exactly — the whole world comes from the seed,
-// so a bug report is a single number.
+// so a bug report is a single number. ?try=card:bolt starts with one thing
+// arranged: the content editor's "Try it".
 onMounted(() => {
   const seed = Number(route.query.seed);
-  store.start(Number.isFinite(seed) && route.query.seed !== undefined ? seed : undefined);
+  store.start(
+    Number.isFinite(seed) && route.query.seed !== undefined ? seed : undefined,
+    parseTrial(route.query.try),
+  );
 });
+
+const isDev = import.meta.dev;
 
 /* Meters are drawn as rows of cells, arcade style. Health is always ten
    cells whatever the maximum, so it reads as a fraction; energy is one cell
@@ -35,7 +42,7 @@ const energyCells = computed(() => {
 
 <template>
   <main class="game">
-    <MapStage v-if="store.view" />
+    <MapStage v-if="store.view" :key="store.run" />
 
     <!-- Everything below floats over the map. The layer itself ignores the
          pointer so dragging still works between the panels; each panel
@@ -108,6 +115,7 @@ const energyCells = computed(() => {
             <span class="foes">FOES {{ store.enemyCount }}</span>
           </div>
           <p class="hint">DRAG: PAN · 2X CLICK: CENTRE</p>
+          <NuxtLink v-if="isDev" to="/editor" class="to-editor">CONTENT EDITOR</NuxtLink>
         </aside>
       </div>
     </div>
@@ -228,6 +236,8 @@ const energyCells = computed(() => {
   font-size: 12px;
 }
 .foes { color: var(--px-red); }
+.to-editor { pointer-events: auto; color: var(--px-muted); font-size: 8px; text-decoration: none; }
+.to-editor:hover { color: var(--px-yellow); }
 .hint { margin: 0; color: rgba(244, 244, 244, 0.6); font-family: var(--px-font); font-size: 8px; }
 
 /* ------------------------------ ending --------------------------------- */

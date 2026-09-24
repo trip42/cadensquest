@@ -1,0 +1,234 @@
+[
+  {
+    "id": "slime",
+    "name": "Slime",
+    "enabled": true,
+    "maxHp": 14,
+    "sprite": {
+      "sheet": "enemies",
+      "col": 0,
+      "row": 0,
+      "faces": -1,
+      "footprint": {
+        "width": 50,
+        "height": 36
+      }
+    },
+    "deck": [
+      "slime_ooze",
+      "slime_ooze",
+      "slime_harden",
+      "slime_harden"
+    ],
+    "reward": {
+      "cardRarity": {
+        "normal": 85,
+        "rare": 15,
+        "mythic": 0
+      }
+    }
+  },
+  {
+    "id": "dragon",
+    "name": "Dragon",
+    "enabled": true,
+    "maxHp": 30,
+    "sprite": {
+      "sheet": "enemies",
+      "col": 0,
+      "row": 1,
+      "faces": -1,
+      "footprint": {
+        "width": 94,
+        "height": 70
+      }
+    },
+    "deck": [
+      "dragon_breath",
+      "dragon_breath",
+      "dragon_rage",
+      "dragon_wingbeat"
+    ],
+    "reward": {
+      "weights": {
+        "card": 45,
+        "gem": 25,
+        "talisman": 30
+      },
+      "cardChoices": 4,
+      "cardRarity": {
+        "normal": 20,
+        "rare": 45,
+        "mythic": 35
+      }
+    }
+  },
+  {
+    "id": "bug",
+    "name": "Bug",
+    "enabled": true,
+    "maxHp": 9,
+    "sprite": {
+      "sheet": "enemies",
+      "col": 0,
+      "row": 2,
+      "faces": -1,
+      "footprint": {
+        "width": 64,
+        "height": 40
+      }
+    },
+    "deck": [
+      "bug_skitter",
+      "bug_skitter",
+      "bug_bite",
+      "bug_bite"
+    ]
+  },
+  {
+    "id": "spider",
+    "name": "Spider",
+    "enabled": true,
+    "maxHp": 12,
+    "sprite": {
+      "sheet": "enemies",
+      "col": 0,
+      "row": 3,
+      "faces": -1,
+      "footprint": {
+        "width": 70,
+        "height": 50
+      }
+    },
+    "deck": [
+      "spider_spit",
+      "spider_spit",
+      "spider_scuttle",
+      "spider_brood"
+    ]
+  },
+  {
+    "id": "chicken",
+    "name": "Chicken",
+    "enabled": true,
+    "maxHp": 6,
+    "sprite": {
+      "sheet": "enemies",
+      "col": 0,
+      "row": 4,
+      "faces": -1,
+      "footprint": {
+        "width": 42,
+        "height": 48
+      }
+    },
+    "deck": [
+      "chicken_flap",
+      "chicken_flap",
+      "chicken_peck",
+      "chicken_peck"
+    ],
+    "reward": {
+      "weights": {
+        "card": 80,
+        "gem": 20,
+        "talisman": 0
+      },
+      "cardChoices": 2,
+      "cardRarity": {
+        "normal": 95,
+        "rare": 5,
+        "mythic": 0
+      }
+    }
+  },
+  {
+    "id": "wolf",
+    "name": "Wolf",
+    "enabled": true,
+    "maxHp": 16,
+    "sprite": {
+      "sheet": "enemies",
+      "col": 0,
+      "row": 5,
+      "faces": -1,
+      "footprint": {
+        "width": 76,
+        "height": 50
+      }
+    },
+    "deck": [
+      "wolf_lunge",
+      "wolf_lunge",
+      "wolf_circle",
+      "wolf_circle"
+    ],
+    "reward": {
+      "weights": {
+        "card": 60,
+        "gem": 30,
+        "talisman": 10
+      }
+    }
+  },
+  {
+    "id": "warden",
+    "name": "Warden",
+    "enabled": true,
+    "guardian": true,
+    "maxHp": 44,
+    "sprite": {
+      "sheet": "enemies",
+      "col": 1,
+      "row": 5,
+      "faces": -1,
+      "footprint": {
+        "width": 96,
+        "height": 64
+      }
+    },
+    "deck": [
+      "warden_maul",
+      "warden_maul",
+      "warden_stand",
+      "warden_roar"
+    ],
+    "reward": {
+      "weights": {
+        "card": 0,
+        "gem": 0,
+        "talisman": 1
+      }
+    }
+  },
+  {
+    "id": "wyrm",
+    "name": "Wyrm",
+    "enabled": true,
+    "guardian": true,
+    "maxHp": 64,
+    "sprite": {
+      "sheet": "enemies",
+      "col": 1,
+      "row": 1,
+      "faces": -1,
+      "footprint": {
+        "width": 116,
+        "height": 86
+      }
+    },
+    "deck": [
+      "wyrm_fire",
+      "wyrm_fire",
+      "wyrm_scales",
+      "wyrm_fury"
+    ],
+    "reward": {
+      "weights": {
+        "card": 0,
+        "gem": 0,
+        "talisman": 1
+      }
+    }
+  }
+]

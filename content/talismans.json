@@ -1,0 +1,116 @@
+[
+  {
+    "id": "satchel",
+    "name": "Worn Satchel",
+    "enabled": true,
+    "text": "Draw one more card each turn.",
+    "icon": "bag",
+    "modifiers": [
+      {
+        "stat": "handSize",
+        "add": 1
+      }
+    ]
+  },
+  {
+    "id": "heartstone",
+    "name": "Heartstone",
+    "enabled": true,
+    "text": "Raise your maximum health by 10.",
+    "icon": "heart",
+    "modifiers": [
+      {
+        "stat": "maxHp",
+        "add": 10
+      }
+    ]
+  },
+  {
+    "id": "aegis",
+    "name": "Aegis Shard",
+    "enabled": true,
+    "text": "Begin every turn with 3 block.",
+    "icon": "shield",
+    "modifiers": [
+      {
+        "stat": "blockPerRefresh",
+        "add": 3
+      }
+    ]
+  },
+  {
+    "id": "boots",
+    "name": "Wayfarer Boots",
+    "enabled": true,
+    "text": "Move one more tile every turn.",
+    "icon": "boot",
+    "modifiers": [
+      {
+        "stat": "movePerTurn",
+        "add": 1
+      }
+    ]
+  },
+  {
+    "id": "lodestone",
+    "name": "Lodestone",
+    "enabled": true,
+    "text": "Every card discarded is worth one more step.",
+    "icon": "compass",
+    "modifiers": [
+      {
+        "stat": "movementBonus",
+        "add": 1
+      }
+    ]
+  },
+  {
+    "id": "emberwick",
+    "name": "Emberwick",
+    "enabled": true,
+    "text": "Heal 2 whenever an enemy falls.",
+    "icon": "flame",
+    "triggers": [
+      {
+        "on": "enemyDefeated",
+        "effects": [
+          {
+            "kind": "heal",
+            "amount": 2
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "whetstone",
+    "name": "Whetstone",
+    "enabled": true,
+    "text": "Cards deal one more damage.",
+    "icon": "blade",
+    "modifiers": [
+      {
+        "stat": "damageBonus",
+        "add": 1
+      }
+    ]
+  },
+  {
+    "id": "tidecharm",
+    "name": "Tidecharm",
+    "enabled": true,
+    "text": "Draw an extra card at the end of the enemy phase.",
+    "icon": "wave",
+    "triggers": [
+      {
+        "on": "enemyPhaseEnd",
+        "effects": [
+          {
+            "kind": "draw",
+            "amount": 1
+          }
+        ]
+      }
+    ]
+  }
+]

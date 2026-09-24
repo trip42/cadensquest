@@ -18,7 +18,7 @@ import type { AnimationClip, AnimationSet, SpriteStyle } from '../game/entities/
 /* Where each sheet lives, and the grid it is cut into. Cell size is derived
    from the image rather than written down: exports do not always land on
    exact multiples, and 1277 across 8 columns should still be 8 columns. */
-const SHEET_FILES: Record<string, { src: string; columns: number; rows: number }> = {
+export const SHEET_FILES: Record<string, { src: string; columns: number; rows: number }> = {
   enemies: { src: enemiesGrid, columns: 3, rows: 6 },
   caden: { src: cadenSheet, columns: 8, rows: 4 },
 };

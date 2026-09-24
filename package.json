@@ -23,7 +23,8 @@
     "nuxt": "^4.5.2",
     "pinia": "^4.0.3",
     "posthog-js": "^1.434.11",
-    "vue": "^3.5.43"
+    "vue": "^3.5.43",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/node": "^26.6.2",

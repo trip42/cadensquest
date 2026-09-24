@@ -63,7 +63,7 @@ export function describeModifier(modifier: StatModifier): string {
   return parts.join(', ');
 }
 
-const STAT_NAMES: Record<StatKey, string> = {
+export const STAT_NAMES: Record<StatKey, string> = {
   maxHp: 'max health',
   handSize: 'hand size',
   maxEnergy: 'energy',
@@ -75,3 +75,5 @@ const STAT_NAMES: Record<StatKey, string> = {
   movementBonus: 'movement per discard',
   blockBonus: 'block from cards',
 };
+
+export const STAT_KEYS = Object.keys(BASE_STATS) as StatKey[];
