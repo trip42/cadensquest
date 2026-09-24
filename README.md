@@ -346,7 +346,7 @@ anonymous (no person profiles). Every event carries `run_id`, `seed`,
 | --- | --- |
 | `run_started` | A new run begins |
 | `row_reached` | The player reaches a new furthest row |
-| `zone_entered` | The player crosses into a new zone |
+| `zone_entered` | The player arrives on a new floor (each floor is a zone) |
 | `card_collected` | A card reward is taken (includes the new deck size) |
 | `card_played` | A card is played (with any socketed gems) |
 | `card_discarded` | A card is discarded for movement |
@@ -355,7 +355,7 @@ anonymous (no person profiles). Every event carries `run_id`, `seed`,
 | `reward_skipped` | A reward is passed up |
 | `enemy_killed` | An enemy dies (with its type, and whether it was a guardian) |
 | `player_died` | The player falls (row, zone and what killed them) |
-| `run_won` | The player reaches the end of the map |
+| `run_won` | The player takes the way out of the last floor |
 | `run_ended` | Either way: one summary event with the whole run's totals |
 
 The events are defined in `app/game/telemetry.ts`. To add one, add a member
