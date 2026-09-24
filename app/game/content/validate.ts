@@ -185,6 +185,11 @@ function crossCheck(content: Content): ContentIssue[] {
       }
     }
     if (!card.text.trim()) warn('enemy-cards', card.id, 'has no text for the enemy tooltip', 'text');
+    // A tamed creature shows the same text, so "toward you" would be wrong
+    // half the time. Say "closer", "its target".
+    if (/\byour?\b/i.test(card.text)) {
+      warn('enemy-cards', card.id, 'says "you", but allies play enemy cards too — word it without "you" ("closer", "its target")', 'text');
+    }
   }
 
   // Enemies: their decks, their rewards.

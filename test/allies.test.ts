@@ -221,3 +221,15 @@ describe('trying Tame', () => {
     expect(isValidTarget(game, card.uid, entityCell(prey))).toBe(true);
   });
 });
+
+describe('enemy card text', () => {
+  it('reads right on an ally too, so it never says "you"', async () => {
+    const { validateContent } = await import('~/game/content');
+    const content = structuredClone(readContentFiles()) as never as { 'enemy-cards': Array<{ id: string; text: string }> };
+    expect(content['enemy-cards'].filter((card) => /\byour?\b/i.test(card.text))).toEqual([]);
+    content['enemy-cards'][0]!.text = 'Runs toward you.';
+    expect(validateContent(content as never).issues).toContainEqual(
+      expect.objectContaining({ level: 'warning', file: 'enemy-cards', field: 'text' }),
+    );
+  });
+});

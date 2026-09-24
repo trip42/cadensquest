@@ -120,7 +120,8 @@ function simplePlayerPhrase(effect: SimpleData, range: number): string {
 
 function enemyPhrase(effect: EffectData, range: number): string {
   if (effect.kind === 'terrain') {
-    return `marks your tile ${roundsPhrase(effect)}: whoever is on it ${tilePhrase(effect.effects, 'its')}`;
+    // Neutral, not "your tile": a tamed creature plays this card too.
+    return `marks its target's tile ${roundsPhrase(effect)}: whoever is on it ${tilePhrase(effect.effects, 'its')}`;
   }
   const amount = effect.amount as Amount;
   const n = describeAmount(amount, 'its');

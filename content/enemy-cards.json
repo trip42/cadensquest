@@ -81,7 +81,7 @@
     "name": "Skitter",
     "enabled": true,
     "range": 1,
-    "text": "Runs up to 6 toward you.",
+    "text": "Runs up to 6 closer.",
     "effects": [
       {
         "kind": "advance",
@@ -128,7 +128,7 @@
     "name": "Scuttle",
     "enabled": true,
     "range": 2,
-    "text": "Scuttles up to 6 toward you.",
+    "text": "Scuttles up to 6 closer.",
     "effects": [
       {
         "kind": "advance",
@@ -175,7 +175,7 @@
     "name": "Flap",
     "enabled": true,
     "range": 1,
-    "text": "Flaps up to 8 toward you.",
+    "text": "Flaps up to 8 closer.",
     "effects": [
       {
         "kind": "advance",
