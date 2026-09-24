@@ -112,8 +112,14 @@ app/game/            the simulation — no Vue, no DOM (see the rule above)
                        is the single read path
     audit.ts           invariant checks, used by tests
     navigation.ts      walkability, reachable() (Dijkstra), findPath() (A*)
+app/audio/           sound — synthesised, no files (see "Sound")
+  synth.ts             recipe -> samples; pure, runs under test
+  sounds.ts            SOUNDS, every sound by name; SOUND_FILES seam
+  player.ts            sfx: Web Audio, unlock, mute, variation, limits
+  cues.ts              soundsFor(cue): which sounds each cue makes
 app/render/          canvas renderer — DOM, still no Vue
   iso.ts               projection, design units, DESIGN_W/H, ZOOM, FOCUS_Y
+  juice.ts             takes new cues each frame: sound, and blow timing
   sprites.ts           SHEET_FILES registry, frameFor, placeholder art
   glyphs.ts            placeholder line art for cards and talismans
   renderer.ts          frame loop, depth order, highlights, entities, marked
@@ -122,12 +128,15 @@ app/stores/game.ts   bridge: raw game in, view snapshot out, tooltips
 app/stores/editor.ts the content editor's draft, validation, save, "Try it"
 app/pages/index.vue  the game screen: full-bleed map, HUD floating over it
 app/pages/editor.vue the content editor (dev only)
+app/pages/sounds.vue the sound board (dev only)
 app/components/      MapStage (canvas), GameCard, HandBar, RewardModal,
                      TalismanRail, EnemyTip, TileTip, GroundLines
 app/components/editor/  the editor's forms (Form*), EffectList (nested for
                      terrain), AmountInput, DeckBuilder, pickers, Preview
+app/components/dev/  SoundScope (a sound's waveform and spectrogram)
 app/plugins/         content.ts (loads content before anything starts),
-                     posthog.ts (analytics sink)
+                     posthog.ts (analytics sink), audio.ts (first press
+                     unlocks sound)
 app/utils/           analytics.ts, contentText.ts ("Write it from the
                      effects"), editorProblems.ts
 content/             the game's content as JSON — see "Content"
@@ -737,6 +746,80 @@ As with telemetry, the rules never know who is listening.
 - Cues are not analytics (that's `record`) and not the log (that's `note`).
 - Something new worth seeing or hearing: a member of `Cue`, a `cue()` where
   it happens, and a line in `test/cues.test.ts`.
+
+## Sound
+
+Every sound is synthesised in the browser from a recipe. There are no audio
+files, so nothing to license. All of it is in `app/audio/`:
+
+- **`synth.ts`** is a small synthesiser in the style of sfxr. A recipe is a
+  few layers (sine, triangle, square, saw or noise), each with:
+  - a pitch glide, arpeggio `steps` and vibrato
+  - an attack/hold/decay envelope
+  - swept low- and high-pass filters, and drive
+
+  `render()` mixes the layers, removes DC, normalises to the recipe's `gain`
+  and fades the very edges, so nothing clicks. It is pure maths, and the
+  tests render every recipe.
+- **`sounds.ts`** holds `SOUNDS`, every sound by name, each with a comment
+  saying what it is meant to sound like. `SOUND_FILES` is the seam for
+  recorded files, as `SHEET_FILES` is for sprites: a name there plays the
+  file instead, and nothing else changes.
+- **`player.ts`** is `sfx`, the one Web Audio player.
+  - Browsers lock audio until the page is pressed or typed in, so
+    `plugins/audio.ts` calls `unlock` on the first press or key; anything
+    earlier is dropped.
+  - It renders each sound on first use and warms the rest in the background.
+  - Each play wanders a little in pitch, and is panned by where on screen it
+    happened.
+  - It limits repeats of one sound (`MIN_GAP`) and total voices, and runs
+    the mix through a compressor.
+  - Mute is remembered in localStorage (`cq-sound`). The HUD's
+    SOUND ON / MUTED button and the M key toggle it.
+  - It is safe to import in Node, where there is no window and no sound.
+- **`cues.ts`** has `soundsFor(cue, timing)`, the sound design as a pure
+  function. `EXAMPLE_CUES` is one of each cue, for the board and the tests;
+  `INTERFACE_SOUNDS` lists the ones the interface plays itself (picking up
+  and dealing cards, deny, click).
+
+**`MIN_GAP` is checked in both directions.** Sounds are scheduled ahead,
+and can be asked for out of order. The hand's deal hooks fire last card
+first, so a guard that only allowed "later than the last one" kept one flick
+out of five.
+
+**Blows are timed by the screen, not the rules.** The rules deal damage as
+the attacker starts its swing. `render/juice.ts` takes new cues each frame
+and delays the impact to contact: `MELEE_CONTACT` (0.09s) after the swing,
+or `flightTime` for a ranged blow. A fall lands with the blow that caused it.
+
+**The sound board** is `/sounds`, dev only, and removed from production
+like the editor. It:
+
+- plays each sound
+- draws its waveform and spectrogram (`components/dev/SoundScope.vue`)
+- lists what sets it off
+- lets you edit a copy of its recipe as JSON and play the edit
+
+Nothing is saved: copy the edit over the recipe in `sounds.ts`.
+
+**Tests.** `npm test` renders every recipe and checks that it:
+
+- is finite, peaks at its `gain` and is silent at both ends
+- is loud enough to hear, and under two seconds long
+- rises or falls the way its comment says, judged by zero crossings
+
+Every cue kind must make a sound, and every sound must be used.
+
+**To add a sound:** a recipe in `SOUNDS` with a comment, then a line in
+`soundsFor` (or in `INTERFACE_SOUNDS`).
+
+**Verifying sound without hearing it:**
+
+1. Launch Chrome with `--autoplay-policy=no-user-gesture-required`.
+2. Press something with `Input.dispatchMouseEvent`; a real press is what
+   unlocks sound.
+3. Read `window.__game.sfx.history`: the name and scheduled start of each
+   sound played.
 
 ## HUD style
 

@@ -24,13 +24,16 @@ export default defineNuxtConfig({
   nitro: {
     publicAssets: [{ dir: contentDir, baseURL: '/content', maxAge: 0 }],
   },
-  // The content editor exists only in dev: it writes to the files above,
-  // which a deployed build must never do.
+  // The content editor and the sound board exist only in dev: the editor
+  // writes to the files above, which a deployed build must never do, and
+  // neither is for players.
   hooks: {
     'pages:extend'(pages) {
       if (process.env.NODE_ENV !== 'production') return;
-      const at = pages.findIndex((page) => page.path === '/editor');
-      if (at >= 0) pages.splice(at, 1);
+      for (const path of ['/editor', '/sounds']) {
+        const at = pages.findIndex((page) => page.path === path);
+        if (at >= 0) pages.splice(at, 1);
+      }
     },
   },
   runtimeConfig: {

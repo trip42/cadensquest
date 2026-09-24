@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onBeforeUnmount, onMounted } from 'vue';
 import { parseTrial } from '~/game/sandbox';
 import { useGameStore } from '~/stores/game';
 
@@ -18,6 +18,17 @@ onMounted(() => {
 });
 
 const isDev = import.meta.dev;
+
+/* M mutes and unmutes — unless the key is being typed into something. */
+function onKey(event: KeyboardEvent): void {
+  if (event.key !== 'm' && event.key !== 'M') return;
+  if (event.metaKey || event.ctrlKey || event.altKey) return;
+  const target = event.target as HTMLElement | null;
+  if (target?.closest('input, textarea, select, [contenteditable]')) return;
+  store.toggleSound();
+}
+onMounted(() => window.addEventListener('keydown', onKey));
+onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
 
 /* Meters are drawn as rows of cells, arcade style. Health is always ten
    cells whatever the maximum, so it reads as a fraction; energy is one cell
@@ -82,6 +93,15 @@ const energyCells = computed(() => {
             <span class="label">ROW</span>
             <strong>{{ store.view.row }}/{{ store.view.lastRow }}</strong>
           </span>
+          <button
+            class="sound"
+            type="button"
+            :aria-pressed="store.soundOn"
+            :title="store.soundOn ? 'Mute (M)' : 'Sound on (M)'"
+            @click="store.toggleSound()"
+          >
+            {{ store.soundOn ? 'SOUND ON' : 'MUTED' }}
+          </button>
         </div>
       </header>
 
@@ -118,8 +138,11 @@ const energyCells = computed(() => {
             <span>DISC {{ store.view.discardCount }}</span>
             <span class="foes">FOES {{ store.view.foes }}</span>
           </div>
-          <p class="hint">DRAG: PAN · 2X CLICK: CENTRE</p>
-          <NuxtLink v-if="isDev" to="/editor" class="to-editor">CONTENT EDITOR</NuxtLink>
+          <p class="hint">DRAG: PAN · 2X CLICK: CENTRE · M: MUTE</p>
+          <span v-if="isDev" class="dev-links">
+            <NuxtLink to="/editor" class="to-editor">CONTENT EDITOR</NuxtLink>
+            <NuxtLink to="/sounds" class="to-editor">SOUND BOARD</NuxtLink>
+          </span>
         </aside>
       </div>
     </div>
@@ -179,6 +202,17 @@ const energyCells = computed(() => {
 .zone { color: var(--px-yellow); text-transform: uppercase; }
 
 .meter { display: flex; align-items: center; gap: 6px; }
+.sound {
+  padding: 1px 6px;
+  border: 2px solid var(--px-ink);
+  background: var(--px-panel);
+  color: var(--px-text);
+  font-family: var(--px-font);
+  font-size: 12px;
+  cursor: pointer;
+}
+.sound[aria-pressed='false'] { color: var(--px-muted); }
+.sound:hover { background: var(--px-cyan); color: var(--px-ink); }
 .meter strong { font-weight: 400; color: var(--px-text); }
 .move { color: var(--px-cyan) !important; }
 .block { padding: 0 4px; background: var(--px-blue); color: var(--px-text); }
@@ -242,6 +276,7 @@ const energyCells = computed(() => {
   font-size: 12px;
 }
 .foes { color: var(--px-red); }
+.dev-links { display: flex; gap: 12px; }
 .to-editor { pointer-events: auto; color: var(--px-muted); font-size: 8px; text-decoration: none; }
 .to-editor:hover { color: var(--px-yellow); }
 .hint { margin: 0; color: rgba(244, 244, 244, 0.6); font-family: var(--px-font); font-size: 8px; }

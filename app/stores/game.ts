@@ -8,6 +8,7 @@
 
 import { defineStore } from 'pinia';
 import { track } from '~/utils/analytics';
+import { sfx } from '~/audio/player';
 import { computed, ref, shallowRef } from 'vue';
 import {
   amountValues,
@@ -474,6 +475,7 @@ export const useGameStore = defineStore('game', () => {
     // goes back to offering movement instead of waiting for a target.
     if (uid && uid === selectedUid.value) {
       selectedUid.value = null;
+      sfx.play('card', { rate: 0.85, volume: 0.25 });
       sync(true);
       return;
     }
@@ -486,6 +488,9 @@ export const useGameStore = defineStore('game', () => {
       const def = cardDef(card.defId);
       if (def.targeting === 'self' || def.targeting === 'none') {
         if (playCard(game, card.uid)) selectedUid.value = null;
+      } else {
+        // Picked up, to be aimed. Playing it makes its own sound.
+        sfx.play('card', { rate: 1.3, volume: 0.35 });
       }
     }
     sync(true);
@@ -495,11 +500,20 @@ export const useGameStore = defineStore('game', () => {
   function commitCell(cell: Cell | null): void {
     if (!game || !cell || game.state.phase !== 'player') return;
 
+    const { state } = game;
+    // Could anything have happened? If so and nothing did, say no — but not
+    // for a click on his own tile, which asks for nothing.
+    const ready = !isBusy(state) && !state.activeReward;
+    const self = player(state);
+    const own = cell.row === self.row && cell.col === self.col;
+    let done: boolean;
     if (selectedUid.value) {
-      if (playCard(game, selectedUid.value, cell)) selectedUid.value = null;
+      done = playCard(game, selectedUid.value, cell);
+      if (done) selectedUid.value = null;
     } else {
-      movePlayerTo(game, cell);
+      done = own || movePlayerTo(game, cell);
     }
+    if (!done && ready) sfx.play('deny', { volume: 0.7 });
     sync(true);
   }
 
@@ -550,8 +564,21 @@ export const useGameStore = defineStore('game', () => {
   function endPhase(): void {
     if (!game) return;
     selectedUid.value = null;
+    sfx.play('click');
     endPlayerPhase(game);
     sync(true);
+  }
+
+  /* ------------------------------ sound -------------------------------- */
+
+  /** Sound on or off, remembered in this browser. */
+  const soundOn = ref(!sfx.isMuted);
+
+  function toggleSound(): void {
+    sfx.unlock();
+    sfx.setMuted(soundOn.value);
+    soundOn.value = !soundOn.value;
+    if (soundOn.value) sfx.play('click');
   }
 
   const selected = computed(() =>
@@ -568,6 +595,7 @@ export const useGameStore = defineStore('game', () => {
     start, attach, detach, frame,
     select, commitCell, hover, pickAt, discard, discardAll, endPhase,
     chooseCard, socketGem, takeTalisman, skip,
+    soundOn, toggleSound,
     rawGame, entityDef,
   };
 });

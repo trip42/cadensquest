@@ -12,6 +12,7 @@
    card: it belongs to the hand, and the card is shown elsewhere without it. */
 
 import { computed, ref } from 'vue';
+import { sfx } from '~/audio/player';
 import { useGameStore } from '~/stores/game';
 
 const store = useGameStore();
@@ -56,6 +57,13 @@ const handVars = computed(() => ({
   '--gaps': String(Math.max(1, cards.value.length - 1)),
 }));
 
+/* A flick for each card dealt, in step with the deal's stagger. One
+   argument, so Vue still times the transition from the CSS. */
+function onDeal(el: Element): void {
+  const index = Number((el as HTMLElement).style.getPropertyValue('--index')) || 0;
+  sfx.play('card', { delay: 0.05 + index * 0.055, rate: 1.1, volume: 0.3, vary: 0.1 });
+}
+
 /* ------------------------------ dragging ------------------------------- */
 
 function onPointerDown(event: PointerEvent, uid: string, needsTarget: boolean): void {
@@ -91,7 +99,7 @@ function onPointerUp(event: PointerEvent): void {
   <!-- One root element, so the class the page puts on <HandBar> lands
        somewhere: a fragment root cannot inherit it. -->
   <div class="hand-wrap">
-    <TransitionGroup tag="div" name="deal" class="hand" :style="handVars">
+    <TransitionGroup tag="div" name="deal" class="hand" :style="handVars" @enter="onDeal">
       <div
         v-for="(card, index) in cards"
         :key="card.uid"

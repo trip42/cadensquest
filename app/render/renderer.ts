@@ -39,6 +39,7 @@ import {
   unproject,
   type Viewport,
 } from './iso';
+import { Juice } from './juice';
 import { frameFor } from './sprites';
 
 export type HighlightKind = 'move' | 'target' | 'path' | 'hover';
@@ -122,6 +123,8 @@ export class MapRenderer {
      the depth pass they get painted over by whoever stands in front. */
   private overlay: Array<{ sx: number; top: number; entity: Entity }> = [];
   private readonly palette: HudPalette = readPalette();
+  /** Sound and spectacle, from the game's cues. */
+  private readonly juice: Juice;
 
   constructor(canvas: HTMLCanvasElement, game: Game, hooks: RendererHooks = {}) {
     this.canvas = canvas;
@@ -130,6 +133,7 @@ export class MapRenderer {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('no 2d context');
     this.ctx = ctx;
+    this.juice = new Juice(game);
     for (const item of game.state.cues) if (item.type === 'burst') this.burstStarts.set(item.seq, -Infinity);
 
     const self = game.state.entities.find((entity) => entity.id === game.state.playerId)!;
@@ -155,6 +159,7 @@ export class MapRenderer {
       const dt = Math.min((now - this.last) / 1000, 0.1);
       this.last = now;
       this.hooks.onFrame?.(dt);
+      this.juice.take(now / 1000, { locate: (cell) => this.tileTop(cell), width: this.view.width });
       this.update(dt);
       this.draw(now);
       this.raf = requestAnimationFrame(frame);

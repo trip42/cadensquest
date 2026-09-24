@@ -192,6 +192,28 @@ a shadow or a scuff baked into the frame reads as ground, and the character
 hovers — `offsetY` on the sprite nudges it, in design units so it holds at
 every zoom. The health bar moves with it.
 
+## Sound
+
+Every sound effect is synthesised in the browser: there are no audio files.
+Each sound is a short recipe in `app/audio/sounds.ts` made of a few layers
+of tone or noise. Each layer has a pitch that slides, a volume that swells
+and fades, and a filter. The game renders the recipes to audio the first
+time each sound is needed. It's the same approach as the old sfxr sound
+generator, so the sounds suit the pixel art, and they are all original
+work with nothing to license.
+
+- **Listening and tuning.** In dev, open the sound board at `/sounds` (there
+  is a link under the game's buttons). It plays every sound, draws its
+  waveform and spectrogram, lists what sets it off, and lets you edit a copy
+  of its recipe and hear the change. To keep an edit, copy it over the
+  recipe in `sounds.ts`.
+- **Replacing a sound with a recording** needs only a line in
+  `SOUND_FILES` under the same name. Nothing that plays it changes.
+- **Muting.** Use the SOUND ON / MUTED button in the top bar, or press M.
+  The choice is remembered in the browser.
+- **When sound starts.** Browsers don't allow sound until the page has been
+  clicked or typed in, so the game is silent until your first click.
+
 ## Rewards
 
 Every enemy carries one, decided when it spawns rather than when it dies —

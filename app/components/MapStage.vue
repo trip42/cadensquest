@@ -3,6 +3,7 @@
    around it. Dragging pans the camera, a click walks the player. */
 
 import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { sfx } from '~/audio/player';
 import { entityDef } from '~/game/entities/definitions';
 import { movementRange } from '~/game/actions';
 import { rollReward } from '~/game/rewards';
@@ -36,6 +37,7 @@ onMounted(() => {
       entityDef,
       rollReward,
       movementRange,
+      sfx,
     };
   }
 });
