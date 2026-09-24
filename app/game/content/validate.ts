@@ -90,7 +90,7 @@ function crossCheck(content: Content): ContentIssue[] {
   const talismans = new Map(content.talismans.map((talisman) => [talisman.id, talisman]));
 
   const offSide = (kind: string, side: 'player' | 'enemy') =>
-    kind !== 'terrain' && kind !== 'summon' && !EFFECT_INFO[kind as EffectKind][side];
+    kind !== 'terrain' && kind !== 'summon' && kind !== 'area' && !EFFECT_INFO[kind as EffectKind][side];
 
   /** Every amount in a list of effects, with where it sits — a terrain
    *  effect's rounds and the amounts on its tile count too. */
@@ -106,18 +106,22 @@ function crossCheck(content: Content): ContentIssue[] {
             { amount: effect.amount, field: `${at}[${i}].amount` },
             ...(effect.rounds === undefined ? [] : [{ amount: effect.rounds, field: `${at}[${i}].rounds` }]),
           ]
-          : [{ amount: effect.amount, field: `${at}[${i}].amount` }]);
+          : effect.kind === 'area'
+            ? effect.effects.map((inner, t) => ({ amount: inner.amount, field: `${at}[${i}].effects[${t}].amount` }))
+            : [{ amount: effect.amount, field: `${at}[${i}].amount` }]);
 
   const scaledOf = (amount: AmountData) => (typeof amount === 'object' ? amount.of : null);
   const usesX = (effects: readonly EffectData[]) => amountsIn(effects).some(({ amount }) => scaledOf(amount) === 'x');
 
   /** A marked tile can only carry verbs that mean something on a tile. */
+  /** A burst lands its effects the same way, so the same verbs. */
   const checkTiles = (file: ContentFile, id: string, effects: readonly EffectData[], at = 'effects') => {
     effects.forEach((effect, i) => {
-      if (effect.kind !== 'terrain') return;
+      if (effect.kind !== 'terrain' && effect.kind !== 'area') return;
+      const where = effect.kind === 'area' ? 'in a burst' : 'on a tile';
       effect.effects.forEach((tile, t) => {
         if (!EFFECT_INFO[tile.kind].tile) {
-          error(file, id, `${EFFECT_INFO[tile.kind].label} cannot go on a tile`, `${at}[${i}].effects[${t}].kind`);
+          error(file, id, `${EFFECT_INFO[tile.kind].label} cannot go ${where}`, `${at}[${i}].effects[${t}].kind`);
         }
       });
     });
@@ -197,7 +201,7 @@ function crossCheck(content: Content): ContentIssue[] {
       // An enemy's block falls as it starts to act, so "its block" is only
       // what this card has given it so far.
       const gainedBlock = card.effects.slice(0, i).some((earlier) => earlier.kind === 'block');
-      if (effect.kind !== 'terrain' && scaledOf(effect.amount) === 'block' && !gainedBlock) {
+      if ('amount' in effect && effect.kind !== 'summon' && scaledOf(effect.amount) === 'block' && !gainedBlock) {
         warn('enemy-cards', card.id, "an enemy's block falls when it starts to act, so this is 0 unless an earlier effect gains block", `effects[${i}].amount`);
       }
     });
@@ -230,7 +234,8 @@ function crossCheck(content: Content): ContentIssue[] {
     });
     // Setting fire under the player counts as an attack too.
     const attacks = enemy.deck.some((cardId) => enemyCards.get(cardId)?.effects.some((effect) =>
-      effect.kind === 'damage' || (effect.kind === 'terrain' && effect.effects.some((tile) => tile.kind === 'damage'))));
+      effect.kind === 'damage'
+      || ((effect.kind === 'terrain' || effect.kind === 'area') && effect.effects.some((tile) => tile.kind === 'damage'))));
     if (!attacks) warn('enemies', enemy.id, 'nothing in its deck deals damage', 'deck');
 
     for (const gemId of Object.keys(enemy.reward?.gemWeights ?? {})) {

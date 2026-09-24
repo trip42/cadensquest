@@ -11,6 +11,7 @@ import { track } from '~/utils/analytics';
 import { computed, ref, shallowRef } from 'vue';
 import {
   amountValues,
+  areaPreview,
   terrainAt,
   beginTurn,
   canPlay,
@@ -305,6 +306,22 @@ export const useGameStore = defineStore('game', () => {
     }
 
     renderer.setHighlights(highlights);
+    pushAim();
+  }
+
+  /* While an area card is up and the pointer is on a tile it can target,
+     show what it would cover — and which of the player's own creatures it
+     would catch. Friendly fire should never be a surprise. */
+  function pushAim(): void {
+    if (!game || !renderer) return;
+    const cell = hoverCell.value;
+    const card = selectedUid.value ? game.state.hand.find((item) => item.uid === selectedUid.value) : undefined;
+    if (!card || !cell || !isValidTarget(game, card.uid, cell)) {
+      renderer.setAim(null);
+      return;
+    }
+    const { cells, friends } = areaPreview(game, cardDef(card.defId), cell);
+    renderer.setAim({ cells, friends: friends.map((entity) => entity.id) });
   }
 
   /* ------------------------------ lifecycle ---------------------------- */
@@ -473,6 +490,7 @@ export const useGameStore = defineStore('game', () => {
   function hover(cell: Cell | null): void {
     hoverCell.value = cell;
     renderer?.setHover(cell);
+    pushAim();
   }
 
   /** Give a card up for the ground it covers. */

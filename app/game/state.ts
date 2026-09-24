@@ -11,6 +11,7 @@ import { LAST_ROW, START_ROW, surfaceKind } from "./map/tiles";
 import { World } from "./map/world";
 import { createRng, type Rng, shuffle } from "./rng";
 import type { TileEffect } from "./effects";
+import type { Cell } from "./map/navigation";
 import { emptyTally, type GameEvent, record, type RunTally } from "./telemetry";
 import type { Reward } from "./rewards";
 import { resolveStat, type StatKey, type StatModifier } from "./stats";
@@ -87,6 +88,9 @@ export interface GameState {
   /** When each entity was last hit by each tile — `entityId@row,col` to the
    *  turn — so a tile hits at most once per round. */
   terrainHits: Record<string, number>;
+  /** Recent area bursts, newest last, for the renderer to flash. Nothing in
+   *  the rules reads them. */
+  bursts: Array<{ id: string; cells: Cell[]; colour: string }>;
   /** The last row of the map. Reaching it wins the run. */
   goalRow: number;
 
@@ -189,6 +193,7 @@ export function createGame(seed: number): Game {
     gates: [],
     terrain: {},
     terrainHits: {},
+    bursts: [],
     goalRow: LAST_ROW,
     queue: [],
     log: [],

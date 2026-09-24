@@ -10,7 +10,7 @@
    terrain within terrain. */
 import { computed } from 'vue';
 import type { ContentIssue, EffectData } from '~/game/content';
-import { EFFECT_INFO, EFFECT_KINDS, type EffectKind, SUMMON_INFO, TERRAIN_INFO } from '~/game/effects';
+import { AREA_INFO, EFFECT_INFO, EFFECT_KINDS, type EffectKind, SUMMON_INFO, TERRAIN_INFO } from '~/game/effects';
 import { useEditorStore } from '~/stores/editor';
 
 const props = defineProps<{
@@ -29,11 +29,25 @@ const kinds = props.onTile ? EFFECT_KINDS.filter((kind) => EFFECT_INFO[kind].til
 const info = (kind: string) =>
   kind === 'terrain' ? { ...TERRAIN_INFO, player: true, enemy: true, tile: false }
     : kind === 'summon' ? { ...SUMMON_INFO, player: true, enemy: true, tile: false }
+    : kind === 'area' ? { ...AREA_INFO, player: true, enemy: true, tile: false }
       : EFFECT_INFO[kind as EffectKind];
 
 /** What can be summoned: every enemy in the draft but the guardians. */
 const editor = useEditorStore();
 const summonable = computed(() => (editor.draft?.enemies ?? []).filter((enemy) => !enemy.guardian));
+
+/** A terrain mark's radius is optional: 0 or left out is the one tile. */
+function setRadius(effect: { radius?: number }, raw: string): void {
+  const value = Math.max(0, Math.min(3, Math.round(Number(raw) || 0)));
+  if (value) effect.radius = value;
+  else delete effect.radius;
+}
+
+/** A burst's `affects` is optional: left out, it hits everyone. */
+function setAffects(effect: { affects?: string }, value: string): void {
+  if (value === 'all') delete effect.affects;
+  else effect.affects = value;
+}
 
 /** A summon's lifetime is optional: off, it stays until it falls. */
 function setLasting(effect: { rounds?: unknown }, on: boolean): void {
@@ -55,10 +69,12 @@ function setKind(index: number, kind: string): void {
   const current = props.effects[index]!;
   if (kind === 'terrain') {
     props.effects[index] = { kind: 'terrain', rounds: 3, colour: '#e43b44', effects: [{ kind: 'damage', amount: 3 }] };
+  } else if (kind === 'area') {
+    props.effects[index] = { kind: 'area', radius: 1, colour: '#feae34', effects: [{ kind: 'damage', amount: 4 }] };
   } else if (kind === 'summon') {
     const first = summonable.value[0];
     props.effects[index] = { kind: 'summon', entity: first?.id ?? 'bug', amount: first?.maxHp ?? 6 };
-  } else if (current.kind === 'terrain' || current.kind === 'summon') {
+  } else if (current.kind === 'terrain' || current.kind === 'summon' || current.kind === 'area') {
     props.effects[index] = { kind: kind as EffectKind, amount: 3 };
   } else {
     current.kind = kind as EffectKind;
@@ -77,7 +93,7 @@ function move(index: number, by: number): void {
 
 <template>
   <div class="effects">
-    <div v-for="(effect, index) in effects" :key="index" class="effect" :class="{ 'is-terrain': effect.kind === 'terrain' }">
+    <div v-for="(effect, index) in effects" :key="index" class="effect" :class="{ 'is-terrain': effect.kind === 'terrain' || effect.kind === 'area' }">
       <span class="effect-step">{{ index + 1 }}</span>
       <select :value="effect.kind" :title="info(effect.kind).help" aria-label="Effect" @change="setKind(index, ($event.target as HTMLSelectElement).value)">
         <option v-for="kind in kinds" :key="kind" :value="kind">
@@ -85,6 +101,7 @@ function move(index: number, by: number): void {
         </option>
         <option v-if="!onTile" value="terrain">{{ TERRAIN_INFO.label }}</option>
         <option v-if="!onTile" value="summon">{{ SUMMON_INFO.label }}</option>
+        <option v-if="!onTile" value="area">{{ AREA_INFO.label }}</option>
       </select>
 
       <template v-if="effect.kind === 'terrain'">
@@ -93,6 +110,21 @@ function move(index: number, by: number): void {
           <EditorAmountInput :effect="effect" field="rounds" :side="side" />
           <span class="op">rounds, coloured</span>
           <input v-model="effect.colour" type="color" aria-label="Tile colour">
+          <span class="op">over radius</span>
+          <input :value="effect.radius ?? 0" type="number" min="0" max="3" class="num small" aria-label="Radius" @input="setRadius(effect, ($event.target as HTMLInputElement).value)">
+        </span>
+      </template>
+      <template v-else-if="effect.kind === 'area'">
+        <span class="terrain-head">
+          <span class="op">radius</span>
+          <input v-model.number="effect.radius" type="number" min="0" max="3" class="num small" aria-label="Radius">
+          <span class="op">hits</span>
+          <select :value="effect.affects ?? 'all'" aria-label="Who it hits" @change="setAffects(effect, ($event.target as HTMLSelectElement).value)">
+            <option value="all">everyone — friends too</option>
+            <option value="foes">only foes</option>
+            <option value="friends">only your side</option>
+          </select>
+          <input v-model="effect.colour" type="color" aria-label="Burst colour">
         </span>
       </template>
       <template v-else-if="effect.kind === 'summon'">
@@ -127,6 +159,10 @@ function move(index: number, by: number): void {
 
       <div v-if="effect.kind === 'terrain'" class="tile-effects">
         <span class="tile-label">Whoever is on the tile:</span>
+        <EditorEffectList :effects="effect.effects" :side="side" on-tile :issues="issues" :path="`${at(index)}.effects`" />
+      </div>
+      <div v-if="effect.kind === 'area'" class="tile-effects">
+        <span class="tile-label">Each creature caught:</span>
         <EditorEffectList :effects="effect.effects" :side="side" on-tile :issues="issues" :path="`${at(index)}.effects`" />
       </div>
 

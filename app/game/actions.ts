@@ -16,7 +16,8 @@ import { cardDef, cardMovement, energySpent, minimumCost } from './cards/definit
 import { intentDef } from './cards/intents';
 import type { CardDefinition, CardInstance } from './cards/types';
 import {
-  amountOf, type AmountValues, type Effect, isSummon, isTerrain, type SummonEffect, type TerrainEffect, type TriggerPoint,
+  amountOf, type AmountValues, type AreaEffect, type Effect, isArea, isSummon, isTerrain, type SummonEffect,
+  type TerrainEffect, type TileEffect, type TriggerPoint,
 } from './effects';
 import { GEM_SLOTS, gemDef } from './gems';
 import { ENEMY_IDS, ENTITIES, entityDef, GUARDIAN_IDS } from './entities/definitions';
@@ -419,49 +420,134 @@ function markTile(game: Game, effect: TerrainEffect, play: Play): void {
   const values = amountValues(state, actor, play.x);
   const rounds = amountOf(effect.rounds, values);
   if (rounds <= 0) return;
+  const effects = effect.effects.map((tile) => ({ kind: tile.kind, amount: amountOf(tile.amount, values) }));
 
-  const layer: TerrainLayer = {
-    id: nextUid('mark'),
-    effects: effect.effects.map((tile) => ({ kind: tile.kind, amount: amountOf(tile.amount, values) })),
-    colour: effect.colour,
-    rounds,
-    ownerId: actor.id,
-  };
-  const key = terrainKey(cell);
-  (state.terrain[key] ??= []).push(layer);
+  // Every tile in the radius gets a mark of its own, so each counts down,
+  // stacks and hits on its own like any other.
+  for (const spot of cellsWithin(game, cell, effect.radius ?? 0)) {
+    const layer: TerrainLayer = { id: nextUid('mark'), effects, colour: effect.colour, rounds, ownerId: actor.id };
+    const key = terrainKey(spot);
+    (state.terrain[key] ??= []).push(layer);
 
-  // Immediate: whoever is standing there gets the new mark now, and that
-  // is their hit from this tile for the round.
-  const occupant = entityAt(state, cell.row, cell.col);
-  if (occupant && !occupant.dead) {
-    state.terrainHits[`${occupant.id}@${key}`] = state.turn;
-    applyTile(game, occupant, [layer]);
+    // Immediate: whoever is standing there gets the new mark now, and that
+    // is their hit from this tile for the round.
+    const occupant = entityAt(state, spot.row, spot.col);
+    if (occupant && !occupant.dead) {
+      state.terrainHits[`${occupant.id}@${key}`] = state.turn;
+      applyTile(game, occupant, [layer]);
+    }
   }
 }
 
 /* What a tile does to whoever is on it: each effect as if they had played
    it on themselves. No bonuses — a fire burns the same for everyone. */
 function applyTile(game: Game, entity: Entity, layers: readonly TerrainLayer[]): void {
+  for (const layer of layers) {
+    const owner = game.state.entities.find((item) => item.id === layer.ownerId);
+    applyTo(game, entity, layer.effects, owner);
+  }
+}
+
+/* Effects landing on a creature as if it had played them on itself: Damage
+   hurts it, Block and Heal land on it, Energy/Draw/Movement only matter to
+   the player. Shared by marked tiles (no bonus) and bursts (the caster's
+   bonus on damage). `source` is credited with the damage. */
+function applyTo(game: Game, entity: Entity, effects: readonly TileEffect[], source?: Entity, damageBonus = 0): void {
   const { state } = game;
   const isPlayer = entity.id === state.playerId;
-  for (const layer of layers) {
-    const owner = state.entities.find((item) => item.id === layer.ownerId);
-    for (const { kind, amount } of layer.effects) {
-      if (entity.dead) return;
-      switch (kind) {
-        case 'damage': dealDamage(game, entity, amount, owner); break;
-        case 'block': entity.block += amount; break;
-        case 'loseBlock': entity.block = Math.max(0, entity.block - amount); break;
-        case 'heal': entity.hp = Math.min(entity.maxHp, entity.hp + amount); break;
-        case 'power': entity.power += amount; break;
-        case 'energy': if (isPlayer) state.energy += amount; break;
-        case 'draw': if (isPlayer) drawCards(state, amount); break;
-        case 'movement': if (isPlayer) state.movement += amount; break;
-        default: break;
-      }
+  for (const { kind, amount } of effects) {
+    if (entity.dead) return;
+    switch (kind) {
+      case 'damage': dealDamage(game, entity, amount + damageBonus, source); break;
+      case 'block': entity.block += amount; break;
+      case 'loseBlock': entity.block = Math.max(0, entity.block - amount); break;
+      case 'heal': entity.hp = Math.min(entity.maxHp, entity.hp + amount); break;
+      case 'power': entity.power += amount; break;
+      case 'energy': if (isPlayer) state.energy += amount; break;
+      case 'draw': if (isPlayer) drawCards(state, amount); break;
+      case 'movement': if (isPlayer) state.movement += amount; break;
+      default: break;
     }
   }
 }
+
+/* ------------------------------ areas ----------------------------------- */
+
+/** The walkable tiles within `radius` steps of a tile — a diamond, measured
+ *  the way range is. Radius 0 is the tile alone. */
+export function cellsWithin(game: Game, center: Cell, radius: number): Cell[] {
+  const cells: Cell[] = [];
+  for (let row = center.row - radius; row <= center.row + radius; row += 1) {
+    for (let col = center.col - radius; col <= center.col + radius; col += 1) {
+      const cell = { row, col };
+      if (cellDistance(cell, center) <= radius && game.world.walkable(row, col)) cells.push(cell);
+    }
+  }
+  return cells;
+}
+
+/** Is this creature one a burst with these `affects` hits? */
+function caughtBy(actor: Entity, target: Entity, affects: AreaEffect['affects']): boolean {
+  if (affects === 'foes') return !sameSide(actor, target);
+  if (affects === 'friends') return sameSide(actor, target);
+  return true;
+}
+
+/* A burst: everyone within the radius of the target, once, at once — the
+   caster too, if it is inside, unless `affects` narrows it. Amounts come
+   from the caster, and damage adds its bonuses, as its own attack would.
+   An enemy or ally aims at its foe's tile, and only within its reach. */
+function burst(game: Game, effect: AreaEffect, play: Play): void {
+  const { state } = game;
+  const { actor, range } = play;
+  const isPlayer = actor.id === state.playerId;
+  if (!isPlayer && !play.target) return;
+  const center = play.target ?? entityCell(actor);
+  if (!isPlayer && cellDistance(entityCell(actor), center) > range) {
+    noteNear(state, actor, `${entityDef(actor.defId).name} cannot reach.`);
+    return;
+  }
+
+  const cells = cellsWithin(game, center, effect.radius);
+  const values = amountValues(state, actor, play.x);
+  const effects = effect.effects.map((inner) => ({ kind: inner.kind, amount: amountOf(inner.amount, values) }));
+  const bonus = actor.power + (isPlayer ? stat(state, 'damageBonus') : 0);
+
+  // Who is caught is decided before anything lands, so a creature killed
+  // part-way does not change who else is hit.
+  const caught = state.entities.filter((entity) =>
+    !entity.dead && cellDistance(entityCell(entity), center) <= effect.radius && caughtBy(actor, entity, effect.affects));
+  for (const entity of caught) applyTo(game, entity, effects, actor, bonus);
+
+  state.bursts.push({ id: nextUid('burst'), cells, colour: effect.colour });
+  if (state.bursts.length > MAX_BURSTS) state.bursts.splice(0, state.bursts.length - MAX_BURSTS);
+  noteNear(state, actor, `${entityDef(actor.defId).name}'s burst catches ${caught.length}.`);
+}
+
+/** Recent bursts kept for the renderer to flash; older ones are dropped. */
+const MAX_BURSTS = 8;
+
+/** What playing this card at this tile would cover — for the aiming preview:
+ *  the tiles of its widest area (burst or marked radius), and the creatures
+ *  on the player's side that its bursts would catch. */
+export function areaPreview(game: Game, def: CardDefinition, target: Cell): { cells: Cell[]; friends: Entity[] } {
+  const { state } = game;
+  const self = player(state);
+  let radius = -1;
+  const friends = new Set<Entity>();
+  for (const effect of def.effects) {
+    const r = isArea(effect) ? effect.radius : isTerrain(effect) ? (effect.radius ?? 0) : -1;
+    radius = Math.max(radius, r);
+    if (!isArea(effect)) continue;
+    for (const entity of state.entities) {
+      if (entity.dead || !sameSide(self, entity) || !caughtBy(self, entity, effect.affects)) continue;
+      if (cellDistance(entityCell(entity), target) <= effect.radius) friends.add(entity);
+    }
+  }
+  return { cells: radius < 0 ? [] : cellsWithin(game, target, radius), friends: [...friends] };
+}
+
+/* ------------------------------ terrain helpers ----------------------- */
 
 /** Hit an entity with the tile it is on — at most once per round per tile.
  *  Called when it steps onto a tile, and as each of its turns begins. */
@@ -505,6 +591,10 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
   }
   if (isSummon(effect)) {
     summon(game, effect, play);
+    return;
+  }
+  if (isArea(effect)) {
+    burst(game, effect, play);
     return;
   }
   const amount = amountOf(effect.amount, amountValues(state, actor, play.x));

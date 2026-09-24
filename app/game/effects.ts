@@ -83,6 +83,33 @@ export interface TerrainEffect {
   colour: string;
   /** What happens to whoever is on it. Simple effects only. */
   effects: SimpleEffect[];
+  /** Mark every tile within this many steps of the target too, not just
+   *  the target — a whole burning area. 0 or left out: the one tile. */
+  radius?: number;
+}
+
+/* Area: a burst centred on the target tile that hits every creature within
+   `radius` steps of it, once, at once — friend and foe alike, the caster too
+   if it is inside, unless `affects` narrows it to one side. Each gets the
+   listed effects as if it had played them on itself, like a marked tile,
+   but amounts are worked out from the caster and damage adds the caster's
+   bonuses: a burst is the caster's own attack, where a mark is not. The
+   area is a diamond — every tile within `radius` steps, the way range is
+   measured — so radius 1 is the tile and its four neighbours. */
+export type AreaAffects = 'all' | 'foes' | 'friends';
+export const AREA_AFFECTS: AreaAffects[] = ['all', 'foes', 'friends'];
+
+export interface AreaEffect {
+  kind: 'area';
+  /** Steps from the target tile the burst reaches: 0 is the tile alone. */
+  radius: number;
+  /** The burst's colour as it goes off. */
+  colour: string;
+  /** Who it hits: everyone (the default), only the caster's foes, or only
+   *  the caster's side. */
+  affects?: AreaAffects;
+  /** What happens to each creature caught. Simple effects only. */
+  effects: SimpleEffect[];
 }
 
 /* Summon: bring a creature into play on the side of whoever plays it — an
@@ -101,10 +128,11 @@ export interface SummonEffect {
   rounds?: Amount;
 }
 
-export type Effect = SimpleEffect | TerrainEffect | SummonEffect;
+export type Effect = SimpleEffect | TerrainEffect | SummonEffect | AreaEffect;
 
 export const isTerrain = (effect: Effect): effect is TerrainEffect => effect.kind === 'terrain';
 export const isSummon = (effect: Effect): effect is SummonEffect => effect.kind === 'summon';
+export const isArea = (effect: Effect): effect is AreaEffect => effect.kind === 'area';
 
 /** A tile's effect once it has been placed: the amount is a plain number. */
 export interface TileEffect {
@@ -151,6 +179,8 @@ export function previewAmounts(effects: readonly Effect[], start: AmountValues):
     if (isTerrain(effect)) return amountOf(effect.rounds, values);
     // A summon changes nothing about its summoner; its number is its health.
     if (isSummon(effect)) return amountOf(effect.amount, values);
+    // A burst's numbers are its inner effects', shown on their own.
+    if (isArea(effect)) return 0;
     const amount = amountOf(effect.amount, values);
     switch (effect.kind) {
       case 'block': values.block += amount; break;
@@ -218,6 +248,11 @@ export function nowText(effects: readonly Effect[], values: AmountValues, style:
           : [];
         return [...health, ...rounds];
       }
+      if (isArea(effect)) {
+        return effect.effects
+          .filter((inner) => isScaled(inner.amount))
+          .map((inner) => `${style === 'short' ? 'AREA' : 'each'} ${labels[inner.kind]?.(amountOf(inner.amount, values))}`);
+      }
       if (!isTerrain(effect)) return isScaled(effect.amount) ? [labels[effect.kind]?.(amounts[i]!)] : [];
       // A mark: how long, and what its tile will do, fixed from now.
       const rounds = isScaled(effect.rounds) ? [style === 'short' ? `${amounts[i]} RND` : `${amounts[i]} rounds`] : [];
@@ -237,7 +272,9 @@ export const hasScaledAmount = (effects: readonly Effect[]): boolean =>
       ? isScaled(effect.rounds) || effect.effects.some((tile) => isScaled(tile.amount))
       : isSummon(effect)
         ? isScaled(effect.amount) || (effect.rounds !== undefined && isScaled(effect.rounds))
-        : isScaled(effect.amount));
+        : isArea(effect)
+          ? effect.effects.some((inner) => isScaled(inner.amount))
+          : isScaled(effect.amount));
 
 
 /* What each verb is, for the content editor and the validator: a plain
@@ -265,6 +302,11 @@ export const EFFECT_KINDS = Object.keys(EFFECT_INFO) as EffectKind[];
 
 /** The verbs a marked tile can carry. */
 export const TILE_KINDS = EFFECT_KINDS.filter((kind) => EFFECT_INFO[kind].tile);
+
+export const AREA_INFO = {
+  label: 'Area',
+  help: 'A burst on the target tile: everyone within the radius gets these effects at once — friends too, and you if you are inside, unless narrowed.',
+};
 
 export const SUMMON_INFO = {
   label: 'Summon',
@@ -334,6 +376,10 @@ export function describeTileEffect(effect: SimpleEffect | TileEffect): string {
 }
 
 export function describeEffect(effect: Effect): string {
+  if (isArea(effect)) {
+    const who = effect.affects === 'foes' ? 'every foe' : effect.affects === 'friends' ? 'every friend' : 'everyone';
+    return `burst (radius ${effect.radius}): ${who} caught will ${effect.effects.map(describeTileEffect).join(', ')}`;
+  }
   if (isSummon(effect)) {
     const rounds = effect.rounds === undefined ? '' : ` for ${describeAmount(effect.rounds)} rounds`;
     return `summon a ${effect.entity} with ${describeAmount(effect.amount)} health${rounds}`;

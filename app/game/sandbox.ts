@@ -45,13 +45,15 @@ const TRIAL_DISTANCE = 3;
  *  down to the one being tried. */
 const CLEAR_RADIUS = 10;
 
-function spawnNearby(game: Game, defId: string, distance = TRIAL_DISTANCE): Entity | null {
+function spawnNearby(game: Game, defId: string, distance = TRIAL_DISTANCE, clear = true): Entity | null {
   const { state, world } = game;
   const here = entityCell(player(state));
 
-  state.entities = state.entities.filter(
-    (entity) => entity.faction === 'player' || cellDistance(entityCell(entity), here) > CLEAR_RADIUS,
-  );
+  if (clear) {
+    state.entities = state.entities.filter(
+      (entity) => entity.faction === 'player' || cellDistance(entityCell(entity), here) > CLEAR_RADIUS,
+    );
+  }
 
   const spot = [...reachable(world, here, distance + 1).values()]
     .filter((entry) => entry.cost >= Math.min(2, distance) && entry.cost <= distance && !entityAt(state, entry.cell.row, entry.cell.col))
@@ -96,6 +98,13 @@ export function applyTrial(game: Game, trial: Trial): boolean {
           prey.hp = Math.max(1, Math.min(prey.maxHp, threshold));
           telegraph(game, prey);
         }
+      } else if (card.effects.some((effect) => effect.kind === 'area')) {
+        // A burst wants a crowd: two enemies side by side within reach.
+        const reach = Math.max(1, Math.min(TRIAL_DISTANCE, card.range));
+        const first = spawnNearby(game, 'bug', reach);
+        if (first) telegraph(game, first);
+        const second = first && spawnNearby(game, 'bug', reach, false);
+        if (second) telegraph(game, second);
       } else if (card.targeting === 'ally') {
         const friend = spawnNearby(game, 'bug', Math.max(1, Math.min(TRIAL_DISTANCE, card.range)));
         if (friend) {

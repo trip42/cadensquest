@@ -363,13 +363,14 @@ with the same tagged objects from `game/effects.ts`, and `resolveEffect` in
 actions.ts is the only place that knows what any of them do. A new gem or
 card is data; a new verb or shape is code (checklists at the end).
 
-**Three shapes.** A **simple** effect is `{ kind, amount }` with a verb
+**Four shapes.** A **simple** effect is `{ kind, amount }` with a verb
 from `EFFECT_INFO`: `damage`, `block`, `loseBlock`, `heal`, `power`,
 `movement`, `energy`, `draw`, `step` (Leap), `advance`, `tame`, `mend`.
 **Terrain** is `{ kind: "terrain", rounds, colour, effects: [simple...] }`.
-**Summon** is `{ kind: "summon", entity, amount, rounds? }`. Code tells them
-apart with `isTerrain` / `isSummon`; content validates them with a zod
-discriminated union.
+**Summon** is `{ kind: "summon", entity, amount, rounds? }`. **Area** is
+`{ kind: "area", radius, colour, affects?, effects: [simple...] }`. Code
+tells them apart with `isTerrain` / `isSummon` / `isArea`; content
+validates them with a zod discriminated union.
 
 **Who an effect lands on.** Every effect is played by an actor. `damage`
 hits the actor's target (never its own side); `block`, `loseBlock`, `heal`,
@@ -455,6 +456,24 @@ alive. It draws an intent at once and acts from the next enemy phase. It
 drops nothing; `summonedBy`/`expires` on the entity mark it; it stands in a
 dashed, turning ring (cyan for the player's side, red for the enemy's — a
 tamed ally's ring is solid); its tooltip says SUMMONED with rounds left.
+
+**Area (bursts).** Centred on the target tile (or the caster's own, for a
+self/none card; an enemy or ally aims at its foe's tile, within reach), it
+hits every living creature within `radius` steps — a diamond, measured the
+way range is (`cellsWithin`) — once, at once: **friends too, and the caster
+if it is inside**, unless `affects` is `foes` or `friends`. Who is caught is
+decided before anything lands. Each gets the listed effects as if it played
+them on itself (shared with marked tiles through `applyTo`), but amounts come
+from the caster and **damage adds the caster's bonuses** (power, and the
+player's damageBonus) — a burst is its own attack, where a mark is not. Only
+tile-capable verbs may go inside. **Terrain takes an optional `radius`** too,
+marking every walkable tile in the diamond, each as its own layer. Aiming:
+while an area card is up, the store asks `areaPreview` and the renderer
+(`setAim`) shades the covered tiles and puts a blinking red ring under any
+of the player's own creatures that would be caught — friendly fire is never
+a surprise. Casting: `state.bursts` keeps the last `MAX_BURSTS` for the
+renderer, which flashes each once (`drawBursts`, keyed by id, fading over
+650ms); nothing in the rules reads them.
 
 **Adding a verb** (a simple effect): the `EffectKind` union and
 `EFFECT_INFO` in effects.ts (label, help, sides, tile), a case in

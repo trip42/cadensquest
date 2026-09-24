@@ -9,8 +9,8 @@ import type {
   CardData, Content, ContentFile, EnemyCardData, EnemyData, GemData, TalismanData, ZoneData,
 } from '~/game/content';
 import {
-  amountOf, type AmountValues, describeEffect, describeTileEffect, type Effect, isSummon, isTerrain, nowText, TRIGGER_INFO,
-  type TriggerPoint,
+  amountOf, type AmountValues, describeEffect, describeTileEffect, type Effect, isArea, isSummon, isTerrain, nowText,
+  TRIGGER_INFO, type TriggerPoint,
 } from '~/game/effects';
 import type { GemDefinition } from '~/game/gems';
 import { ZONES } from '~/game/map/tiles';
@@ -71,6 +71,22 @@ const marks = computed(() => {
     return { colour: effect.colour, text: `${tiles.map(describeTileEffect).join(', ')} · ${rounds} round${rounds === 1 ? '' : 's'}` };
   });
 });
+/* What a burst does to each creature it catches, from the same sample
+   moment as the card's live number, and who it catches. */
+const bursts = computed(() => {
+  const effects = (card.value?.effects ?? (move.value?.effects as Effect[] | undefined) ?? []).filter(isArea);
+  const values = card.value ? cardSample.value : { ...SAMPLE, block: 0, energy: 0, hand: 0 };
+  return effects.map((effect) => {
+    const who = effect.affects === 'foes' ? 'every foe' : effect.affects === 'friends' ? 'your side' : 'everyone — friends too';
+    const inner = effect.effects.map((tile) => ({ kind: tile.kind, amount: amountOf(tile.amount, values) }));
+    return {
+      colour: effect.colour,
+      text: `Radius ${effect.radius}, ${who}: ${inner.map(describeTileEffect).join(', ')}`,
+      radius: effect.radius,
+    };
+  });
+});
+
 /* The creatures a summon brings in, drawn as they will stand, with the
    health and lifetime they will have from the same sample moment. */
 const summons = computed(() => {
@@ -166,6 +182,12 @@ watch(() => [card.value?.name, card.value?.text, cardNow.value], measure);
       <p v-if="cardNow" class="caption">"Now" shown as if you had {{ SAMPLE_TEXT }}</p>
       <p v-if="overflow.name" class="caption warn">The name is too long for the card — the end is cut off</p>
       <p v-if="overflow.text" class="caption warn">The rules text is too long for the card — the end is cut off</p>
+      <template v-if="bursts.length">
+        <div class="panel note">
+          <p class="note-title">Burst</p>
+          <GroundLines :lines="bursts" />
+        </div>
+      </template>
       <template v-if="summons.length">
         <div class="summons">
           <div v-for="summoned in summons" :key="summoned.key" class="summoned">
@@ -195,6 +217,12 @@ watch(() => [card.value?.name, card.value?.text, cardNow.value], measure);
       <div class="stage">
         <GameCard :def="asEnemyCard(move)" />
       </div>
+      <template v-if="bursts.length">
+        <div class="panel note">
+          <p class="note-title">Burst</p>
+          <GroundLines :lines="bursts" />
+        </div>
+      </template>
       <template v-if="summons.length">
         <div class="summons">
           <div v-for="summoned in summons" :key="summoned.key" class="summoned">

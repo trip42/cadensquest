@@ -377,5 +377,79 @@
         "rounds": 3
       }
     ]
+  },
+  {
+    "id": "firestorm",
+    "name": "Firestorm",
+    "enabled": false,
+    "rarity": "mythic",
+    "art": "flame",
+    "cost": 2,
+    "targeting": "cell",
+    "range": 3,
+    "text": "Burst at a tile within 3: everyone within 1 takes 4 damage.",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": 1,
+        "colour": "#feae34",
+        "effects": [
+          {
+            "kind": "damage",
+            "amount": 4
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "nova",
+    "name": "Nova",
+    "enabled": false,
+    "rarity": "rare",
+    "art": "heart",
+    "cost": 1,
+    "targeting": "self",
+    "range": 0,
+    "text": "Burst around you: each of your side within 1 heals 4.",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": 1,
+        "colour": "#63c74d",
+        "affects": "friends",
+        "effects": [
+          {
+            "kind": "heal",
+            "amount": 4
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "wildfire",
+    "name": "Wildfire",
+    "enabled": false,
+    "rarity": "mythic",
+    "art": "flame",
+    "cost": 2,
+    "targeting": "cell",
+    "range": 3,
+    "text": "Mark a tile within 3 and every tile within 1 of it: for 2 rounds, whoever is on it takes 2 damage.",
+    "effects": [
+      {
+        "kind": "terrain",
+        "rounds": 2,
+        "colour": "#e43b44",
+        "radius": 1,
+        "effects": [
+          {
+            "kind": "damage",
+            "amount": 2
+          }
+        ]
+      }
+    ]
   }
 ]

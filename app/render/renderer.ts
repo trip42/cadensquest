@@ -110,6 +110,13 @@ export class MapRenderer {
   private observer: ResizeObserver | null = null;
 
   private highlights = new Map<string, HighlightKind>();
+  /* The area an area card would cover where it is aimed, and the friends
+     it would catch — drawn so friendly fire is seen before it happens. */
+  private aim: { cells: Set<string>; friends: Set<string> } | null = null;
+  /* When each burst was first drawn, so each flashes once and fades. Keyed
+     by the burst's id; the game keeps the recent ones, the renderer only
+     reads them. */
+  private burstStarts = new Map<string, number>();
   private hover: Cell | null = null;
   /* Health and intent belong on top of the scene, not inside it: drawn in
      the depth pass they get painted over by whoever stands in front. */
@@ -123,6 +130,7 @@ export class MapRenderer {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('no 2d context');
     this.ctx = ctx;
+    for (const burst of game.state.bursts) this.burstStarts.set(burst.id, -Infinity);
 
     const self = game.state.entities.find((entity) => entity.id === game.state.playerId)!;
     this.camera.row = self.row;
@@ -194,6 +202,14 @@ export class MapRenderer {
 
   setHover(cell: Cell | null): void {
     this.hover = cell;
+  }
+
+  /** What an area card being aimed would cover: its tiles, and the ids of
+   *  the player's own creatures it would catch. Null when not aiming one. */
+  setAim(aim: { cells: Cell[]; friends: string[] } | null): void {
+    this.aim = aim && aim.cells.length
+      ? { cells: new Set(aim.cells.map((cell) => `${cell.row},${cell.col}`)), friends: new Set(aim.friends) }
+      : null;
   }
 
   pan(dx: number, dy: number): void {
@@ -381,6 +397,8 @@ export class MapRenderer {
       next += 1;
     }
 
+    this.drawBursts(now);
+
     for (const { sx, top, entity } of this.overlay) {
       this.drawHealthBar(sx, top, entity);
       if (entity.faction === 'player') continue;
@@ -403,6 +421,19 @@ export class MapRenderer {
 
     const marks = this.game.state.terrain[`${row},${col}`];
     if (marks?.length) this.drawMarks(sx, ty, marks, row, col, now);
+
+    // The area an area card would cover, where it is being aimed.
+    if (this.aim?.cells.has(`${row},${col}`)) {
+      ctx.save();
+      diamondPath(ctx, sx, ty);
+      ctx.fillStyle = 'rgba(254, 174, 52, 0.28)';
+      ctx.fill();
+      ctx.setLineDash([4, 3]);
+      ctx.strokeStyle = this.palette.yellow;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.restore();
+    }
 
     const highlight = this.highlights.get(cellKey(row, col));
     const hovered = this.hover && this.hover.row === row && this.hover.col === col;
@@ -571,6 +602,60 @@ export class MapRenderer {
     }
   }
 
+  /* An area burst as it goes off: every tile it covered flashes in its
+     colour and fades, and a ring spreads from the centre. Each burst is
+     drawn once, from the moment the renderer first sees it. */
+  private drawBursts(now: number): void {
+    const DURATION = 650;
+    const ctx = this.ctx;
+    for (const burst of this.game.state.bursts) {
+      if (!this.burstStarts.has(burst.id)) this.burstStarts.set(burst.id, now);
+      const age = (now - this.burstStarts.get(burst.id)!) / DURATION;
+      if (age < 0 || age >= 1) continue;
+      const fade = 1 - age;
+      let cx = 0;
+      let cy = 0;
+      for (const cell of burst.cells) {
+        const top = this.tileTop(cell);
+        if (!top) continue;
+        cx += top.x;
+        cy += top.y;
+        ctx.save();
+        diamondPath(ctx, top.x, top.y);
+        ctx.globalAlpha = 0.65 * fade;
+        ctx.fillStyle = burst.colour;
+        ctx.fill();
+        ctx.restore();
+      }
+      if (!burst.cells.length) continue;
+      cx /= burst.cells.length;
+      cy /= burst.cells.length;
+      const reach = (Math.sqrt(burst.cells.length) * 0.6 + 0.5) * HW * (0.4 + age * 0.9);
+      ctx.save();
+      ctx.globalAlpha = fade;
+      ctx.strokeStyle = burst.colour;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, reach, reach * (HH / HW), 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+    // Forget bursts the game has already dropped.
+    const live = new Set(this.game.state.bursts.map((burst) => burst.id));
+    for (const id of this.burstStarts.keys()) if (!live.has(id)) this.burstStarts.delete(id);
+  }
+
+  /** Where a tile's top face sits, in design units. */
+  private tileTop(cell: Cell): { x: number; y: number } | null {
+    const stack = this.game.world.stackAt(cell.row, cell.col);
+    if (stack === VOID) return null;
+    const palette = this.paletteFor(cell.row, stack[stack.length - 1] as TileLetter);
+    return {
+      x: projectX(cell.col, cell.row, this.camera, this.view),
+      y: projectY(cell.col, cell.row, this.camera, this.view) - (stack.length - 1) * LAYER_H - palette.elev,
+    };
+  }
+
   /** A circle (an ellipse, seen at this angle) filled with a vertical
    *  stripe per mark. */
   private stripes(sx: number, sy: number, scale: number, marks: readonly TerrainLayer[], alpha: number): void {
@@ -726,6 +811,19 @@ export class MapRenderer {
     // on reads at a glance, before any tooltip. A summoned creature's ring
     // is dashed and slowly turns — in its side's colour, so an enemy's
     // summons read as summoned too.
+    // Caught in the area being aimed, on the player's own side: a blinking
+    // red warning ring, so friendly fire is never a surprise.
+    if (this.aim?.friends.has(entity.id)) {
+      ctx.save();
+      ctx.strokeStyle = this.palette.red;
+      ctx.globalAlpha = 0.55 + 0.45 * Math.sin(performance.now() / 110);
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.ellipse(sx, sy, HW * 0.5, HH * 0.5, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     if (entity.faction === 'ally' || entity.summonedBy) {
       const t = performance.now();
       ctx.save();

@@ -7,7 +7,20 @@
 import type { EffectData } from '~/game/content';
 import type { Targeting } from '~/game/cards/types';
 
-type SimpleData = Exclude<EffectData, { kind: 'terrain' } | { kind: 'summon' }>;
+type SimpleData = Exclude<EffectData, { kind: 'terrain' } | { kind: 'summon' } | { kind: 'area' }>;
+type AreaData = Extract<EffectData, { kind: 'area' }>;
+
+/** Who a burst catches, and the verb that goes with them. "everyone within
+ *  1 takes", "every foe within 1 takes", "whoever is there takes". */
+function caughtPhrase(effect: AreaData, owner: string): string {
+  const reach = effect.radius === 0 ? '' : ` within ${effect.radius}`;
+  const who = effect.affects === 'foes'
+    ? `every foe${reach || ' there'}`
+    : effect.affects === 'friends'
+      ? `each of ${owner} side${reach || ' there'}`
+      : effect.radius === 0 ? 'whoever is there' : `everyone${reach}`;
+  return `${who} ${tilePhrase(effect.effects, owner)}`;
+}
 type SummonData = Extract<EffectData, { kind: 'summon' }>;
 
 /** A creature's name for the text, from its id when no better name is known. */
@@ -83,7 +96,12 @@ function playerPhrase(effect: EffectData, range: number, targeting?: Targeting, 
   }
   if (effect.kind === 'tame' || effect.kind === 'mend') return creaturePhrase(effect, range, targeting, afterTame);
   if (effect.kind === 'terrain') {
-    return `mark ${wherePhrase(targeting, range)}: ${roundsPhrase(effect)}, whoever is on it ${tilePhrase(effect.effects, 'your')}`;
+    const area = effect.radius ? ` and every tile within ${effect.radius} of it` : '';
+    return `mark ${wherePhrase(targeting, range)}${area}: ${roundsPhrase(effect)}, whoever is on it ${tilePhrase(effect.effects, 'your')}`;
+  }
+  if (effect.kind === 'area') {
+    const at = targeting === 'self' || targeting === 'none' ? 'around you' : `at ${wherePhrase(targeting, range)}`;
+    return `burst ${at}: ${caughtPhrase(effect, 'your')}`;
   }
   return simplePlayerPhrase(effect, range);
 }
@@ -141,8 +159,10 @@ function enemyPhrase(effect: EffectData, range: number, nameOf: NameOf = byId): 
   if (effect.kind === 'summon') return `calls ${summonedPhrase(effect, nameOf)}`;
   if (effect.kind === 'terrain') {
     // Neutral, not "your tile": a tamed creature plays this card too.
-    return `marks its target's tile ${roundsPhrase(effect)}: whoever is on it ${tilePhrase(effect.effects, 'its')}`;
+    const area = effect.radius ? ` and every tile within ${effect.radius} of it` : '';
+    return `marks its target's tile${area} ${roundsPhrase(effect)}: whoever is on it ${tilePhrase(effect.effects, 'its')}`;
   }
+  if (effect.kind === 'area') return `bursts at its target's tile: ${caughtPhrase(effect, 'its')}`;
   const amount = effect.amount as Amount;
   const n = describeAmount(amount, 'its');
   const scaled = isScaled(amount);

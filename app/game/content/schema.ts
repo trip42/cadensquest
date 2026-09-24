@@ -9,7 +9,9 @@
 
 import { z } from 'zod';
 import { RARITIES, TARGETINGS } from '../cards/types';
-import { AMOUNT_SOURCE_KEYS, type AmountSource, EFFECT_KINDS, type EffectKind, TRIGGER_POINTS } from '../effects';
+import {
+  AMOUNT_SOURCE_KEYS, AREA_AFFECTS, type AmountSource, type AreaAffects, EFFECT_KINDS, type EffectKind, TRIGGER_POINTS,
+} from '../effects';
 import { REWARD_KINDS } from '../rewards';
 import { STAT_KEYS } from '../stats';
 
@@ -46,6 +48,18 @@ export const terrainEffectSchema = z.strictObject({
   rounds: amountSchema,
   colour: colourSchema,
   effects: z.array(simpleEffectSchema).min(1, 'a marked tile needs at least one effect'),
+  /** Mark every tile within this many steps of the target too. */
+  radius: count(0, 3).optional(),
+});
+
+/** A burst on the target tile: everyone within `radius` steps gets
+ *  `effects` at once — narrowed to one side by `affects`, if given. */
+export const areaEffectSchema = z.strictObject({
+  kind: z.literal('area'),
+  radius: count(0, 3),
+  colour: colourSchema,
+  affects: z.enum(AREA_AFFECTS as [AreaAffects, ...AreaAffects[]]).optional(),
+  effects: z.array(simpleEffectSchema).min(1, 'a burst needs at least one effect'),
 });
 
 /** Bring a creature into play on the player's side — or, on an enemy card,
@@ -58,7 +72,7 @@ export const summonEffectSchema = z.strictObject({
   rounds: amountSchema.optional(),
 });
 
-export const effectSchema = z.discriminatedUnion('kind', [simpleEffectSchema, terrainEffectSchema, summonEffectSchema]);
+export const effectSchema = z.discriminatedUnion('kind', [simpleEffectSchema, terrainEffectSchema, summonEffectSchema, areaEffectSchema]);
 
 export const cardSchema = z.strictObject({
   id: idSchema,
