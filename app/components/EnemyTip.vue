@@ -30,6 +30,10 @@ const store = useGameStore();
       <span class="px-tag" :style="{ background: store.enemyTip.rewardTint }">DROPS</span>
       {{ store.enemyTip.reward }}
     </p>
+    <div v-if="store.enemyTip.ground.length" class="standing">
+      <span class="px-tag is-ground">STANDING ON</span>
+      <GroundLines :lines="store.enemyTip.ground" />
+    </div>
   </div>
 </template>
 
@@ -61,4 +65,6 @@ const store = useGameStore();
 .guard { margin-top: 8px; color: var(--px-soft); }
 .drop { margin-top: 6px; color: var(--px-soft); }
 .px-tag.is-red { background: var(--px-red); color: var(--px-text); }
+.standing { margin-top: 8px; display: flex; flex-direction: column; gap: 5px; }
+.px-tag.is-ground { align-self: flex-start; background: var(--px-soft); }
 </style>

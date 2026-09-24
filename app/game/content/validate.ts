@@ -13,7 +13,7 @@
 import type { ZodError } from 'zod';
 import { AMOUNT_SOURCES, type AmountSource, EFFECT_INFO, type EffectKind } from '../effects';
 import { ZONES } from '../map/tiles';
-import { CONTENT_FILES, type Content, type ContentFile, FILE_SCHEMAS } from './schema';
+import { type AmountData, CONTENT_FILES, type Content, type ContentFile, type EffectData, FILE_SCHEMAS } from './schema';
 
 export interface ContentIssue {
   level: 'error' | 'warning';
@@ -89,10 +89,40 @@ function crossCheck(content: Content): ContentIssue[] {
   const gems = new Map(content.gems.map((gem) => [gem.id, gem]));
   const talismans = new Map(content.talismans.map((talisman) => [talisman.id, talisman]));
 
-  const offSide = (kind: string, side: 'player' | 'enemy') => !EFFECT_INFO[kind as EffectKind][side];
+  const offSide = (kind: string, side: 'player' | 'enemy') =>
+    kind !== 'terrain' && !EFFECT_INFO[kind as EffectKind][side];
 
-  const usesX = (effects: readonly { amount: unknown }[]) =>
-    effects.some((effect) => typeof effect.amount === 'object' && (effect.amount as { of: string }).of === 'x');
+  /** Every amount in a list of effects, with where it sits — a terrain
+   *  effect's rounds and the amounts on its tile count too. */
+  const amountsIn = (effects: readonly EffectData[], at = 'effects') =>
+    effects.flatMap((effect, i): Array<{ amount: AmountData; field: string }> =>
+      effect.kind === 'terrain'
+        ? [
+          { amount: effect.rounds, field: `${at}[${i}].rounds` },
+          ...effect.effects.map((tile, t) => ({ amount: tile.amount, field: `${at}[${i}].effects[${t}].amount` })),
+        ]
+        : [{ amount: effect.amount, field: `${at}[${i}].amount` }]);
+
+  const scaledOf = (amount: AmountData) => (typeof amount === 'object' ? amount.of : null);
+  const usesX = (effects: readonly EffectData[]) => amountsIn(effects).some(({ amount }) => scaledOf(amount) === 'x');
+
+  /** A marked tile can only carry verbs that mean something on a tile. */
+  const checkTiles = (file: ContentFile, id: string, effects: readonly EffectData[], at = 'effects') => {
+    effects.forEach((effect, i) => {
+      if (effect.kind !== 'terrain') return;
+      effect.effects.forEach((tile, t) => {
+        if (!EFFECT_INFO[tile.kind].tile) {
+          error(file, id, `${EFFECT_INFO[tile.kind].label} cannot go on a tile`, `${at}[${i}].effects[${t}].kind`);
+        }
+      });
+    });
+  };
+  for (const card of content.cards) checkTiles('cards', card.id, card.effects);
+  for (const card of content['enemy-cards']) checkTiles('enemy-cards', card.id, card.effects);
+  for (const gem of content.gems) checkTiles('gems', gem.id, gem.effects);
+  for (const talisman of content.talismans) {
+    talisman.triggers?.forEach((trigger, t) => checkTiles('talismans', talisman.id, trigger.effects, `triggers[${t}].effects`));
+  }
 
   // Player cards.
   for (const card of content.cards) {
@@ -100,11 +130,11 @@ function crossCheck(content: Content): ContentIssue[] {
     if (card.cost === 'X' && !usesX(card.effects)) {
       warn('cards', card.id, 'it costs X but nothing on it uses X — it just spends all your energy', 'cost');
     }
-    card.effects.forEach((effect, i) => {
-      if (card.cost !== 'X' && typeof effect.amount === 'object' && effect.amount.of === 'x') {
-        warn('cards', card.id, 'X is the energy an X card spends — on this card it is always 0', `effects[${i}].amount`);
+    for (const { amount, field } of amountsIn(card.effects)) {
+      if (card.cost !== 'X' && scaledOf(amount) === 'x') {
+        warn('cards', card.id, 'X is the energy an X card spends — on this card it is always 0', field);
       }
-    });
+    }
     card.effects.forEach((effect, i) => {
       if (offSide(effect.kind, 'player')) {
         warn('cards', card.id, `${EFFECT_INFO[effect.kind as EffectKind].label} does nothing on a player card`, `effects[${i}].kind`);
@@ -131,14 +161,17 @@ function crossCheck(content: Content): ContentIssue[] {
       // An enemy's block falls as it starts to act, so "its block" is only
       // what this card has given it so far.
       const gainedBlock = card.effects.slice(0, i).some((earlier) => earlier.kind === 'block');
-      if (typeof effect.amount === 'object' && effect.amount.of === 'block' && !gainedBlock) {
+      if (effect.kind !== 'terrain' && scaledOf(effect.amount) === 'block' && !gainedBlock) {
         warn('enemy-cards', card.id, "an enemy's block falls when it starts to act, so this is 0 unless an earlier effect gains block", `effects[${i}].amount`);
       }
-      // An enemy has no energy and no hand: those read as zero for it.
-      if (typeof effect.amount === 'object' && !AMOUNT_SOURCES[effect.amount.of as AmountSource].enemy) {
-        warn('enemy-cards', card.id, `an enemy has no ${AMOUNT_SOURCES[effect.amount.of as AmountSource].phrase} — this is always 0`, `effects[${i}].amount`);
-      }
     });
+    // An enemy has no energy and no hand: those read as zero for it.
+    for (const { amount, field } of amountsIn(card.effects)) {
+      const of = scaledOf(amount) as AmountSource | null;
+      if (of && !AMOUNT_SOURCES[of].enemy) {
+        warn('enemy-cards', card.id, `an enemy has no ${AMOUNT_SOURCES[of].phrase} — this is always 0`, field);
+      }
+    }
     if (!card.text.trim()) warn('enemy-cards', card.id, 'has no text for the enemy tooltip', 'text');
   }
 
@@ -154,7 +187,9 @@ function crossCheck(content: Content): ContentIssue[] {
         error('enemies', enemy.id, `guardians hold their post, but "${cardId}" advances`, `deck[${i}]`);
       }
     });
-    const attacks = enemy.deck.some((cardId) => enemyCards.get(cardId)?.effects.some((effect) => effect.kind === 'damage'));
+    // Setting fire under the player counts as an attack too.
+    const attacks = enemy.deck.some((cardId) => enemyCards.get(cardId)?.effects.some((effect) =>
+      effect.kind === 'damage' || (effect.kind === 'terrain' && effect.effects.some((tile) => tile.kind === 'damage'))));
     if (!attacks) warn('enemies', enemy.id, 'nothing in its deck deals damage', 'deck');
 
     for (const gemId of Object.keys(enemy.reward?.gemWeights ?? {})) {

@@ -26,7 +26,7 @@ describe('the content files', () => {
 describe('validation', () => {
   it('names the item and the field a schema problem is in', () => {
     const content = draft();
-    content.cards.find((card) => card.id === 'bolt')!.effects[0]!.amount = 2.5;
+    (content.cards.find((card) => card.id === 'bolt')!.effects[0] as { amount: unknown }).amount = 2.5;
     expect(errors(content)).toEqual([
       expect.objectContaining({ file: 'cards', id: 'bolt', field: 'effects[0].amount' }),
     ]);

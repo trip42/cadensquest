@@ -16,7 +16,7 @@ import { gemDef } from '../game/gems';
 import type { Cell } from '../game/map/navigation';
 import { type Reward, rewardLabel } from '../game/rewards';
 import { KIND_OF, type FacePalette, MAX_STACK_HEIGHT, type TileKind, type TileLetter, VOID } from '../game/map/tiles';
-import type { Game } from '../game/state';
+import type { Game, TerrainLayer } from '../game/state';
 import {
   type Camera,
   DESIGN_H,
@@ -396,14 +396,17 @@ export class MapRenderer {
       this.drawBlock(sx, sy - layer * LAYER_H, this.paletteFor(row, letter), letter, isTop, row, col, now);
     }
 
+    const ctx = this.ctx;
+    const top = this.paletteFor(row, stack[stack.length - 1] as TileLetter);
+    const ty = sy - (stack.length - 1) * LAYER_H - top.elev;
+
+    const marks = this.game.state.terrain[`${row},${col}`];
+    if (marks?.length) this.drawMarks(sx, ty, marks, now);
+
     const highlight = this.highlights.get(cellKey(row, col));
     const hovered = this.hover && this.hover.row === row && this.hover.col === col;
     const shut = this.isGateLine(row);
     if (!highlight && !hovered && !shut) return;
-
-    const ctx = this.ctx;
-    const top = this.paletteFor(row, stack[stack.length - 1] as TileLetter);
-    const ty = sy - (stack.length - 1) * LAYER_H - top.elev;
 
     // The first row past a standing guardian, marked so the barrier reads
     // before you walk into it.
@@ -444,6 +447,51 @@ export class MapRenderer {
       ctx.lineWidth = 2;
       diamondPath(ctx, sx, ty);
       ctx.stroke();
+    }
+  }
+
+  /* A marked tile: a stripe across its top for each mark, in the mark's own
+     colour, so fire and a healing spring on one tile read as red and green
+     rather than a blend of both. Past three, the three newest show and a
+     count says how many there are. A slow pulse tells a mark from the
+     ground's own colour. */
+  private drawMarks(sx: number, ty: number, marks: readonly TerrainLayer[], now: number): void {
+    const ctx = this.ctx;
+    const shown = marks.slice(-3);
+    const pulse = 0.42 + 0.12 * Math.sin(now / 420);
+
+    ctx.save();
+    diamondPath(ctx, sx, ty);
+    ctx.clip();
+    const band = TILE_W / shown.length;
+    shown.forEach((mark, i) => {
+      ctx.globalAlpha = pulse;
+      ctx.fillStyle = mark.colour;
+      ctx.fillRect(sx - TILE_W / 2 + i * band, ty - TILE_H / 2, band + 0.5, TILE_H);
+    });
+    ctx.restore();
+
+    ctx.save();
+    ctx.strokeStyle = shown.at(-1)!.colour;
+    ctx.globalAlpha = 0.9;
+    ctx.lineWidth = 1.5;
+    diamondPath(ctx, sx, ty);
+    ctx.stroke();
+    ctx.restore();
+
+    if (marks.length > shown.length) {
+      const { ink, text, font } = this.palette;
+      ctx.font = `8px ${font}`;
+      const label = `×${marks.length}`;
+      const w = Math.ceil(ctx.measureText(label).width) + 6;
+      ctx.fillStyle = ink;
+      ctx.fillRect(Math.round(sx - w / 2), Math.round(ty - 6), w, 11);
+      ctx.fillStyle = text;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, sx, ty);
+      ctx.textAlign = 'start';
+      ctx.textBaseline = 'alphabetic';
     }
   }
 
@@ -702,6 +750,18 @@ export class MapRenderer {
       ctx.fillStyle = blue;
       ctx.fillRect(x, y + h, Math.round(w * Math.min(1, entity.block / entity.maxHp)), 2);
     }
+  }
+
+  /** Screen position of the middle of a tile's top face, in client
+   *  coordinates — where the HUD anchors a marked tile's tip. */
+  tileTopOf(cell: Cell): { x: number; y: number } | null {
+    const stack = this.game.world.stackAt(cell.row, cell.col);
+    if (stack === VOID) return null;
+    const palette = this.paletteFor(cell.row, stack[stack.length - 1] as TileLetter);
+    const sx = projectX(cell.col, cell.row, this.camera, this.view);
+    const sy = projectY(cell.col, cell.row, this.camera, this.view) - (stack.length - 1) * LAYER_H - palette.elev;
+    const rect = this.canvas.getBoundingClientRect();
+    return { x: rect.left + sx * this.scale, y: rect.top + (sy - HH) * this.scale };
   }
 
   /** Screen position of the point a character's health bar hangs from, in

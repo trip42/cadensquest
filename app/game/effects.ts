@@ -52,9 +52,42 @@ export interface ScaledAmount {
 
 export type Amount = number | ScaledAmount;
 
-export interface Effect {
+/** A verb and how much of it. */
+export interface SimpleEffect {
   kind: EffectKind;
   amount: Amount;
+}
+
+/* Terrain: mark a tile so that whoever is on it gets these effects, for a
+   number of rounds. The effects apply to the entity on the tile as if it
+   had played them on itself — Damage hurts it, Block and Heal land on it.
+   Amounts, and the rounds, are fixed when the tile is marked, from whoever
+   marked it: "Fire X" with X = 3 burns for 3 however it is stepped on.
+
+   A tile is hit when something steps onto it, and at the start of each of
+   that thing's turns while it stands there — at most once per round per
+   tile, so crossing fire burns once, standing in it burns every round, and
+   pacing a healing spring heals once a round. Marking an occupied tile
+   hits whoever is there at once. Marks on one tile stack as layers, each
+   with its own colour and its own rounds left. */
+export interface TerrainEffect {
+  kind: 'terrain';
+  /** How many rounds the mark lasts. A round ends as a new turn starts. */
+  rounds: Amount;
+  /** The tile's tint while marked, like "#e43b44". */
+  colour: string;
+  /** What happens to whoever is on it. Simple effects only. */
+  effects: SimpleEffect[];
+}
+
+export type Effect = SimpleEffect | TerrainEffect;
+
+export const isTerrain = (effect: Effect): effect is TerrainEffect => effect.kind === 'terrain';
+
+/** A tile's effect once it has been placed: the amount is a plain number. */
+export interface TileEffect {
+  kind: EffectKind;
+  amount: number;
 }
 
 /** Where each value comes from, for the editor and the validator. `enemy`
@@ -92,6 +125,8 @@ export function amountOf(amount: Amount, values: AmountValues): number {
 export function previewAmounts(effects: readonly Effect[], start: AmountValues): number[] {
   const values = { ...start };
   return effects.map((effect) => {
+    // A mark changes nothing about its caster; its number is its rounds.
+    if (isTerrain(effect)) return amountOf(effect.rounds, values);
     const amount = amountOf(effect.amount, values);
     switch (effect.kind) {
       case 'block': values.block += amount; break;
@@ -147,34 +182,55 @@ export function nowText(effects: readonly Effect[], values: AmountValues, style:
   const amounts = previewAmounts(effects, values);
   const labels = style === 'short' ? NOW_SHORT : NOW_LABELS;
   const parts = effects
-    .map((effect, i) => (isScaled(effect.amount) ? labels[effect.kind]?.(amounts[i]!) : undefined))
+    .flatMap((effect, i) => {
+      if (!isTerrain(effect)) return isScaled(effect.amount) ? [labels[effect.kind]?.(amounts[i]!)] : [];
+      // A mark: how long, and what its tile will do, fixed from now.
+      const rounds = isScaled(effect.rounds) ? [style === 'short' ? `${amounts[i]} RND` : `${amounts[i]} rounds`] : [];
+      const inner = effect.effects
+        .filter((tile) => isScaled(tile.amount))
+        .map((tile) => `${style === 'short' ? 'TILE' : 'tile'} ${labels[tile.kind]?.(amountOf(tile.amount, values))}`);
+      return [...rounds, ...inner];
+    })
     .filter((part): part is string => !!part);
   return parts.length ? parts.join(style === 'short' ? ' ' : ', ') : null;
 }
 
 /** Does anything on this list depend on the moment it is played? */
 export const hasScaledAmount = (effects: readonly Effect[]): boolean =>
-  effects.some((effect) => isScaled(effect.amount));
+  effects.some((effect) =>
+    isTerrain(effect)
+      ? isScaled(effect.rounds) || effect.effects.some((tile) => isScaled(tile.amount))
+      : isScaled(effect.amount));
 
 
 /* What each verb is, for the content editor and the validator: a plain
    label, what the number means, and which side it does anything for. A
    verb one side cannot use is a no-op for it — harmless, but almost
    certainly a mistake in the content, so the validator warns. */
-export const EFFECT_INFO: Record<EffectKind, { label: string; help: string; player: boolean; enemy: boolean }> = {
-  damage: { label: 'Damage', help: 'Hit the target for this much.', player: true, enemy: true },
-  block: { label: 'Block', help: 'Absorbs this much damage until the next turn.', player: true, enemy: true },
-  loseBlock: { label: 'Lose block', help: 'Spend this much of your own block.', player: true, enemy: true },
-  heal: { label: 'Heal', help: 'Restore this much health, up to the maximum.', player: true, enemy: true },
-  power: { label: 'Power', help: 'Permanently add this much to every hit.', player: true, enemy: true },
-  movement: { label: 'Movement', help: 'Gain this many steps this turn.', player: true, enemy: false },
-  energy: { label: 'Energy', help: 'Gain this much energy this turn.', player: true, enemy: false },
-  draw: { label: 'Draw', help: 'Draw this many cards.', player: true, enemy: false },
-  step: { label: 'Leap', help: 'Jump to the targeted square. The number is unused.', player: true, enemy: false },
-  advance: { label: 'Advance', help: 'Walk up to this many tiles toward the player, stopping once in range.', player: false, enemy: true },
+/* `tile` says whether a verb can go on a marked tile. Leap and Advance
+   are about the actor moving itself, which means nothing for a tile. */
+export const EFFECT_INFO: Record<EffectKind, { label: string; help: string; player: boolean; enemy: boolean; tile: boolean }> = {
+  damage: { label: 'Damage', help: 'Hit the target for this much.', player: true, enemy: true, tile: true },
+  block: { label: 'Block', help: 'Absorbs this much damage until the next turn.', player: true, enemy: true, tile: true },
+  loseBlock: { label: 'Lose block', help: 'Spend this much of your own block.', player: true, enemy: true, tile: true },
+  heal: { label: 'Heal', help: 'Restore this much health, up to the maximum.', player: true, enemy: true, tile: true },
+  power: { label: 'Power', help: 'Permanently add this much to every hit.', player: true, enemy: true, tile: true },
+  movement: { label: 'Movement', help: 'Gain this many steps this turn.', player: true, enemy: false, tile: true },
+  energy: { label: 'Energy', help: 'Gain this much energy this turn.', player: true, enemy: false, tile: true },
+  draw: { label: 'Draw', help: 'Draw this many cards.', player: true, enemy: false, tile: true },
+  step: { label: 'Leap', help: 'Jump to the targeted square. The number is unused.', player: true, enemy: false, tile: false },
+  advance: { label: 'Advance', help: 'Walk up to this many tiles toward the player, stopping once in range.', player: false, enemy: true, tile: false },
 };
 
 export const EFFECT_KINDS = Object.keys(EFFECT_INFO) as EffectKind[];
+
+/** The verbs a marked tile can carry. */
+export const TILE_KINDS = EFFECT_KINDS.filter((kind) => EFFECT_INFO[kind].tile);
+
+export const TERRAIN_INFO = {
+  label: 'Terrain',
+  help: 'Mark the targeted tile: whoever is on it gets these effects, for this many rounds.',
+};
 
 /** Where a talisman's effects can fire. */
 export type TriggerPoint =
@@ -216,7 +272,28 @@ export function describeAmount(amount: Amount, owner = 'your'): string {
 }
 
 /** Human-readable summary of an effect, for talisman lines and previews. */
+/** How a tile's effect reads, from the point of view of whoever is on it:
+ *  "take 3 damage", "gain 4 block". */
+export function describeTileEffect(effect: SimpleEffect | TileEffect): string {
+  const n = describeAmount(effect.amount, 'the marker\'s');
+  switch (effect.kind) {
+    case 'damage': return `take ${n} damage`;
+    case 'block': return `gain ${n} block`;
+    case 'loseBlock': return `lose ${n} block`;
+    case 'heal': return `heal ${n}`;
+    case 'power': return `gain ${n} power`;
+    case 'energy': return `gain ${n} energy`;
+    case 'draw': return `draw ${n}`;
+    case 'movement': return `gain ${n} movement`;
+    default: return `${effect.kind} ${n}`;
+  }
+}
+
 export function describeEffect(effect: Effect): string {
+  if (isTerrain(effect)) {
+    const rounds = describeAmount(effect.rounds);
+    return `mark a tile for ${rounds} round${rounds === '1' ? '' : 's'}: ${effect.effects.map(describeTileEffect).join(', ')}`;
+  }
   const n = describeAmount(effect.amount);
   const scaled = isScaled(effect.amount);
   switch (effect.kind) {

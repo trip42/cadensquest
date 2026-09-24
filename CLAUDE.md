@@ -334,6 +334,26 @@ formula string — content may come from a server one day, and an evaluated
 string is code; a test pins that a string is refused. Sources: `block`,
 `health`, `missingHealth`, `power`, `energy`, `hand`, `x`.
 
+**Terrain.** An effect can be `{ "kind": "terrain", "rounds", "colour",
+"effects": [...] }`: it marks a tile — the card's target, or with no target
+the actor's own — and whoever is on it gets those simple effects as if they
+played them on themselves (Damage hurts them; no bonuses). Leap, Advance and
+terrain-in-terrain are refused on a tile. Amounts and rounds are fixed when
+the mark is made, from its maker (so "Fire X" keeps its X). State lives in
+`state.terrain` (by `row,col`, a list of `TerrainLayer`s — marks stack as
+layers with their own colour and rounds) and `state.terrainHits`. A tile hits
+an entity when it steps on (`tick`, as a step completes), as that entity's
+turn begins (Caden in `beginTurn`, enemies in `endPlayerPhase`), and at once
+when marked while occupied — **at most once per round per tile**, so crossing
+fire burns once, standing in it burns every round, and pacing a healing tile
+heals once a round. Rounds count down in `beginTurn` (`ageTerrain`). Enemies
+do not path around marks, on purpose: fire is a way to route them. A
+cell-targeted card that only marks may target an occupied tile; one that
+leaps still needs an empty one. The renderer draws a stripe per mark in its
+colour (newest three, then a count) rather than blending colours; hovering a
+tile (`TileTip`) or an enemy on one lists the effects and rounds left, never
+the card that made them.
+
 **X cost.** `cost` is a number or `"X"`: the card spends all your energy
 (`energySpent`), is playable at 0 (`minimumCost`), and its effects — and
 its gems' — read what it spent as `{ "of": "x" }` (carried on `Play.x`).

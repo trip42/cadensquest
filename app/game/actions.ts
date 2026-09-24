@@ -15,7 +15,7 @@
 import { cardDef, cardMovement, energySpent, minimumCost } from './cards/definitions';
 import { intentDef } from './cards/intents';
 import type { CardInstance } from './cards/types';
-import { amountOf, type AmountValues, type Effect, type TriggerPoint } from './effects';
+import { amountOf, type AmountValues, type Effect, isTerrain, type TerrainEffect, type TriggerPoint } from './effects';
 import { GEM_SLOTS, gemDef } from './gems';
 import { ENEMY_IDS, entityDef, GUARDIAN_IDS } from './entities/definitions';
 import {
@@ -40,6 +40,7 @@ import { record } from './telemetry';
 import { nextInt, pick, shuffle } from './rng';
 import { talismanEffects } from './talismans';
 import {
+  nextUid,
   enemies,
   entityAt,
   findCard,
@@ -51,6 +52,7 @@ import {
   makeEntity,
   note,
   player,
+  type TerrainLayer,
   type QueuedAction,
   stat,
   syncStats,
@@ -150,9 +152,11 @@ export function isValidTarget(game: Game, uid: string, cell: Cell): boolean {
     const target = entityAt(game.state, cell.row, cell.col);
     return !!target && target.faction === 'enemy';
   }
-  return game.world.walkable(cell.row, cell.col)
-    && !entityAt(game.state, cell.row, cell.col)
-    && !barred(game.state, cell.row);   // a leap does not clear a gate either
+  if (!game.world.walkable(cell.row, cell.col)) return false;
+  // A leap needs somewhere to land, and does not clear a gate. A card that
+  // only marks the tile can go anywhere walkable — under an enemy too.
+  const leaps = def.effects.some((effect) => effect.kind === 'step');
+  return !leaps || (!entityAt(game.state, cell.row, cell.col) && !barred(game.state, cell.row));
 }
 
 /* ------------------------------ cards ---------------------------------- */
@@ -230,6 +234,101 @@ export function amountValues(state: GameState, actor: Entity, x = 0): AmountValu
   };
 }
 
+/* ------------------------------ terrain --------------------------------- */
+
+export const terrainKey = (cell: Cell): string => `${cell.row},${cell.col}`;
+
+/** The marks on a tile, if any. */
+export const terrainAt = (state: GameState, cell: Cell): TerrainLayer[] =>
+  state.terrain[terrainKey(cell)] ?? [];
+
+/* Mark the targeted tile — or, for a card with no target, the actor's own.
+   Everything is fixed now, from the one marking it: the rounds, and each
+   amount. An enemy marks where the player stands, and only within its
+   card's reach, as with its attacks. */
+function markTile(game: Game, effect: TerrainEffect, play: Play): void {
+  const { state, world } = game;
+  const { actor, range } = play;
+  const isPlayer = actor.id === state.playerId;
+  const cell = play.target ?? entityCell(actor);
+
+  if (!isPlayer && cellDistance(entityCell(actor), cell) > range) {
+    note(state, `${entityDef(actor.defId).name} cannot reach.`);
+    return;
+  }
+  if (!world.walkable(cell.row, cell.col)) return;
+
+  const values = amountValues(state, actor, play.x);
+  const rounds = amountOf(effect.rounds, values);
+  if (rounds <= 0) return;
+
+  const layer: TerrainLayer = {
+    id: nextUid('mark'),
+    effects: effect.effects.map((tile) => ({ kind: tile.kind, amount: amountOf(tile.amount, values) })),
+    colour: effect.colour,
+    rounds,
+    ownerId: actor.id,
+  };
+  const key = terrainKey(cell);
+  (state.terrain[key] ??= []).push(layer);
+
+  // Immediate: whoever is standing there gets the new mark now, and that
+  // is their hit from this tile for the round.
+  const occupant = entityAt(state, cell.row, cell.col);
+  if (occupant && !occupant.dead) {
+    state.terrainHits[`${occupant.id}@${key}`] = state.turn;
+    applyTile(game, occupant, [layer]);
+  }
+}
+
+/* What a tile does to whoever is on it: each effect as if they had played
+   it on themselves. No bonuses — a fire burns the same for everyone. */
+function applyTile(game: Game, entity: Entity, layers: readonly TerrainLayer[]): void {
+  const { state } = game;
+  const isPlayer = entity.id === state.playerId;
+  for (const layer of layers) {
+    const owner = state.entities.find((item) => item.id === layer.ownerId);
+    for (const { kind, amount } of layer.effects) {
+      if (entity.dead) return;
+      switch (kind) {
+        case 'damage': dealDamage(game, entity, amount, owner); break;
+        case 'block': entity.block += amount; break;
+        case 'loseBlock': entity.block = Math.max(0, entity.block - amount); break;
+        case 'heal': entity.hp = Math.min(entity.maxHp, entity.hp + amount); break;
+        case 'power': entity.power += amount; break;
+        case 'energy': if (isPlayer) state.energy += amount; break;
+        case 'draw': if (isPlayer) drawCards(state, amount); break;
+        case 'movement': if (isPlayer) state.movement += amount; break;
+        default: break;
+      }
+    }
+  }
+}
+
+/** Hit an entity with the tile it is on — at most once per round per tile.
+ *  Called when it steps onto a tile, and as each of its turns begins. */
+function triggerTile(game: Game, entity: Entity): void {
+  const { state } = game;
+  if (entity.dead) return;
+  const key = terrainKey(entityCell(entity));
+  const layers = state.terrain[key];
+  if (!layers?.length) return;
+  const hit = `${entity.id}@${key}`;
+  if (state.terrainHits[hit] === state.turn) return;
+  state.terrainHits[hit] = state.turn;
+  applyTile(game, entity, layers);
+}
+
+/** A new round: every mark loses one, and the ones that run out are gone. */
+function ageTerrain(state: GameState): void {
+  for (const [key, layers] of Object.entries(state.terrain)) {
+    const left = layers.filter((layer) => (layer.rounds -= 1) > 0);
+    if (left.length) state.terrain[key] = left;
+    else delete state.terrain[key];
+  }
+  state.terrainHits = {};
+}
+
 /* The one place that knows what every verb does, for both sides. Bonuses
    from the stat table are the player's; an enemy's only bonus is its
    `power`. Verbs that spend a resource only one side has are no-ops for
@@ -242,6 +341,10 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
   const { state } = game;
   const { actor, target, range } = play;
   const isPlayer = actor.id === state.playerId;
+  if (isTerrain(effect)) {
+    markTile(game, effect, play);
+    return;
+  }
   const amount = amountOf(effect.amount, amountValues(state, actor, play.x));
 
   switch (effect.kind) {
@@ -542,6 +645,8 @@ export function beginTurn(game: Game): void {
   state.phase = 'refresh';
   state.turn += 1;
   state.tally.turns = state.turn;
+  // A new round: marks count down, and every tile may hit again.
+  ageTerrain(state);
 
   const self = player(state);
   // Block from talismans replaces what was left, rather than adding to it.
@@ -558,6 +663,8 @@ export function beginTurn(game: Game): void {
 
   ensureSpawns(game);
   fire(game, 'refresh');
+  // Starting the turn on a marked tile sets it off.
+  triggerTile(game, self);
 
   // Enemies telegraph what they will do, so the player can plan around it.
   for (const enemy of enemies(state)) {
@@ -575,6 +682,9 @@ export function endPlayerPhase(game: Game): void {
   if (state.phase !== 'player' || state.activeReward) return;
   fire(game, 'playerPhaseEnd');
   state.phase = 'enemy';
+  // Their turn begins: any enemy standing on a marked tile is hit by it —
+  // and one that falls to it acts no more.
+  for (const enemy of enemies(state)) triggerTile(game, enemy);
   // One queue entry per effect of each enemy's card, in order, so a stride
   // plays out before the blow that follows it lands.
   state.queue = enemies(state).flatMap((enemy) => {
@@ -766,6 +876,9 @@ export function tick(game: Game, dt: number): void {
         entity.row = entity.motion.to.row;
         entity.col = entity.motion.to.col;
         entity.motion = null;
+        // Stepping onto a marked tile sets it off, part-way through a walk too.
+        triggerTile(game, entity);
+        if (entity.dead) entity.path = [];
         if (entity.path.length) startStep(entity);
         else setAnimation(entity, 'idle');
       }

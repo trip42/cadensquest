@@ -8,7 +8,9 @@ import type { CardDefinition } from '~/game/cards/types';
 import type {
   CardData, Content, ContentFile, EnemyCardData, EnemyData, GemData, TalismanData, ZoneData,
 } from '~/game/content';
-import { type AmountValues, describeEffect, type Effect, nowText, TRIGGER_INFO, type TriggerPoint } from '~/game/effects';
+import {
+  amountOf, type AmountValues, describeEffect, describeTileEffect, type Effect, isTerrain, nowText, TRIGGER_INFO, type TriggerPoint,
+} from '~/game/effects';
 import type { GemDefinition } from '~/game/gems';
 import { ZONES } from '~/game/map/tiles';
 import { describeModifier, type StatModifier } from '~/game/stats';
@@ -55,6 +57,24 @@ const SAMPLE_TEXT = computed(() =>
   `8 block, 30/40 health, 3 energy${card.value?.cost === 'X' ? ' (so X is 3)' : ''}, 4 cards in hand`);
 const cardNow = computed(() => (card.value ? nowText(card.value.effects, cardSample.value) : null));
 const cardNowShort = computed(() => (card.value ? nowText(card.value.effects, cardSample.value, 'short') : null));
+
+/* The tile a terrain effect leaves, as the map draws it: a stripe per mark
+   in its colour, and the lines its tooltip will show. Amounts are worked
+   out from the same sample moment as the card's live number. */
+const marks = computed(() => {
+  const effects = (card.value?.effects ?? (move.value?.effects as Effect[] | undefined) ?? []).filter(isTerrain);
+  const values = card.value ? cardSample.value : { ...SAMPLE, block: 0, energy: 0, hand: 0 };
+  return effects.map((effect) => {
+    const rounds = amountOf(effect.rounds, values);
+    const tiles = effect.effects.map((tile) => ({ kind: tile.kind, amount: amountOf(tile.amount, values) }));
+    return { colour: effect.colour, text: `${tiles.map(describeTileEffect).join(', ')} · ${rounds} round${rounds === 1 ? '' : 's'}` };
+  });
+});
+const stripes = computed(() => {
+  const shown = marks.value.slice(-3);
+  const step = 100 / (shown.length || 1);
+  return `linear-gradient(90deg, ${shown.map((mark, i) => `${mark.colour} ${i * step}% ${(i + 1) * step}%`).join(', ')})`;
+});
 
 
 
@@ -127,6 +147,16 @@ watch(() => [card.value?.name, card.value?.text, cardNow.value], measure);
       <p v-if="cardNow" class="caption">"Now" shown as if you had {{ SAMPLE_TEXT }}</p>
       <p v-if="overflow.name" class="caption warn">The name is too long for the card — the end is cut off</p>
       <p v-if="overflow.text" class="caption warn">The rules text is too long for the card — the end is cut off</p>
+      <template v-if="marks.length">
+        <div class="marked">
+          <span class="tile-top" :style="{ background: stripes }" />
+          <span class="tile-top" />
+        </div>
+        <div class="panel note">
+          <p class="note-title">The tile it leaves</p>
+          <GroundLines :lines="marks" />
+        </div>
+      </template>
     </template>
 
     <!-- An enemy card, and who plays it. -->
@@ -134,6 +164,16 @@ watch(() => [card.value?.name, card.value?.text, cardNow.value], measure);
       <div class="stage">
         <GameCard :def="asEnemyCard(move)" />
       </div>
+      <template v-if="marks.length">
+        <div class="marked">
+          <span class="tile-top" :style="{ background: stripes }" />
+          <span class="tile-top" />
+        </div>
+        <div class="panel note">
+          <p class="note-title">The tile it leaves under the player</p>
+          <GroundLines :lines="marks" />
+        </div>
+      </template>
       <div class="panel note">
         <p class="note-title">Played in this order</p>
         <p v-for="(effect, i) in move.effects" :key="i">{{ i + 1 }}. {{ describeEffect(effect as never) }}</p>
@@ -263,6 +303,14 @@ watch(() => [card.value?.name, card.value?.text, cardNow.value], measure);
 .stage { display: flex; justify-content: center; }
 .caption { margin: 0; color: var(--px-muted); font-size: 8px; text-align: center; }
 .caption.warn { color: var(--px-yellow); }
+/* A marked tile beside an unmarked one, the diamond the map draws. */
+.marked { display: flex; gap: 6px; }
+.tile-top {
+  width: 96px; height: 48px;
+  background: #8fb063;
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  opacity: 0.9;
+}
 .muted { color: var(--px-muted); }
 .panel { padding: 9px 11px; }
 .note { width: 100%; }

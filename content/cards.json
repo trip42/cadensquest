@@ -272,5 +272,53 @@
         }
       }
     ]
+  },
+  {
+    "id": "fire",
+    "name": "Fire",
+    "enabled": false,
+    "rarity": "rare",
+    "art": "flame",
+    "cost": 1,
+    "targeting": "cell",
+    "range": 3,
+    "text": "Mark a tile within 3: for 3 rounds, whoever is on it takes 3 damage.",
+    "effects": [
+      {
+        "kind": "terrain",
+        "rounds": 3,
+        "colour": "#e43b44",
+        "effects": [
+          {
+            "kind": "damage",
+            "amount": 3
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "spring",
+    "name": "Spring",
+    "enabled": false,
+    "rarity": "rare",
+    "art": "heart",
+    "cost": 1,
+    "targeting": "cell",
+    "range": 2,
+    "text": "Mark a tile within 2: for 3 rounds, whoever is on it heals 3.",
+    "effects": [
+      {
+        "kind": "terrain",
+        "rounds": 3,
+        "colour": "#63c74d",
+        "effects": [
+          {
+            "kind": "heal",
+            "amount": 3
+          }
+        ]
+      }
+    ]
   }
 ]

@@ -157,7 +157,7 @@ describe('content', () => {
   it('accepts a scaled amount and refuses one based on something that does not exist', () => {
     const content = draft();
     const card = content.cards.find((item) => item.id === 'strike')!;
-    card.effects[0]!.amount = { of: 'block', times: 0.5, plus: 2 };
+    (card.effects[0] as { amount: unknown }).amount = { of: 'block', times: 0.5, plus: 2 };
     expect(check(content).content).not.toBeNull();
 
     (card.effects[0] as { amount: unknown }).amount = { of: 'luck' };

@@ -19,9 +19,14 @@ function setX(on: boolean): void {
     return;
   }
   props.item.cost = 'X';
-  const usesX = props.item.effects.some((effect) => typeof effect.amount === 'object' && effect.amount.of === 'x');
+  const isX = (amount: unknown) => typeof amount === 'object' && (amount as { of: string }).of === 'x';
+  const usesX = props.item.effects.some((effect) =>
+    effect.kind === 'terrain' ? isX(effect.rounds) || effect.effects.some((tile) => isX(tile.amount)) : isX(effect.amount));
   const first = props.item.effects.find((effect) => effect.kind !== 'step');
-  if (!usesX && first) first.amount = { of: 'x' };
+  if (usesX || !first) return;
+  // A terrain card usually wants X rounds; anything else X of itself.
+  if (first.kind === 'terrain') first.rounds = { of: 'x' };
+  else first.amount = { of: 'x' };
 }
 
 function toggleMovement(on: boolean): void {
@@ -67,7 +72,7 @@ function toggleMovement(on: boolean): void {
 
   <EditorField label="Rules text" hint="What the card says. The game does not read it — keep it matching the effects." :problems="at('text')">
     <textarea v-model="item.text" rows="2" />
-    <button type="button" class="btn small" @click="item.text = writeCardText(item.effects, item.range, 'player')">Write it from the effects</button>
+    <button type="button" class="btn small" @click="item.text = writeCardText(item.effects, item.range, 'player', item.targeting)">Write it from the effects</button>
   </EditorField>
 
   <EditorField group label="Art">

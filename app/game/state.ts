@@ -10,6 +10,7 @@ import type { Entity } from "./entities/types";
 import { LAST_ROW, START_ROW, surfaceKind } from "./map/tiles";
 import { World } from "./map/world";
 import { createRng, type Rng, shuffle } from "./rng";
+import type { TileEffect } from "./effects";
 import { emptyTally, type GameEvent, record, type RunTally } from "./telemetry";
 import type { Reward } from "./rewards";
 import { resolveStat, type StatKey, type StatModifier } from "./stats";
@@ -29,6 +30,17 @@ export interface ActiveReward {
    attack lands — `tick` only takes the next entry once nothing is moving. */
 /** A zone boundary held by its guardian. Nothing past `row` can be entered
  *  while that guardian stands. */
+/** One mark on a tile: what it does to whoever is on it, how it looks, and
+ *  how many rounds it has left. Several can sit on one tile. */
+export interface TerrainLayer {
+  id: string;
+  effects: TileEffect[];
+  colour: string;
+  rounds: number;
+  /** Who marked it, so a death by fire is credited to them. */
+  ownerId: string;
+}
+
 export interface Gate {
   row: number;
   guardianId: string;
@@ -70,6 +82,11 @@ export interface GameState {
   spawnedChunks: number[];
   /** Zone crossings and who holds them. */
   gates: Gate[];
+  /** Marked tiles, by `row,col`. */
+  terrain: Record<string, TerrainLayer[]>;
+  /** When each entity was last hit by each tile — `entityId@row,col` to the
+   *  turn — so a tile hits at most once per round. */
+  terrainHits: Record<string, number>;
   /** The last row of the map. Reaching it wins the run. */
   goalRow: number;
 
@@ -168,6 +185,8 @@ export function createGame(seed: number): Game {
     activeReward: null,
     spawnedChunks: [],
     gates: [],
+    terrain: {},
+    terrainHits: {},
     goalRow: LAST_ROW,
     queue: [],
     log: [],

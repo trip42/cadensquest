@@ -122,6 +122,7 @@ const energyCells = computed(() => {
 
     <TalismanRail v-if="store.view" />
     <EnemyTip />
+    <TileTip />
     <RewardModal />
 
     <div v-if="store.view && (store.view.phase === 'victory' || store.view.phase === 'defeat')" class="ending">

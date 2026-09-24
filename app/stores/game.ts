@@ -11,6 +11,7 @@ import { track } from '~/utils/analytics';
 import { computed, ref, shallowRef } from 'vue';
 import {
   amountValues,
+  terrainAt,
   beginTurn,
   canPlay,
   chooseCardReward,
@@ -29,7 +30,7 @@ import {
   tick,
 } from '~/game/actions';
 import { cardDef, cardMovement, energySpent } from '~/game/cards/definitions';
-import { nowText } from '~/game/effects';
+import { describeTileEffect, nowText } from '~/game/effects';
 import { intentDef } from '~/game/cards/intents';
 import { applyTrial, type Trial, trialText } from '~/game/sandbox';
 import type { CardDefinition, CardInstance } from '~/game/cards/types';
@@ -96,6 +97,21 @@ export interface EnemyTipView {
   rewardTint: string;
   /** Holds a zone's last row; the way on is shut until it falls. */
   guardian: boolean;
+  /** The marks on the tile it stands on, if any. */
+  ground: GroundLine[];
+  x: number;
+  y: number;
+}
+
+/** One mark on a tile, as the HUD lists it: what it does and for how long.
+ *  The effects, never the card that made them. */
+export interface GroundLine {
+  colour: string;
+  text: string;
+}
+
+export interface TileTipView {
+  lines: GroundLine[];
   x: number;
   y: number;
 }
@@ -133,6 +149,7 @@ export const useGameStore = defineStore('game', () => {
 
   const view = shallowRef<GameView | null>(null);
   const enemyTip = shallowRef<EnemyTipView | null>(null);
+  const tileTip = shallowRef<TileTipView | null>(null);
   const selectedUid = ref<string | null>(null);
   const hoverCell = shallowRef<Cell | null>(null);
 
@@ -321,11 +338,39 @@ export const useGameStore = defineStore('game', () => {
     tick(game, dt);
     sync();
     trackEnemyTip();
+    trackTileTip();
   }
 
   /* The tip follows the enemy under the pointer. Updated from the render
      loop because the camera can move under a still mouse, but only written
      when something actually changed, so it does not churn every frame. */
+  /** A tile's marks, one line each: "take 3 damage · 2 rounds". */
+  function groundOf(cell: Cell): GroundLine[] {
+    if (!game) return [];
+    return terrainAt(game.state, cell).map((layer) => ({
+      colour: layer.colour,
+      text: `${layer.effects.map(describeTileEffect).join(', ')} · ${layer.rounds} round${layer.rounds === 1 ? '' : 's'}`,
+    }));
+  }
+
+  /* The tip for a marked tile, when nothing that has its own tip is
+     standing on it — an enemy's tip lists its ground itself. */
+  function trackTileTip(): void {
+    const cell = hoverCell.value;
+    const foe = game && cell ? entityAt(game.state, cell.row, cell.col) : undefined;
+    const lines = cell && !(foe && foe.faction === 'enemy' && !foe.dead) ? groundOf(cell) : [];
+    const point = lines.length && cell ? renderer?.tileTopOf(cell) : null;
+    if (!point) {
+      if (tileTip.value) tileTip.value = null;
+      return;
+    }
+    const next: TileTipView = { lines, x: Math.round(point.x), y: Math.round(point.y) };
+    const old = tileTip.value;
+    if (!old || old.x !== next.x || old.y !== next.y || JSON.stringify(old.lines) !== JSON.stringify(next.lines)) {
+      tileTip.value = next;
+    }
+  }
+
   function trackEnemyTip(): void {
     const cell = hoverCell.value;
     const foe = game && cell ? entityAt(game.state, cell.row, cell.col) : undefined;
@@ -357,6 +402,7 @@ export const useGameStore = defineStore('game', () => {
       intentText,
       reward: foe.reward ? rewardLabel(foe.reward) : 'NOTHING',
       guardian: !!def.guardian,
+      ground: groundOf({ row: foe.row, col: foe.col }),
       rewardTint: !foe.reward
         ? 'var(--px-muted)'
         : foe.reward.kind === 'gem'
@@ -368,7 +414,8 @@ export const useGameStore = defineStore('game', () => {
 
     const old = enemyTip.value;
     if (!old || old.id !== next.id || old.x !== next.x || old.y !== next.y
-      || old.hp !== next.hp || old.intent !== next.intent) {
+      || old.hp !== next.hp || old.intent !== next.intent
+      || JSON.stringify(old.ground) !== JSON.stringify(next.ground)) {
       enemyTip.value = next;
     }
   }
@@ -476,7 +523,7 @@ export const useGameStore = defineStore('game', () => {
   };
 
   return {
-    view, selected, selectedUid, hoverCell, enemyCount, enemyTip, run,
+    view, selected, selectedUid, hoverCell, enemyCount, enemyTip, tileTip, run,
     start, attach, detach, frame,
     select, commitCell, hover, pickAt, discard, discardAll, endPhase,
     chooseCard, socketGem, takeTalisman, skip,

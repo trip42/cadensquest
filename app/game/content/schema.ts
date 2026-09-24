@@ -33,10 +33,22 @@ export const scaledAmountSchema = z.strictObject({
 
 export const amountSchema = z.union([count(0, 99), scaledAmountSchema]);
 
-export const effectSchema = z.strictObject({
+export const simpleEffectSchema = z.strictObject({
   kind: z.enum(EFFECT_KINDS as [EffectKind, ...EffectKind[]]),
   amount: amountSchema,
 });
+
+const colourSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'a colour like #d9544d');
+
+/** Mark a tile: whoever is on it gets `effects`, for `rounds` rounds. */
+export const terrainEffectSchema = z.strictObject({
+  kind: z.literal('terrain'),
+  rounds: amountSchema,
+  colour: colourSchema,
+  effects: z.array(simpleEffectSchema).min(1, 'a marked tile needs at least one effect'),
+});
+
+export const effectSchema = z.discriminatedUnion('kind', [simpleEffectSchema, terrainEffectSchema]);
 
 export const cardSchema = z.strictObject({
   id: idSchema,
@@ -97,7 +109,7 @@ export const gemSchema = z.strictObject({
   id: idSchema,
   name: nameSchema,
   enabled: z.boolean(),
-  colour: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'a colour like #d9544d'),
+  colour: colourSchema,
   text: z.string(),
   effects: z.array(effectSchema).min(1, 'needs at least one effect'),
 });

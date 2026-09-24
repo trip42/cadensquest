@@ -5,6 +5,10 @@
    shows whatever `text` says. */
 
 import type { EffectData } from '~/game/content';
+import type { Targeting } from '~/game/cards/types';
+
+type SimpleData = Exclude<EffectData, { kind: 'terrain' }>;
+type TerrainData = Extract<EffectData, { kind: 'terrain' }>;
 import { type Amount, describeAmount, isScaled } from '~/game/effects';
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -13,7 +17,46 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 const isAllOf = (amount: Amount, of: string) =>
   isScaled(amount) && amount.of === of && (amount.times ?? 1) === 1 && !amount.plus;
 
-function playerPhrase(effect: EffectData, range: number): string {
+/** What a marked tile does, said of whoever is on it: "takes 3 damage and
+ *  gains 2 block". */
+function tilePhrase(tiles: TerrainData['effects'], owner: string): string {
+  return tiles.map((tile) => {
+    const n = describeAmount(tile.amount as Amount, owner);
+    switch (tile.kind) {
+      case 'damage': return `takes ${n} damage`;
+      case 'block': return `gains ${n} block`;
+      case 'loseBlock': return `loses ${n} block`;
+      case 'heal': return `heals ${n}`;
+      case 'power': return `gains ${n} power`;
+      case 'energy': return `gains ${n} energy`;
+      case 'draw': return `draws ${n}`;
+      case 'movement': return `gains ${n} movement`;
+      default: return `${tile.kind} ${n}`;
+    }
+  }).join(' and ');
+}
+
+/** "for 3 rounds", "for X rounds", "for 1 round". */
+function roundsPhrase(effect: TerrainData): string {
+  const n = describeAmount(effect.rounds as Amount);
+  return `for ${n} round${n === '1' ? '' : 's'}`;
+}
+
+/** Which tile a card marks, from how it targets. */
+function wherePhrase(targeting: Targeting | undefined, range: number): string {
+  if (targeting === 'enemy') return range <= 1 ? "an adjacent enemy's tile" : `an enemy's tile within ${range}`;
+  if (targeting === 'cell') return range <= 1 ? 'an adjacent tile' : `a tile within ${range}`;
+  return 'your tile';
+}
+
+function playerPhrase(effect: EffectData, range: number, targeting?: Targeting): string {
+  if (effect.kind === 'terrain') {
+    return `mark ${wherePhrase(targeting, range)}: ${roundsPhrase(effect)}, whoever is on it ${tilePhrase(effect.effects, 'your')}`;
+  }
+  return simplePlayerPhrase(effect, range);
+}
+
+function simplePlayerPhrase(effect: SimpleData, range: number): string {
   const amount = effect.amount as Amount;
   const target = range <= 1 ? 'an adjacent enemy' : `an enemy within ${range}`;
   // X reads like a number, the way cards print it: "Deal X damage".
@@ -63,6 +106,9 @@ function playerPhrase(effect: EffectData, range: number): string {
 }
 
 function enemyPhrase(effect: EffectData, range: number): string {
+  if (effect.kind === 'terrain') {
+    return `marks your tile ${roundsPhrase(effect)}: whoever is on it ${tilePhrase(effect.effects, 'its')}`;
+  }
   const amount = effect.amount as Amount;
   const n = describeAmount(amount, 'its');
   const scaled = isScaled(amount);
@@ -88,12 +134,12 @@ function sentence(phrases: string[]): string {
   return `${joined.charAt(0).toUpperCase()}${joined.slice(1)}.`;
 }
 
-export function writeCardText(effects: EffectData[], range: number, side: 'player' | 'enemy'): string {
-  return sentence(effects.map((effect) => (side === 'player' ? playerPhrase : enemyPhrase)(effect, range)));
+export function writeCardText(effects: EffectData[], range: number, side: 'player' | 'enemy', targeting?: Targeting): string {
+  return sentence(effects.map((effect) => (side === 'player' ? playerPhrase(effect, range, targeting) : enemyPhrase(effect, range))));
 }
 
 /** A gem's effect happens on top of a card, so it reads as a rider. */
 export function writeGemText(effects: EffectData[]): string {
-  const text = sentence(effects.map((effect) => playerPhrase(effect, 1)));
+  const text = sentence(effects.map((effect) => playerPhrase(effect, 1, 'enemy')));
   return text ? `${text.slice(0, -1)} when this card is played.` : '';
 }
