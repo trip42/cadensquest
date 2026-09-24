@@ -6,8 +6,8 @@ import type { Effect } from '../effects';
    from an API, and can be logged and replayed. `resolveEffect` in
    actions.ts is the only place that knows what each one does. */
 
-export type Targeting = 'none' | 'self' | 'cell' | 'enemy';
-export const TARGETINGS: Targeting[] = ['enemy', 'cell', 'self', 'none'];
+export type Targeting = 'none' | 'self' | 'cell' | 'enemy' | 'ally';
+export const TARGETINGS: Targeting[] = ['enemy', 'ally', 'cell', 'self', 'none'];
 
 /** How hard a card is to come by. Drives the colour of its frame: grey for
  *  starter, black for normal, blue for rare, gold for mythic.

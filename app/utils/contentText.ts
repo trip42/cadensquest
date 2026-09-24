@@ -49,7 +49,20 @@ function wherePhrase(targeting: Targeting | undefined, range: number): string {
   return 'your tile';
 }
 
-function playerPhrase(effect: EffectData, range: number, targeting?: Targeting): string {
+/* Tame and Mend are about a particular creature, so they read from the
+   targeting: "tame an enemy within 2 with 8 health or less", then "heal it
+   5" for the one just tamed, or "heal an ally within 3 5" on its own. */
+function creaturePhrase(effect: SimpleData, range: number, targeting: Targeting | undefined, afterTame: boolean): string {
+  const n = describeAmount(effect.amount as Amount);
+  const within = (who: string) => (range <= 1 ? `an adjacent ${who}` : `an ${who} within ${range}`);
+  if (effect.kind === 'tame') return `tame ${within('enemy')} with ${n} health or less`;
+  const whom = afterTame ? 'it' : targeting === 'ally' ? within('ally') : 'the target';
+  if (isScaled(effect.amount as Amount)) return `heal ${whom} equal to ${n}`;
+  return afterTame ? `heal it ${n}` : `heal ${whom} for ${n}`;
+}
+
+function playerPhrase(effect: EffectData, range: number, targeting?: Targeting, afterTame = false): string {
+  if (effect.kind === 'tame' || effect.kind === 'mend') return creaturePhrase(effect, range, targeting, afterTame);
   if (effect.kind === 'terrain') {
     return `mark ${wherePhrase(targeting, range)}: ${roundsPhrase(effect)}, whoever is on it ${tilePhrase(effect.effects, 'your')}`;
   }
@@ -135,7 +148,9 @@ function sentence(phrases: string[]): string {
 }
 
 export function writeCardText(effects: EffectData[], range: number, side: 'player' | 'enemy', targeting?: Targeting): string {
-  return sentence(effects.map((effect) => (side === 'player' ? playerPhrase(effect, range, targeting) : enemyPhrase(effect, range))));
+  return sentence(effects.map((effect, i) => side === 'player'
+    ? playerPhrase(effect, range, targeting, effects.slice(0, i).some((earlier) => earlier.kind === 'tame'))
+    : enemyPhrase(effect, range)));
 }
 
 /** A gem's effect happens on top of a card, so it reads as a rider. */

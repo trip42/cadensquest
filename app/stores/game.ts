@@ -99,6 +99,8 @@ export interface EnemyTipView {
   guardian: boolean;
   /** The marks on the tile it stands on, if any. */
   ground: GroundLine[];
+  /** Fights on the player's side: tamed, or summoned. */
+  ally: boolean;
   x: number;
   y: number;
 }
@@ -358,7 +360,7 @@ export const useGameStore = defineStore('game', () => {
   function trackTileTip(): void {
     const cell = hoverCell.value;
     const foe = game && cell ? entityAt(game.state, cell.row, cell.col) : undefined;
-    const lines = cell && !(foe && foe.faction === 'enemy' && !foe.dead) ? groundOf(cell) : [];
+    const lines = cell && !(foe && foe.faction !== 'player' && !foe.dead) ? groundOf(cell) : [];
     const point = lines.length && cell ? renderer?.tileTopOf(cell) : null;
     if (!point) {
       if (tileTip.value) tileTip.value = null;
@@ -375,7 +377,7 @@ export const useGameStore = defineStore('game', () => {
     const cell = hoverCell.value;
     const foe = game && cell ? entityAt(game.state, cell.row, cell.col) : undefined;
 
-    if (!game || !foe || foe.faction !== 'enemy' || foe.dead) {
+    if (!game || !foe || foe.faction === 'player' || foe.dead) {
       if (enemyTip.value) enemyTip.value = null;
       return;
     }
@@ -403,6 +405,7 @@ export const useGameStore = defineStore('game', () => {
       reward: foe.reward ? rewardLabel(foe.reward) : 'NOTHING',
       guardian: !!def.guardian,
       ground: groundOf({ row: foe.row, col: foe.col }),
+      ally: foe.faction === 'ally',
       rewardTint: !foe.reward
         ? 'var(--px-muted)'
         : foe.reward.kind === 'gem'

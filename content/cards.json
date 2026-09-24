@@ -320,5 +320,43 @@
         ]
       }
     ]
+  },
+  {
+    "id": "tame",
+    "name": "Tame",
+    "enabled": false,
+    "rarity": "rare",
+    "art": "heart",
+    "cost": 1,
+    "targeting": "enemy",
+    "range": 2,
+    "text": "Tame an enemy within 2 with 8 health or less and heal it 5.",
+    "effects": [
+      {
+        "kind": "tame",
+        "amount": 8
+      },
+      {
+        "kind": "mend",
+        "amount": 5
+      }
+    ]
+  },
+  {
+    "id": "patch_up",
+    "name": "Patch Up",
+    "enabled": false,
+    "rarity": "normal",
+    "art": "heart",
+    "cost": 1,
+    "targeting": "ally",
+    "range": 3,
+    "text": "Heal an ally within 3 for 6.",
+    "effects": [
+      {
+        "kind": "mend",
+        "amount": 6
+      }
+    ]
   }
 ]

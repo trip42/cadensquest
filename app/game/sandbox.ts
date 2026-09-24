@@ -7,7 +7,9 @@
 
    A trial is written `kind:id`, which is how it travels in the URL. */
 
-import { CARDS } from './cards/definitions';
+import { amountValues } from './actions';
+import { CARDS, energySpent } from './cards/definitions';
+import { amountOf } from './effects';
 import { INTENTS } from './cards/intents';
 import { ENTITIES } from './entities/definitions';
 import { type Entity, entityCell } from './entities/types';
@@ -43,7 +45,7 @@ const TRIAL_DISTANCE = 3;
  *  down to the one being tried. */
 const CLEAR_RADIUS = 10;
 
-function spawnNearby(game: Game, defId: string): Entity | null {
+function spawnNearby(game: Game, defId: string, distance = TRIAL_DISTANCE): Entity | null {
   const { state, world } = game;
   const here = entityCell(player(state));
 
@@ -51,9 +53,9 @@ function spawnNearby(game: Game, defId: string): Entity | null {
     (entity) => entity.faction === 'player' || cellDistance(entityCell(entity), here) > CLEAR_RADIUS,
   );
 
-  const spot = [...reachable(world, here, TRIAL_DISTANCE + 1).values()]
-    .filter((entry) => entry.cost >= 2 && !entityAt(state, entry.cell.row, entry.cell.col))
-    .sort((a, b) => Math.abs(a.cost - TRIAL_DISTANCE) - Math.abs(b.cost - TRIAL_DISTANCE))[0]?.cell;
+  const spot = [...reachable(world, here, distance + 1).values()]
+    .filter((entry) => entry.cost >= Math.min(2, distance) && entry.cost <= distance && !entityAt(state, entry.cell.row, entry.cell.col))
+    .sort((a, b) => Math.abs(a.cost - distance) - Math.abs(b.cost - distance))[0]?.cell;
   if (!spot) return null;
 
   const enemy = makeEntity(defId, spot.row, spot.col);
@@ -84,6 +86,25 @@ export function applyTrial(game: Game, trial: Trial): boolean {
       const card = CARDS[trial.id];
       if (!card) return false;
       state.hand.push(makeCard(card.id));
+      // Something to use it on: a card that tames gets an enemy weak enough
+      // to turn, and one aimed at an ally gets a wounded ally.
+      const first = card.effects[0];
+      if (first?.kind === 'tame') {
+        const threshold = amountOf(first.amount, amountValues(state, player(state), energySpent(card, state.energy)));
+        const prey = spawnNearby(game, 'bug', Math.max(1, Math.min(TRIAL_DISTANCE, card.range)));
+        if (prey) {
+          prey.hp = Math.max(1, Math.min(prey.maxHp, threshold));
+          telegraph(game, prey);
+        }
+      } else if (card.targeting === 'ally') {
+        const friend = spawnNearby(game, 'bug', Math.max(1, Math.min(TRIAL_DISTANCE, card.range)));
+        if (friend) {
+          friend.faction = 'ally';
+          friend.reward = null;
+          friend.hp = Math.ceil(friend.maxHp / 2);
+          telegraph(game, friend);
+        }
+      }
       note(state, `Trying ${card.name}: it is in your hand.`);
       return true;
     }

@@ -22,7 +22,10 @@ export type GameEvent =
   | { type: 'gem_collected'; gem: string; card: string }
   | { type: 'talisman_collected'; talisman: string }
   | { type: 'reward_skipped'; kind: string }
-  | { type: 'enemy_killed'; enemy: string; guardian: boolean; row: number }
+  /** `by` is who landed the blow: the player, an ally's kind, or a tile. */
+  | { type: 'enemy_killed'; enemy: string; guardian: boolean; row: number; by?: string }
+  | { type: 'enemy_tamed'; enemy: string; health: number; row: number }
+  | { type: 'ally_fell'; ally: string; row: number }
   | { type: 'player_died'; row: number; zone: string; killedBy: string | null; turn: number }
   | { type: 'run_won'; turn: number }
   | { type: 'run_ended'; outcome: 'died' | 'won'; summary: RunTally & { deckSize: number } };
@@ -39,6 +42,7 @@ export interface RunTally {
   gemsCollected: Record<string, number>;
   talismansCollected: Record<string, number>;
   kills: Record<string, number>;
+  tamed: Record<string, number>;
   rewardsSkipped: Record<string, number>;
 }
 
@@ -51,6 +55,7 @@ export const emptyTally = (startRow: number): RunTally => ({
   gemsCollected: {},
   talismansCollected: {},
   kills: {},
+  tamed: {},
   rewardsSkipped: {},
 });
 
@@ -92,6 +97,9 @@ export function record(into: Recorder, event: GameEvent): void {
       break;
     case 'enemy_killed':
       bump(tally.kills, event.enemy);
+      break;
+    case 'enemy_tamed':
+      bump(tally.tamed, event.enemy);
       break;
     default:
       break;

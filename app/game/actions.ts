@@ -14,7 +14,7 @@
 
 import { cardDef, cardMovement, energySpent, minimumCost } from './cards/definitions';
 import { intentDef } from './cards/intents';
-import type { CardInstance } from './cards/types';
+import type { CardDefinition, CardInstance } from './cards/types';
 import { amountOf, type AmountValues, type Effect, isTerrain, type TerrainEffect, type TriggerPoint } from './effects';
 import { GEM_SLOTS, gemDef } from './gems';
 import { ENEMY_IDS, entityDef, GUARDIAN_IDS } from './entities/definitions';
@@ -40,6 +40,7 @@ import { record } from './telemetry';
 import { nextInt, pick, shuffle } from './rng';
 import { talismanEffects } from './talismans';
 import {
+  allies,
   nextUid,
   enemies,
   entityAt,
@@ -150,7 +151,12 @@ export function isValidTarget(game: Game, uid: string, cell: Cell): boolean {
   if (distance > def.range) return false;
   if (def.targeting === 'enemy') {
     const target = entityAt(game.state, cell.row, cell.col);
-    return !!target && target.faction === 'enemy';
+    // A card that opens with Tame only lights up enemies it can turn.
+    return !!target && target.faction === 'enemy' && !target.dead && canTame(game, def, target);
+  }
+  if (def.targeting === 'ally') {
+    const target = entityAt(game.state, cell.row, cell.col);
+    return !!target && target.faction === 'ally' && !target.dead;
   }
   if (!game.world.walkable(cell.row, cell.col)) return false;
   // A leap needs somewhere to land, and does not clear a gate. A card that
@@ -190,12 +196,14 @@ function dealDamage(game: Game, target: Entity, amount: number, source?: Entity)
     target.dead = true;
     setAnimation(target, 'die');
     note(state, `${entityDef(target.defId).name} falls.`);
+    if (target.faction === 'ally') record(state, { type: 'ally_fell', ally: target.defId, row: target.row });
     if (target.faction === 'enemy') {
       record(state, {
         type: 'enemy_killed',
         enemy: target.defId,
         guardian: !!entityDef(target.defId).guardian,
         row: target.row,
+        by: source?.defId,
       });
       // What it was carrying was decided when it spawned.
       if (target.reward) state.pendingRewards.push(target.reward);
@@ -217,6 +225,9 @@ interface Play {
   /** The energy an X card spent — what `{ "of": "x" }` reads. 0 for
    *  anything else. */
   x?: number;
+  /** Whom an enemy or ally walks toward: its foe, or for an ally with
+   *  nobody to fight, the player it follows. */
+  goal?: Entity | null;
 }
 
 /** What a scaled amount can be worked out from, for this actor, right now.
@@ -232,6 +243,53 @@ export function amountValues(state: GameState, actor: Entity, x = 0): AmountValu
     energy: isPlayer ? state.energy : 0,
     hand: isPlayer ? state.hand.length : 0,
   };
+}
+
+/* ------------------------------ sides ----------------------------------- */
+
+/* Two sides: the player with his allies, and the enemies. An ally is an
+   enemy that changed sides — tamed, or later summoned — and plays its own
+   deck against the other side, as the enemies play theirs against him. */
+
+const onPlayersSide = (entity: Entity) => entity.faction !== 'enemy';
+export const sameSide = (a: Entity, b: Entity): boolean => onPlayersSide(a) === onPlayersSide(b);
+
+/** How far an ally looks for a fight before heading back to the player. */
+const ENGAGE_RADIUS = 8;
+
+/** Whom an enemy or ally acts against this moment: the nearest living one
+ *  on the other side. Enemies choose between the player and his allies — a
+ *  pet draws attacks away from him. Allies only take on enemies within
+ *  ENGAGE_RADIUS, and otherwise have no foe. Ties go to the player, then to
+ *  whoever came first, so it is the same every time. */
+export function nearestFoe(state: GameState, actor: Entity): Entity | null {
+  const here = entityCell(actor);
+  const candidates = onPlayersSide(actor)
+    ? enemies(state).filter((foe) => cellDistance(entityCell(foe), here) <= ENGAGE_RADIUS)
+    : [player(state), ...allies(state)].filter((foe) => !foe.dead);
+  let best: Entity | null = null;
+  let bestDistance = Infinity;
+  for (const foe of candidates) {
+    const distance = cellDistance(entityCell(foe), here);
+    if (distance < bestDistance) {
+      best = foe;
+      bestDistance = distance;
+    }
+  }
+  return best;
+}
+
+/** Can this card, opening with Tame, turn that enemy? Its health must be at
+ *  most the Tame's amount, it must not be a guardian, and there must be room
+ *  for another ally. */
+function canTame(game: Game, def: CardDefinition, target: Entity): boolean {
+  const { state } = game;
+  const first = def.effects[0];
+  if (first?.kind !== 'tame') return true;
+  const threshold = amountOf(first.amount, amountValues(state, player(state), energySpent(def, state.energy)));
+  return target.hp <= threshold
+    && !entityDef(target.defId).guardian
+    && allies(state).length < stat(state, 'maxAllies');
 }
 
 /* ------------------------------ terrain --------------------------------- */
@@ -250,6 +308,9 @@ function markTile(game: Game, effect: TerrainEffect, play: Play): void {
   const { state, world } = game;
   const { actor, range } = play;
   const isPlayer = actor.id === state.playerId;
+  // No target: the player's cards mark his own tile; an enemy or ally with
+  // nobody to face marks nothing.
+  if (!isPlayer && !play.target) return;
   const cell = play.target ?? entityCell(actor);
 
   if (!isPlayer && cellDistance(entityCell(actor), cell) > range) {
@@ -350,7 +411,8 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
   switch (effect.kind) {
     case 'damage': {
       const victim = target && entityAt(state, target.row, target.col);
-      if (!victim || victim === actor) break;
+      // Never one's own side: an ally's blow lands on enemies only.
+      if (!victim || victim === actor || sameSide(actor, victim)) break;
       if (!isPlayer && cellDistance(entityCell(actor), entityCell(victim)) > range) {
         note(state, `${entityDef(actor.defId).name} cannot reach.`);
         break;
@@ -377,8 +439,41 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
       if (!isPlayer) note(state, `${entityDef(actor.defId).name} grows stronger.`);
       break;
     case 'advance':
-      if (!isPlayer) advance(game, actor, amount, range);
+      if (!isPlayer && play.goal) advance(game, actor, amount, range, play.goal);
       break;
+    case 'tame': {
+      const victim = target && entityAt(state, target.row, target.col);
+      if (!isPlayer || !victim || victim.dead || victim.faction !== 'enemy') break;
+      const name = entityDef(victim.defId).name;
+      if (entityDef(victim.defId).guardian) {
+        note(state, `${name} cannot be tamed.`);
+        break;
+      }
+      if (victim.hp > amount) {
+        note(state, `${name} is too strong to tame.`);
+        break;
+      }
+      if (allies(state).length >= stat(state, 'maxAllies')) {
+        note(state, 'No room for another ally.');
+        break;
+      }
+      // It joins, gives up what it carried, and draws a card of its own
+      // straight away, so it acts for you this very round.
+      victim.faction = 'ally';
+      victim.reward = null;
+      victim.drawPile = [];
+      const cardId = drawIntent(state, victim);
+      victim.intent = cardId ? { cardId, label: intentDef(cardId).name } : null;
+      record(state, { type: 'enemy_tamed', enemy: victim.defId, health: victim.hp, row: victim.row });
+      note(state, `${name} joins you.`);
+      break;
+    }
+    case 'mend': {
+      const creature = target && entityAt(state, target.row, target.col);
+      if (!creature || creature.dead || creature === actor || !sameSide(actor, creature)) break;
+      creature.hp = Math.min(creature.maxHp, creature.hp + amount);
+      break;
+    }
     case 'movement':
       if (isPlayer) state.movement += amount;
       break;
@@ -409,15 +504,14 @@ function faceToward(entity: Entity, cell: Cell): void {
    into melee. It paths to the player's own cell, which is how it finds the
    way round obstacles, then keeps only the stretch it will actually walk.
    Enemies are not slowed by zone of control; that rule is the player's. */
-function advance(game: Game, enemy: Entity, steps: number, reach: number): void {
+function advance(game: Game, enemy: Entity, steps: number, reach: number, goal: Entity): void {
   const { state, world } = game;
-  const self = player(state);
-  const target = entityCell(self);
+  const target = entityCell(goal);
   if (steps <= 0 || cellDistance(entityCell(enemy), target) <= reach) return;
 
   const path = findPath(world, entityCell(enemy), target, {
     maxCost: steps + 12,
-    blocked: occupied(state, self),
+    blocked: occupied(state, goal),
   });
   if (!path) return;
 
@@ -432,7 +526,7 @@ function advance(game: Game, enemy: Entity, steps: number, reach: number): void 
 
   enemy.path = walk;
   startStep(enemy);
-  note(state, `${entityDef(enemy.defId).name} closes in.`);
+  note(state, `${entityDef(enemy.defId).name} ${sameSide(enemy, goal) ? 'follows you' : 'closes in'}.`);
 }
 
 /* The other thing a card can be: a way to cover ground. Discarding pays no
@@ -666,8 +760,9 @@ export function beginTurn(game: Game): void {
   // Starting the turn on a marked tile sets it off.
   triggerTile(game, self);
 
-  // Enemies telegraph what they will do, so the player can plan around it.
-  for (const enemy of enemies(state)) {
+  // Enemies and allies telegraph what they will do, so the player can plan
+  // around it.
+  for (const enemy of [...allies(state), ...enemies(state)]) {
     const intentId = drawIntent(state, enemy);
     enemy.intent = intentId ? { cardId: intentId, label: intentDef(intentId).name } : null;
   }
@@ -684,10 +779,10 @@ export function endPlayerPhase(game: Game): void {
   state.phase = 'enemy';
   // Their turn begins: any enemy standing on a marked tile is hit by it —
   // and one that falls to it acts no more.
-  for (const enemy of enemies(state)) triggerTile(game, enemy);
-  // One queue entry per effect of each enemy's card, in order, so a stride
-  // plays out before the blow that follows it lands.
-  state.queue = enemies(state).flatMap((enemy) => {
+  for (const enemy of [...allies(state), ...enemies(state)]) triggerTile(game, enemy);
+  // One queue entry per effect of each card, in order, so a stride plays
+  // out before the blow that follows it lands. Allies go first.
+  state.queue = [...allies(state), ...enemies(state)].flatMap((enemy) => {
     const cardId = enemy.intent?.cardId;
     if (!cardId) return [];
     return intentDef(cardId).effects.map((_, index) => ({ entityId: enemy.id, cardId, index }));
@@ -714,8 +809,20 @@ function resolveEnemy(game: Game, next: QueuedAction): void {
   // Block is for the turn it was raised in; it falls as the enemy stirs.
   if (next.index === 0) enemy.block = 0;
 
+  // Against whoever is nearest on the other side, chosen as each effect
+  // resolves — an advance earlier in the card changes who that is. An ally
+  // with nobody to fight comes back to stand by the player.
   const effect = card.effects[next.index];
-  if (effect) resolveEffect(game, effect, { actor: enemy, target: entityCell(player(state)), range: card.range });
+  if (effect) {
+    const foe = nearestFoe(state, enemy);
+    const goal = foe ?? (enemy.faction === 'ally' ? player(state) : null);
+    resolveEffect(game, effect, {
+      actor: enemy,
+      target: foe ? entityCell(foe) : null,
+      range: foe ? card.range : 1,
+      goal,
+    });
+  }
   if (next.index >= card.effects.length - 1) enemy.intent = null;
 }
 

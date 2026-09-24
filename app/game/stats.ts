@@ -27,6 +27,8 @@ export const BASE_STATS = {
   movementBonus: 0,
   /** Added to the block a card grants. */
   blockBonus: 0,
+  /** How many tamed or summoned creatures can fight beside you at once. */
+  maxAllies: 1,
 } as const;
 
 export type StatKey = keyof typeof BASE_STATS;
@@ -74,6 +76,7 @@ export const STAT_NAMES: Record<StatKey, string> = {
   damageBonus: 'card damage',
   movementBonus: 'movement per discard',
   blockBonus: 'block from cards',
+  maxAllies: 'allies you can keep',
 };
 
 export const STAT_KEYS = Object.keys(BASE_STATS) as StatKey[];

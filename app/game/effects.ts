@@ -28,7 +28,12 @@ export type EffectKind =
    *  as the card being played is in reach. */
   | 'advance'
   /** Permanently add to the damage the actor deals. */
-  | 'power';
+  | 'power'
+  /** Turn the targeted enemy to the actor's side, if its health is the
+   *  amount or less. Never a guardian, and only while there is room. */
+  | 'tame'
+  /** Heal the targeted creature — an ally, or one this card just tamed. */
+  | 'mend';
 
 /* How much. Either a fixed number, or worked out from something about the
    actor at the moment the effect happens: `{ of: 'block' }` is "as much as
@@ -159,6 +164,8 @@ const NOW_SHORT: Partial<Record<EffectKind, (n: number) => string>> = {
   movement: (n) => `+${n} MOVE`,
   power: (n) => `+${n} POW`,
   advance: (n) => `ADV ${n}`,
+  tame: (n) => `TAME ≤${n}`,
+  mend: (n) => `MEND ${n}`,
 };
 
 const NOW_LABELS: Partial<Record<EffectKind, (n: number) => string>> = {
@@ -171,6 +178,8 @@ const NOW_LABELS: Partial<Record<EffectKind, (n: number) => string>> = {
   movement: (n) => `+${n} move`,
   power: (n) => `+${n} power`,
   advance: (n) => `advance ${n}`,
+  tame: (n) => `tames at ${n} health or less`,
+  mend: (n) => `mends ${n}`,
 };
 
 /** What the effects that depend on the moment come to right now — "8
@@ -219,7 +228,9 @@ export const EFFECT_INFO: Record<EffectKind, { label: string; help: string; play
   energy: { label: 'Energy', help: 'Gain this much energy this turn.', player: true, enemy: false, tile: true },
   draw: { label: 'Draw', help: 'Draw this many cards.', player: true, enemy: false, tile: true },
   step: { label: 'Leap', help: 'Jump to the targeted square. The number is unused.', player: true, enemy: false, tile: false },
-  advance: { label: 'Advance', help: 'Walk up to this many tiles toward the player, stopping once in range.', player: false, enemy: true, tile: false },
+  advance: { label: 'Advance', help: 'Walk up to this many tiles toward the nearest foe, stopping once in range.', player: false, enemy: true, tile: false },
+  tame: { label: 'Tame', help: 'Turn the targeted enemy to your side if its health is this much or less. Not guardians; only while you have room for another ally.', player: true, enemy: false, tile: false },
+  mend: { label: 'Mend', help: 'Heal the targeted creature this much — an ally, or one this card just tamed.', player: true, enemy: false, tile: false },
 };
 
 export const EFFECT_KINDS = Object.keys(EFFECT_INFO) as EffectKind[];
@@ -307,5 +318,7 @@ export function describeEffect(effect: Effect): string {
     case 'step': return 'leap';
     case 'advance': return scaled ? `advance up to ${n}` : `advance ${n}`;
     case 'power': return scaled ? `gain power equal to ${n}` : `+${n} damage from now on`;
+    case 'tame': return `tame it if its health is ${n} or less`;
+    case 'mend': return scaled ? `heal the target equal to ${n}` : `heal the target ${n}`;
   }
 }

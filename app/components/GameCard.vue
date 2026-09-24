@@ -49,7 +49,8 @@ const targeting = computed(() => {
   const { targeting: kind, range } = props.def;
   if (kind === 'self') return 'Yourself';
   if (kind === 'none') return 'No target';
-  return `${kind === 'enemy' ? 'An enemy' : 'A square'} within ${range}`;
+  const what = kind === 'enemy' ? 'An enemy' : kind === 'ally' ? 'An ally' : 'A square';
+  return `${what} within ${range}`;
 });
 
 /** Place it beside the card, flipping and clamping to stay on screen. The

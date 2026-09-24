@@ -145,6 +145,18 @@ function crossCheck(content: Content): ContentIssue[] {
       if (effect.kind === 'step' && card.targeting !== 'cell') {
         warn('cards', card.id, 'Leap needs the card to target a square', `effects[${i}].kind`);
       }
+      if (effect.kind === 'tame' && card.targeting !== 'enemy') {
+        warn('cards', card.id, 'Tame needs the card to target an enemy', `effects[${i}].kind`);
+      }
+      if (effect.kind === 'tame' && i > 0) {
+        warn('cards', card.id, 'put Tame first — only then does the card light up just the enemies it can turn', `effects[${i}].kind`);
+      }
+      // Mend heals the creature targeted: an ally, or an enemy tamed earlier
+      // on the same card.
+      const tamesFirst = card.effects.slice(0, i).some((earlier) => earlier.kind === 'tame');
+      if (effect.kind === 'mend' && card.targeting !== 'ally' && !(card.targeting === 'enemy' && tamesFirst)) {
+        warn('cards', card.id, 'Mend needs the card to target an ally, or to Tame the enemy first', `effects[${i}].kind`);
+      }
     });
     if ((card.targeting === 'enemy' || card.targeting === 'cell') && card.range < 1) {
       warn('cards', card.id, 'a targeted card needs a range of at least 1', 'range');

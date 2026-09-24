@@ -19,6 +19,9 @@ const store = useGameStore();
       <span class="hp">{{ store.enemyTip.hp }}/{{ store.enemyTip.maxHp }}</span>
     </p>
     <span class="bar"><i :style="{ width: `${(100 * store.enemyTip.hp) / store.enemyTip.maxHp}%` }" /></span>
+    <p v-if="store.enemyTip.ally" class="guard">
+      <span class="px-tag is-ally">ALLY</span> Fights for you against the nearest enemy.
+    </p>
     <p v-if="store.enemyTip.guardian" class="guard">
       <span class="px-tag is-red">GUARDIAN</span> The way on is shut until it falls.
     </p>
@@ -26,7 +29,7 @@ const store = useGameStore();
       <span class="px-tag">NEXT</span>
       {{ store.enemyTip.intent }}<span v-if="store.enemyTip.intentText">: {{ store.enemyTip.intentText }}</span>
     </p>
-    <p class="drop">
+    <p v-if="!store.enemyTip.ally" class="drop">
       <span class="px-tag" :style="{ background: store.enemyTip.rewardTint }">DROPS</span>
       {{ store.enemyTip.reward }}
     </p>
@@ -65,6 +68,7 @@ const store = useGameStore();
 .guard { margin-top: 8px; color: var(--px-soft); }
 .drop { margin-top: 6px; color: var(--px-soft); }
 .px-tag.is-red { background: var(--px-red); color: var(--px-text); }
+.px-tag.is-ally { background: var(--px-cyan); }
 .standing { margin-top: 8px; display: flex; flex-direction: column; gap: 5px; }
 .px-tag.is-ground { align-self: flex-start; background: var(--px-soft); }
 </style>

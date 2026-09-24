@@ -9,7 +9,7 @@ import { problemsAt, problemsOn } from '~/utils/editorProblems';
 const props = defineProps<{ item: CardData; issues: ContentIssue[] }>();
 const at = (field: string) => problemsAt(props.issues, field);
 
-const TARGET_LABELS = { enemy: 'An enemy', cell: 'A square', self: 'Yourself', none: 'Nothing' } as const;
+const TARGET_LABELS = { enemy: 'An enemy', ally: 'An ally', cell: 'A square', self: 'Yourself', none: 'Nothing' } as const;
 
 /* An X card spends all your energy. Turning X on also points the first
    effect at X if nothing uses it yet — that is almost always the intent. */

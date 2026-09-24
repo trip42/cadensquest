@@ -362,6 +362,26 @@ never crawl with the camera. Tuning dials are at the top of `drawMarks`
 tile (`TileTip`) or an enemy on one lists the effects and rounds left, never
 the card that made them.
 
+**Allies, Tame and Mend.** A third faction, `ally`, fights on the player's
+side. Two sides: player + allies against enemies (`sameSide`). Every
+non-player creature plays its deck against `nearestFoe` — enemies pick the
+nearest of the player and his allies (so a pet draws attacks), allies the
+nearest enemy within `ENGAGE_RADIUS` (8); an ally with nobody to fight
+advances toward the player instead (`Play.goal`). Damage never lands on its
+own side. Allies draw intents and act first in the enemy phase queue, get
+terrain hits at the phase start like enemies, block the way but do not
+cause zone of control, and are drawn with a cyan ring, a green bar and a
+cyan-edged intent chip; their tooltip says ALLY and has no DROPS.
+`tame` (amount = the health threshold) turns the targeted enemy if its
+health is at most that, it is not a guardian, and `allies < maxAllies` (a
+stat, base 1); it gives up its reward and draws an intent at once so it acts
+this round. A card that *opens* with Tame only lights up enemies it can turn
+(`canTame`), so no card is wasted. `mend` heals the targeted creature on the
+actor's side — an ally, or the enemy the same card just tamed (Heal only
+ever heals the actor). Cards can target `ally`. Telemetry: `enemy_tamed`,
+`ally_fell`, and `enemy_killed.by` (who landed the blow). Enemy card text is
+written from the enemy's side ("toward you"), which reads oddly on an ally.
+
 **X cost.** `cost` is a number or `"X"`: the card spends all your energy
 (`energySpent`), is playable at 0 (`minimumCost`), and its effects — and
 its gems' — read what it spent as `{ "of": "x" }` (carried on `Play.x`).

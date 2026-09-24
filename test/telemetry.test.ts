@@ -79,7 +79,7 @@ describe('run events', () => {
     settle(game);
 
     expect(of(game, 'enemy_killed')).toEqual([
-      { type: 'enemy_killed', enemy: 'bug', guardian: false, row: foe.row },
+      { type: 'enemy_killed', enemy: 'bug', guardian: false, row: foe.row, by: 'caden' },
     ]);
     expect(game.state.tally.kills).toEqual({ bug: 1 });
 

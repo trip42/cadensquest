@@ -70,7 +70,7 @@ export interface RendererHooks {
    for a canvas made before the stylesheet has landed. */
 interface HudPalette {
   ink: string; panel: string; text: string; muted: string;
-  red: string; yellow: string; green: string; blue: string;
+  red: string; yellow: string; green: string; blue: string; cyan: string;
   font: string;
 }
 
@@ -86,6 +86,7 @@ function readPalette(): HudPalette {
     yellow: read('--px-yellow', '#feae34'),
     green: read('--px-green', '#63c74d'),
     blue: read('--px-blue', '#0099db'),
+    cyan: read('--px-cyan', '#2ce8f5'),
     font: read('--px-font', "'Silkscreen', monospace"),
   };
 }
@@ -382,8 +383,8 @@ export class MapRenderer {
 
     for (const { sx, top, entity } of this.overlay) {
       this.drawHealthBar(sx, top, entity);
-      if (entity.faction !== 'enemy') continue;
-      if (entity.intent) this.drawIntent(sx, top - 15, entity.intent.label);
+      if (entity.faction === 'player') continue;
+      if (entity.intent) this.drawIntent(sx, top - 15, entity.intent.label, entity.faction === 'ally');
       // What it is carrying, readable before you decide to fight it.
       if (entity.reward) this.drawRewardPill(sx, top - (entity.intent ? 32 : 16), entity.reward);
     }
@@ -721,6 +722,19 @@ export class MapRenderer {
     ctx.ellipse(sx, sy, HW * 0.34, HH * 0.34, 0, 0, Math.PI * 2);
     ctx.fill();
 
+    // An ally stands in a ring of the player's colour, so which side it is
+    // on reads at a glance, before any tooltip.
+    if (entity.faction === 'ally') {
+      ctx.save();
+      ctx.strokeStyle = this.palette.cyan;
+      ctx.globalAlpha = 0.75 + 0.2 * Math.sin(performance.now() / 300);
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(sx, sy, HW * 0.42, HH * 0.42, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     const frame = frameFor(style, def.animations, clip, entity.anim.frame);
     if (!frame) return;
 
@@ -836,7 +850,8 @@ export class MapRenderer {
     const tall = entity.block > 0 ? h + 2 : h;
     ctx.fillStyle = ink;
     ctx.fillRect(x - 1, y - 1, w + 2, tall + 2);
-    ctx.fillStyle = entity.faction === 'player' ? green : red;
+    // The player's side is green, the enemy red.
+    ctx.fillStyle = entity.faction === 'enemy' ? red : green;
     ctx.fillRect(x, y, Math.round(w * Math.max(0, entity.hp / entity.maxHp)), h);
     if (entity.block > 0) {
       ctx.fillStyle = blue;
@@ -895,9 +910,11 @@ export class MapRenderer {
     ctx.textBaseline = 'alphabetic';
   }
 
-  private drawIntent(sx: number, sy: number, label: string): void {
+  private drawIntent(sx: number, sy: number, label: string, ally = false): void {
     const ctx = this.ctx;
-    const { ink, panel, text, font } = this.palette;
+    const { panel, text, font } = this.palette;
+    // An ally's chip is edged in the player's colour instead of black.
+    const ink = ally ? this.palette.cyan : this.palette.ink;
     ctx.font = `8px ${font}`;
     const upper = label.toUpperCase();
     const width = Math.ceil(ctx.measureText(upper).width) + 10;

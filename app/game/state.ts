@@ -253,6 +253,10 @@ export const entityAt = (
 export const enemies = (state: GameState): Entity[] =>
   state.entities.filter((entity) => entity.faction === "enemy" && !entity.dead);
 
+/** Creatures fighting on the player's side: tamed, or summoned. */
+export const allies = (state: GameState): Entity[] =>
+  state.entities.filter((entity) => entity.faction === "ally" && !entity.dead);
+
 export const handCard = (
   state: GameState,
   uid: string,

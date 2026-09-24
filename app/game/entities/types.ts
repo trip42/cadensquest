@@ -8,7 +8,9 @@
 import type { Cell } from '../map/navigation';
 import type { Reward, RewardOverrides } from '../rewards';
 
-export type Faction = 'player' | 'enemy';
+/** `ally` fights on the player's side: an enemy tamed, or later summoned.
+ *  It keeps its own deck and plays it against the nearest enemy. */
+export type Faction = 'player' | 'enemy' | 'ally';
 export type AnimationState = 'idle' | 'walk' | 'attack' | 'ranged' | 'hurt' | 'die';
 
 export interface AnimationClip {
