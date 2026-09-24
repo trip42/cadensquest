@@ -487,7 +487,10 @@ export const useGameStore = defineStore('game', () => {
     if (card && selectedUid.value) {
       const def = cardDef(card.defId);
       if (def.targeting === 'self' || def.targeting === 'none') {
-        if (playCard(game, card.uid)) selectedUid.value = null;
+        if (playCard(game, card.uid)) {
+          departed.set(card.uid, 'played');
+          selectedUid.value = null;
+        }
       } else {
         // Picked up, to be aimed. Playing it makes its own sound.
         sfx.play('card', { rate: 1.3, volume: 0.35 });
@@ -508,8 +511,12 @@ export const useGameStore = defineStore('game', () => {
     const own = cell.row === self.row && cell.col === self.col;
     let done: boolean;
     if (selectedUid.value) {
-      done = playCard(game, selectedUid.value, cell);
-      if (done) selectedUid.value = null;
+      const uid = selectedUid.value;
+      done = playCard(game, uid, cell);
+      if (done) {
+        departed.set(uid, 'played');
+        selectedUid.value = null;
+      }
     } else {
       done = own || movePlayerTo(game, cell);
     }
@@ -531,15 +538,34 @@ export const useGameStore = defineStore('game', () => {
   /** Give a card up for the ground it covers. */
   function discard(uid: string): void {
     if (!game) return;
-    if (discardForMovement(game, uid) && selectedUid.value === uid) selectedUid.value = null;
+    if (discardForMovement(game, uid)) {
+      departed.set(uid, 'discarded');
+      if (selectedUid.value === uid) selectedUid.value = null;
+    }
     sync(true);
   }
 
   /** Trade the whole hand in at once. */
   function discardAll(): void {
     if (!game) return;
-    if (discardAllForMovement(game) > 0) selectedUid.value = null;
+    const held = game.state.hand.map((card) => card.uid);
+    if (discardAllForMovement(game) > 0) {
+      for (const uid of held) departed.set(uid, 'discarded');
+      selectedUid.value = null;
+    }
     sync(true);
+  }
+
+  /* How each card left the hand, so the hand can see it off the right way:
+     a played card flies up toward the map, a discarded one drops away.
+     Read once, as the card leaves. Anything unrecorded — the hand thrown
+     away at the end of a turn — was discarded. */
+  const departed = new Map<string, 'played' | 'discarded'>();
+
+  function howLeft(uid: string): 'played' | 'discarded' {
+    const how = departed.get(uid) ?? 'discarded';
+    departed.delete(uid);
+    return how;
   }
 
   /* ------------------------------ rewards ------------------------------ */
@@ -595,7 +621,7 @@ export const useGameStore = defineStore('game', () => {
     start, attach, detach, frame,
     select, commitCell, hover, pickAt, discard, discardAll, endPhase,
     chooseCard, socketGem, takeTalisman, skip,
-    soundOn, toggleSound,
+    soundOn, toggleSound, howLeft,
     rawGame, entityDef,
   };
 });

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { parseTrial } from '~/game/sandbox';
 import { useGameStore } from '~/stores/game';
 
@@ -43,6 +43,53 @@ const hpCells = computed(() => {
   return Array.from({ length: HP_CELLS }, (_, i) => i < lit);
 });
 
+/* The HUD answers the map. The health meter jolts when Caden is hurt and
+   glows when he heals — a beat after the rules say so, when the blow lands
+   on screen — and each floor's name comes up as he arrives on it. */
+const hpFx = ref<'hurt' | 'healed' | null>(null);
+let hpTimer: ReturnType<typeof setTimeout> | undefined;
+watch(
+  () => [store.run, store.view?.hp] as const,
+  ([run, hp], [runBefore, before]) => {
+    if (run !== runBefore || hp === undefined || before === undefined || hp === before) return;
+    const fx = hp < before ? 'hurt' : 'healed';
+    clearTimeout(hpTimer);
+    hpFx.value = null;
+    hpTimer = setTimeout(() => {
+      hpFx.value = fx;
+      hpTimer = setTimeout(() => (hpFx.value = null), 520);
+    }, 90);
+  },
+);
+
+const banner = ref<{ floor: number; floors: number; zone: string; run: number } | null>(null);
+let bannerTimer: ReturnType<typeof setTimeout> | undefined;
+watch(
+  () => [store.run, store.view?.floor] as const,
+  // The getter makes a new array every time the view refreshes, and Vue
+  // calls back for any new array — so compare what is in it.
+  ([run, floor], before) => {
+    const view = store.view;
+    if (!view || !floor) return;
+    if (before && before[0] === run && before[1] === floor) return;
+    banner.value = { floor: view.floor, floors: view.floors, zone: view.zone, run };
+    clearTimeout(bannerTimer);
+    bannerTimer = setTimeout(() => (banner.value = null), 2600);
+  },
+  { immediate: true },
+);
+
+/** Close to falling: the screen's edge beats red. */
+const lowHp = computed(() => {
+  const view = store.view;
+  return !!view && view.hp > 0 && view.hp / view.maxHp <= 0.3 && view.phase !== 'victory' && view.phase !== 'defeat';
+});
+
+onBeforeUnmount(() => {
+  clearTimeout(hpTimer);
+  clearTimeout(bannerTimer);
+});
+
 const energyCells = computed(() => {
   const view = store.view;
   if (!view) return [];
@@ -62,17 +109,17 @@ const energyCells = computed(() => {
       <header class="topbar panel">
         <div class="group">
           <span><span class="label">TURN</span> {{ store.view.turn }}</span>
-          <span class="phase" :class="`is-${store.view.phase}`">{{ store.view.phase }}</span>
+          <span :key="`${store.view.turn}-${store.view.phase}`" class="phase" :class="`is-${store.view.phase}`">{{ store.view.phase }}</span>
           <span class="zone">{{ store.view.zone }}</span>
         </div>
         <div class="group">
-          <span class="meter" :title="`Health ${store.view.hp} of ${store.view.maxHp}`">
+          <span class="meter hp" :class="hpFx && `is-${hpFx}`" :title="`Health ${store.view.hp} of ${store.view.maxHp}`">
             <span class="label">HP</span>
             <span class="cells">
               <i v-for="(lit, i) in hpCells" :key="i" :class="{ 'is-hp': lit }" />
             </span>
             <strong>{{ store.view.hp }}/{{ store.view.maxHp }}</strong>
-            <span v-if="store.view.block" class="block">+{{ store.view.block }}</span>
+            <span v-if="store.view.block" :key="store.view.block" class="block">+{{ store.view.block }}</span>
           </span>
           <span class="meter" :title="`Energy ${store.view.energy} of ${store.view.maxEnergy}`">
             <span class="label">EN</span>
@@ -147,6 +194,15 @@ const energyCells = computed(() => {
       </div>
     </div>
 
+    <div v-if="lowHp" class="danger" aria-hidden="true" />
+
+    <Transition name="banner">
+      <div v-if="banner" :key="`${banner.run}-${banner.floor}`" class="floor-banner panel" aria-live="polite">
+        <span class="banner-floor">FLOOR {{ banner.floor }} / {{ banner.floors }}</span>
+        <span class="banner-zone">{{ banner.zone }}</span>
+      </div>
+    </Transition>
+
     <TalismanRail v-if="store.view" />
     <EnemyTip />
     <TileTip />
@@ -195,7 +251,14 @@ const energyCells = computed(() => {
 }
 .group { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .label { color: var(--px-muted); }
-.phase { padding: 1px 6px; background: var(--px-green); color: var(--px-ink); text-transform: uppercase; }
+.phase {
+  padding: 1px 6px;
+  background: var(--px-green);
+  color: var(--px-ink);
+  text-transform: uppercase;
+  /* Keyed on the turn and phase, so it pops each time either changes. */
+  animation: tag-in 0.3s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
 .phase.is-enemy { background: var(--px-red); color: var(--px-text); }
 .phase.is-victory { background: var(--px-yellow); }
 .phase.is-defeat { background: var(--px-ink); color: var(--px-red); }
@@ -215,7 +278,22 @@ const energyCells = computed(() => {
 .sound:hover { background: var(--px-cyan); color: var(--px-ink); }
 .meter strong { font-weight: 400; color: var(--px-text); }
 .move { color: var(--px-cyan) !important; }
-.block { padding: 0 4px; background: var(--px-blue); color: var(--px-text); }
+.block { padding: 0 4px; background: var(--px-blue); color: var(--px-text); animation: tag-in 0.25s cubic-bezier(0.3, 1.6, 0.5, 1); }
+/* Hurt: the meter jolts and flashes. Healed: it glows green. */
+.hp.is-hurt { animation: jolt 0.36s steps(6) both; }
+.hp.is-hurt .cells { background: var(--px-red); }
+.hp.is-healed .cells { outline: 2px solid var(--px-green); }
+@keyframes jolt {
+  0%, 100% { transform: none; }
+  20% { transform: translate(-4px, 2px); }
+  40% { transform: translate(4px, -2px); }
+  60% { transform: translate(-3px, 0); }
+  80% { transform: translate(2px, 1px); }
+}
+@keyframes tag-in {
+  from { transform: scale(1.5); }
+  to { transform: none; }
+}
 .cells { display: flex; gap: 2px; padding: 2px; background: var(--px-ink); }
 .cells i { width: 9px; height: 12px; background: #20223a; }
 .cells i.is-hp { background: var(--px-red); }
@@ -281,6 +359,50 @@ const energyCells = computed(() => {
 .to-editor:hover { color: var(--px-yellow); }
 .hint { margin: 0; color: rgba(244, 244, 244, 0.6); font-family: var(--px-font); font-size: 8px; }
 
+/* ------------------------------ moments -------------------------------- */
+
+/* Low health: a hard red frame round the screen, beating. */
+.danger {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 15;
+  box-shadow: inset 0 0 0 6px var(--px-red);
+  animation: beat 1.1s steps(2, jump-none) infinite;
+}
+@keyframes beat {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 0.8; }
+}
+
+/* A floor's name, as he arrives on it. */
+.floor-banner {
+  position: fixed;
+  left: 50%;
+  /* Just under the top bar, clear of the fight around him. */
+  top: calc(70px + env(safe-area-inset-top, 0px));
+  transform: translateX(-50%);
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 12px 28px;
+  pointer-events: none;
+  z-index: 20;
+  font-family: var(--px-font);
+}
+.banner-floor { color: var(--px-muted); font-size: 12px; }
+.banner-zone { color: var(--px-yellow); font-size: 24px; text-shadow: 3px 3px 0 var(--px-ink); }
+.banner-enter-active { transition: opacity 0.3s ease, transform 0.35s cubic-bezier(0.3, 1.4, 0.5, 1); }
+.banner-leave-active { transition: opacity 0.5s ease; }
+.banner-enter-from { opacity: 0; transform: translate(-50%, -12px); }
+.banner-leave-to { opacity: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .phase, .block, .hp.is-hurt { animation: none; }
+  .danger { animation: none; opacity: 0.5; }
+  .banner-enter-from { transform: translateX(-50%); }
+}
+
 /* ------------------------------ ending --------------------------------- */
 
 .ending {
@@ -294,6 +416,15 @@ const energyCells = computed(() => {
   color: var(--px-soft);
   font-size: 16px;
   z-index: 30;
+  /* A beat first, so the fall — or the way out — is seen before it. */
+  animation: ending-in 0.5s ease 0.7s both;
+}
+@keyframes ending-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ending { animation-duration: 0.01s; }
 }
 .ending p { margin: 0; }
 .headline {

@@ -64,6 +64,13 @@ function onDeal(el: Element): void {
   sfx.play('card', { delay: 0.05 + index * 0.055, rate: 1.1, volume: 0.3, vary: 0.1 });
 }
 
+/* A card leaving is seen off by how it went: played up toward the map,
+   discarded down and away. */
+function onLeave(el: Element): void {
+  const uid = (el as HTMLElement).dataset.uid;
+  el.classList.add(uid && store.howLeft(uid) === 'played' ? 'is-played' : 'is-discarded');
+}
+
 /* ------------------------------ dragging ------------------------------- */
 
 function onPointerDown(event: PointerEvent, uid: string, needsTarget: boolean): void {
@@ -99,10 +106,11 @@ function onPointerUp(event: PointerEvent): void {
   <!-- One root element, so the class the page puts on <HandBar> lands
        somewhere: a fragment root cannot inherit it. -->
   <div class="hand-wrap">
-    <TransitionGroup tag="div" name="deal" class="hand" :style="handVars" @enter="onDeal">
+    <TransitionGroup tag="div" name="deal" class="hand" :style="handVars" @enter="onDeal" @before-leave="onLeave">
       <div
         v-for="(card, index) in cards"
         :key="card.uid"
+        :data-uid="card.uid"
         class="slot"
         :class="{ 'is-focused': hovered === index }"
         :style="slotVars(index)"
@@ -271,9 +279,29 @@ function onPointerUp(event: PointerEvent): void {
 }
 .deal-move { transition: transform 0.32s cubic-bezier(0.22, 0.9, 0.3, 1); }
 
+/* Played: up and away toward the map. Discarded: dropped out of the
+   bottom, one after another when the whole hand goes. */
+.slot.is-played.deal-leave-active {
+  transition: opacity 0.26s ease, transform 0.3s cubic-bezier(0.2, 0.7, 0.3, 1);
+}
+.slot.is-played.deal-leave-to {
+  opacity: 0;
+  transform: translateY(-150px) scale(1.1);
+}
+.slot.is-discarded.deal-leave-active {
+  transition: opacity 0.24s ease, transform 0.26s ease-in;
+  transition-delay: calc(var(--index) * 35ms);
+}
+.slot.is-discarded.deal-leave-to {
+  opacity: 0;
+  transform: translateY(120px) scale(0.9);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .deal-enter-active,
   .deal-leave-active,
+  .slot.is-played.deal-leave-active,
+  .slot.is-discarded.deal-leave-active,
   .deal-move,
   .card { transition: none; }
 }

@@ -214,6 +214,27 @@ work with nothing to license.
 - **When sound starts.** Browsers don't allow sound until the page has been
   clicked or typed in, so the game is silent until your first click.
 
+## Juice
+
+The screen answers every blow:
+
+- **A hit** makes a number, a white flash and a spray of sparks, a beat
+  after the swing starts, when it lands. Thrown and cast attacks fly
+  across first.
+- **A killed creature** breaks into shards of its own colour.
+- **A hit on Caden** shakes the screen and holds the fight still for an
+  instant, and jolts the health meter.
+- **Healing, block, power, taming and summoning** each get their own
+  number, glow or ring.
+- **The way down** is a column of light. Going through it washes the screen
+  white, and the new floor's name comes up.
+- **Low health** puts a red frame round the screen, beating.
+- **Cards** fly up when played and drop away when discarded.
+
+With the system set to reduce motion, the shaking and most of the movement
+turn off. It all lives in `app/render/juice.ts`, driven by cues the rules
+push as things happen (`app/game/cues.ts`).
+
 ## Rewards
 
 Every enemy carries one, decided when it spawns rather than when it dies —

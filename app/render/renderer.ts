@@ -39,8 +39,8 @@ import {
   unproject,
   type Viewport,
 } from './iso';
-import { Juice } from './juice';
-import { frameFor } from './sprites';
+import { Juice, type Stage } from './juice';
+import { frameFor, type SourceFrame } from './sprites';
 
 export type HighlightKind = 'move' | 'target' | 'path' | 'hover';
 
@@ -92,7 +92,11 @@ function readPalette(): HudPalette {
   };
 }
 
-export class MapRenderer {
+/** Has the player asked their system for less motion? */
+const prefersCalm = (): boolean =>
+  typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+export class MapRenderer implements Stage {
   private readonly canvas: HTMLCanvasElement;
   private readonly ctx: CanvasRenderingContext2D;
   private readonly game: Game;
@@ -121,10 +125,16 @@ export class MapRenderer {
   private hover: Cell | null = null;
   /* Health and intent belong on top of the scene, not inside it: drawn in
      the depth pass they get painted over by whoever stands in front. */
-  private overlay: Array<{ sx: number; top: number; entity: Entity }> = [];
+  private overlay: Array<{ sx: number; top: number; feet: number; entity: Entity }> = [];
   private readonly palette: HudPalette = readPalette();
   /** Sound and spectacle, from the game's cues. */
   private readonly juice: Juice;
+  /** The time of the frame being drawn, in seconds. */
+  private clock = 0;
+  /** White (and blue, and green) cut-outs of sprite frames, for flashes. */
+  private readonly silhouettes = new WeakMap<object, Map<string, HTMLCanvasElement>>();
+  /** Each kind of creature's main colour, sampled from its picture. */
+  private readonly tints = new Map<string, string>();
 
   constructor(canvas: HTMLCanvasElement, game: Game, hooks: RendererHooks = {}) {
     this.canvas = canvas;
@@ -133,7 +143,7 @@ export class MapRenderer {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('no 2d context');
     this.ctx = ctx;
-    this.juice = new Juice(game);
+    this.juice = new Juice(game, { palette: this.palette, calm: prefersCalm() });
     for (const item of game.state.cues) if (item.type === 'burst') this.burstStarts.set(item.seq, -Infinity);
 
     const self = game.state.entities.find((entity) => entity.id === game.state.playerId)!;
@@ -158,8 +168,12 @@ export class MapRenderer {
     const frame = (now: number): void => {
       const dt = Math.min((now - this.last) / 1000, 0.1);
       this.last = now;
-      this.hooks.onFrame?.(dt);
-      this.juice.take(now / 1000, { locate: (cell) => this.tileTop(cell), width: this.view.width });
+      const seconds = now / 1000;
+      // A hit-stop holds the fight still for an instant; the screen, its
+      // shake and its sparks carry on.
+      this.hooks.onFrame?.(dt * this.juice.timeScale(seconds));
+      this.juice.take(seconds, this);
+      this.juice.update(seconds);
       this.update(dt);
       this.draw(now);
       this.raf = requestAnimationFrame(frame);
@@ -355,12 +369,19 @@ export class MapRenderer {
     const { ctx, view } = this;
     const { world, state } = this.game;
     this.overlay.length = 0;
+    this.clock = now / 1000;
 
     /* The land is an archipelago: everything that is not a tile is open
        water. Taken from the zone's own water colour and sunk a little
        darker, so the shallows on the map read as shallows against it. */
     ctx.fillStyle = this.backdrop();
     ctx.fillRect(0, 0, view.width, view.height);
+
+    // Everything on the map shakes together; the washes over the whole
+    // screen, drawn last, do not.
+    const shake = this.juice.shakeAt(this.clock);
+    ctx.save();
+    ctx.translate(shake.x, shake.y);
 
     const reach = Math.ceil(view.width / TILE_W + view.height / TILE_H) + 10;
     const firstRow = Math.floor(this.camera.row) - reach;
@@ -401,6 +422,7 @@ export class MapRenderer {
     }
 
     this.drawBursts(now);
+    this.juice.drawWorld(ctx, this.clock, this, HW, HH);
 
     for (const { sx, top, entity } of this.overlay) {
       this.drawHealthBar(sx, top, entity);
@@ -409,6 +431,11 @@ export class MapRenderer {
       // What it is carrying, readable before you decide to fight it.
       if (entity.reward) this.drawRewardPill(sx, top - (entity.intent ? 32 : 16), entity.reward);
     }
+    // Numbers over everything, even the bars.
+    this.juice.drawText(ctx, this.clock, this);
+    ctx.restore();
+
+    this.juice.drawScreen(ctx, this.clock, view.width, view.height);
   }
 
   private drawStack(sx: number, sy: number, stack: string, row: number, col: number, now: number): void {
@@ -453,6 +480,7 @@ export class MapRenderer {
 
     const marks = this.game.state.terrain[`${row},${col}`];
     if (marks?.length) this.drawMarks(sx, ty, marks, row, col, now);
+    if (marks?.some((mark) => mark.portal)) this.drawPortal(sx, ty, row, col, now);
 
     // The area an area card would cover, where it is being aimed.
     if (this.aim?.cells.has(`${row},${col}`)) {
@@ -593,6 +621,53 @@ export class MapRenderer {
       ctx.textAlign = 'start';
       ctx.textBaseline = 'alphabetic';
     }
+  }
+
+  /* A portal is more than a mark: a column of light standing on it, two
+     rings turning opposite ways at its foot, and sparks climbing the
+     column — so the way down reads from across the floor. */
+  private drawPortal(sx: number, ty: number, row: number, col: number, now: number): void {
+    const ctx = this.ctx;
+    const t = now / 1000;
+    const pulse = 0.75 + 0.25 * Math.sin(t * 3);
+    const tall = 120;
+    const wide = HW * 0.8;
+
+    ctx.save();
+    const beam = ctx.createLinearGradient(0, ty, 0, ty - tall);
+    beam.addColorStop(0, `rgba(255, 255, 255, ${0.42 * pulse})`);
+    beam.addColorStop(0.6, `rgba(190, 250, 255, ${0.14 * pulse})`);
+    beam.addColorStop(1, 'rgba(190, 250, 255, 0)');
+    ctx.fillStyle = beam;
+    ctx.beginPath();
+    ctx.moveTo(sx - wide / 2, ty);
+    ctx.lineTo(sx - wide / 3, ty - tall);
+    ctx.lineTo(sx + wide / 3, ty - tall);
+    ctx.lineTo(sx + wide / 2, ty);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 5]);
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+    ctx.lineDashOffset = -t * 30;
+    markCircle(ctx, sx, ty, 0.85);
+    ctx.stroke();
+    ctx.strokeStyle = this.palette.cyan;
+    ctx.lineDashOffset = t * 45;
+    markCircle(ctx, sx, ty, 0.6);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    for (let i = 0; i < 10; i += 1) {
+      const speed = 0.5 + hash(row, col, i + 500) * 0.5;
+      const age = (t * speed + hash(row, col, i + 540)) % 1;
+      const x = sx + (hash(row, col, i + 580) - 0.5) * wide * 0.8;
+      ctx.globalAlpha = 1 - age;
+      ctx.fillStyle = i % 3 ? '#ffffff' : this.palette.cyan;
+      ctx.fillRect(Math.round(x) - 2, Math.round(ty - age * tall) - 2, 4, 4);
+    }
+    ctx.restore();
   }
 
   /* An area burst as it goes off: every tile it covered flashes in its
@@ -861,13 +936,20 @@ export class MapRenderer {
       frame.sx, frame.sy, frame.sw, frame.sh,
       -width / 2, -height * frame.bottom, width, height,
     );
+    // Struck, healed, braced: the whole figure lights up for an instant.
+    const flash = this.juice.flashOf(entity.id, this.clock);
+    const cutout = flash && this.silhouette(frame, flash.colour);
+    if (flash && cutout) {
+      ctx.globalAlpha = move.alpha * flash.strength;
+      ctx.drawImage(cutout, 0, 0, cutout.width, cutout.height, -width / 2, -height * frame.bottom, width, height);
+    }
     ctx.restore();
 
     if (entity.dead) return;
     // Likewise the bar sits above the artwork, not above the empty frame,
     // and follows the same nudge so it stays a fixed gap off the head.
     const crown = sy + nudge + height * (frame.top - frame.bottom);
-    this.overlay.push({ sx, top: crown - 10, entity });
+    this.overlay.push({ sx, top: crown - 10, feet: sy, entity });
   }
 
   /* A clip with one frame is a still picture, so the life has to come from
@@ -956,6 +1038,104 @@ export class MapRenderer {
       ctx.fillStyle = blue;
       ctx.fillRect(x, y + h, Math.round(w * Math.min(1, entity.block / entity.maxHp)), 2);
     }
+  }
+
+  /* ------------------------------ for the juice ----------------------- */
+
+  /* The renderer is the juice's Stage: where things are on screen right
+     now, in design units, and how the creatures look. */
+
+  get width(): number {
+    return this.view.width;
+  }
+
+  get height(): number {
+    return this.view.height;
+  }
+
+  locate(cell: Cell): { x: number; y: number } | null {
+    return this.tileTop(cell);
+  }
+
+  feet(cell: Cell): { x: number; y: number } {
+    return {
+      x: projectX(cell.col, cell.row, this.camera, this.view),
+      y: projectY(cell.col, cell.row, this.camera, this.view) - this.surfaceOffset(cell),
+    };
+  }
+
+  /** From its feet to its health bar, as last drawn — the art decides how
+   *  tall a creature really is, not its footprint. */
+  heightOf(entityId: string): number {
+    const drawn = this.overlay.find((item) => item.entity.id === entityId);
+    if (drawn) return drawn.feet - drawn.top;
+    const entity = this.game.state.entities.find((item) => item.id === entityId);
+    return entity ? entityDef(entity.defId).sprite.footprint.height * 0.85 : 70;
+  }
+
+  /* The colour its shards should be: the average of the solid pixels of
+     its picture, sampled small, once per kind of creature. */
+  colourOf(entityId: string): string | null {
+    const entity = this.game.state.entities.find((item) => item.id === entityId);
+    if (!entity) return null;
+    const known = this.tints.get(entity.defId);
+    if (known) return known;
+    const def = entityDef(entity.defId);
+    const frame = frameFor(def.sprite, def.animations, def.animations.idle, 0);
+    if (!frame) return null;
+    const size = 16;
+    const probe = document.createElement('canvas');
+    probe.width = size;
+    probe.height = size;
+    const c = probe.getContext('2d', { willReadFrequently: true });
+    if (!c) return null;
+    c.drawImage(frame.image, frame.sx, frame.sy, frame.sw, frame.sh, 0, 0, size, size);
+    let data: Uint8ClampedArray;
+    try {
+      data = c.getImageData(0, 0, size, size).data;
+    } catch {
+      return null;
+    }
+    let r = 0;
+    let g = 0;
+    let b = 0;
+    let n = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3]! < 160) continue;
+      r += data[i]!;
+      g += data[i + 1]!;
+      b += data[i + 2]!;
+      n += 1;
+    }
+    if (!n) return null;
+    const tint = `rgb(${Math.round(r / n)}, ${Math.round(g / n)}, ${Math.round(b / n)})`;
+    this.tints.set(entity.defId, tint);
+    return tint;
+  }
+
+  /** A frame cut out in one flat colour, to lay over the sprite as a flash.
+   *  Kept small: a flash is gone in a tenth of a second. */
+  private silhouette(frame: SourceFrame, colour: string): HTMLCanvasElement | null {
+    let cutouts = this.silhouettes.get(frame.image as object);
+    if (!cutouts) {
+      cutouts = new Map();
+      this.silhouettes.set(frame.image as object, cutouts);
+    }
+    const key = `${colour}|${frame.sx},${frame.sy},${frame.sw},${frame.sh}`;
+    const known = cutouts.get(key);
+    if (known) return known;
+    const shrink = Math.min(1, 192 / Math.max(frame.sw, frame.sh));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(frame.sw * shrink));
+    canvas.height = Math.max(1, Math.round(frame.sh * shrink));
+    const c = canvas.getContext('2d');
+    if (!c) return null;
+    c.drawImage(frame.image, frame.sx, frame.sy, frame.sw, frame.sh, 0, 0, canvas.width, canvas.height);
+    c.globalCompositeOperation = 'source-in';
+    c.fillStyle = colour;
+    c.fillRect(0, 0, canvas.width, canvas.height);
+    cutouts.set(key, canvas);
+    return canvas;
   }
 
   /** Screen position of the middle of a tile's top face, in client

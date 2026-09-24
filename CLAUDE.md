@@ -119,7 +119,8 @@ app/audio/           sound — synthesised, no files (see "Sound")
   cues.ts              soundsFor(cue): which sounds each cue makes
 app/render/          canvas renderer — DOM, still no Vue
   iso.ts               projection, design units, DESIGN_W/H, ZOOM, FOCUS_Y
-  juice.ts             takes new cues each frame: sound, and blow timing
+  juice.ts             takes new cues each frame: sound, numbers, flashes,
+                       sparks, shake, hit-stop — and when a blow lands
   sprites.ts           SHEET_FILES registry, frameFor, placeholder art
   glyphs.ts            placeholder line art for cards and talismans
   renderer.ts          frame loop, depth order, highlights, entities, marked
@@ -821,6 +822,69 @@ Every cue kind must make a sound, and every sound must be used.
 3. Read `window.__game.sfx.history`: the name and scheduled start of each
    sound played.
 
+## Juice
+
+`render/juice.ts` turns cues into how the game looks, as well as how it
+sounds.
+
+**The renderer is its `Stage`.** It answers four questions:
+
+- where a cell is on screen (`locate`, `feet`)
+- how tall a creature is drawn (`heightOf`): feet to health bar, from the
+  last frame's overlay, so the art decides
+- a creature's main colour (`colourOf`), sampled from its sprite once per
+  kind
+
+**Timing.** Everything a blow sets off waits for contact (`MELEE_CONTACT`)
+or for its projectile (`flightTime`). A fall waits for the blow that caused
+it (`lands`). The rules have already resolved it; the juice decides when it
+is seen.
+
+**What there is:**
+
+- **Numbers.** Damage is red on the player's side, white on enemies, and
+  yellow when heavy. Blocked damage reads "N BLOCKED" in blue. Gains read
+  "+N", "+N BLOCK", "+N POWER" and "TAMED". They start just above the health
+  bar, so it is never hidden, and stack per tile.
+- **A flash.** The sprite's silhouette, in one colour, laid over it. The
+  cut-outs are cached per frame and colour, and shrunk to at most 192px.
+- **Particles.** Sparks; shards in the creature's colour, lightened (an
+  average colour reads dark); rising motes; step dust.
+- **Rings** on the ground, for a mark, summon, tame, fall or portal.
+- **Projectiles** for ranged blows: cool for the player's side, warm for
+  enemies.
+- **Washes** over the whole screen: white going down a floor, red on death.
+
+**Shake** is trauma-based: `trauma` runs 0..1, the offset goes with its
+square, and it settles at 1.6 a second. It is one translate over the map;
+the washes are drawn outside it.
+
+**Hit-stop.** `timeScale()` is 0 until `freezeUntil`. The renderer passes
+`dt × timeScale` to the store's frame, so `tick` holds still while the
+screen keeps moving. It is short: up to 0.12s for a hit on Caden, 0.2s for a
+guardian falling.
+
+**Less motion.** Under `prefers-reduced-motion` the juice is `calm`: no
+shake, fewer particles, and washes capped. The HUD's CSS animations switch
+off too.
+
+**The portal** gets `drawPortal` on top of its mark: a beam, two dashed rings
+turning opposite ways, and sparks climbing the beam.
+
+**The HUD answers in CSS**, in `index.vue`:
+
+- The HP meter jolts when hurt and glows when healed, 90ms after the value
+  changes, which is contact.
+- The block badge and the phase tag pop. They are keyed on their values, so
+  the animation runs again on each change.
+- A banner names each floor on arrival.
+- A red frame beats round the screen at 30% health or less.
+- The ending screen fades in after 0.7s.
+
+`HandBar` sees each card off by how it left (`store.howLeft`): played cards
+fly up, discarded ones drop, and a whole discarded hand goes one after
+another.
+
 ## HUD style
 
 The HUD is **pixel arcade**, to sit with the pixel-art sprites: hard
@@ -939,6 +1003,10 @@ game.
   or every inferred content type widens and the editor stops typechecking.
 - **New fields on `Entity` or `GameState`** must be initialised in
   `makeEntity` / `createGame` — tests and the sandbox build entities there.
+- **A `watch` on a getter that builds an array fires on every refresh.**
+  `() => [store.run, store.view?.floor]` is a new array each time the view
+  changes, and Vue calls back for any new value, so the floor banner was
+  re-shown, and its timer reset, for ever. Compare the values inside it.
 - **The log only reports what nearby creatures do.** `noteNear` drops lines
   about enemies and allies more than `ENGAGE_RADIUS` from the player; hits
   and falls are always logged. Use it for any new creature line, or distant
