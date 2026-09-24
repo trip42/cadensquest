@@ -5,13 +5,13 @@
 
 import { cardDef, STARTING_DECK } from "./cards/definitions";
 import type { CardInstance } from "./cards/types";
+import type { SeqCue } from "./cues";
 import { entityDef } from "./entities/definitions";
 import type { Entity } from "./entities/types";
 import { floorRows, START_ROW, surfaceKind } from "./map/tiles";
 import { World } from "./map/world";
 import { createRng, type Rng, shuffle } from "./rng";
 import type { TileEffect } from "./effects";
-import type { Cell } from "./map/navigation";
 import { emptyTally, type GameEvent, record, type RunTally } from "./telemetry";
 import type { Reward } from "./rewards";
 import { resolveStat, type StatKey, type StatModifier } from "./stats";
@@ -94,9 +94,10 @@ export interface GameState {
   /** When each entity was last hit by each tile — `entityId@row,col` to the
    *  turn — so a tile hits at most once per round. */
   terrainHits: Record<string, number>;
-  /** Recent area bursts, newest last, for the renderer to flash. Nothing in
-   *  the rules reads them. */
-  bursts: Array<{ id: string; cells: Cell[]; colour: string }>;
+  /** What just happened, for the screen and the speakers — the recent
+   *  cues, and the number of the latest. Nothing in the rules reads them. */
+  cues: SeqCue[];
+  cueSeq: number;
   /** The floor the player is on — the index of its zone. Only its rows
    *  exist; the portal at its end leads to the next, and out of the last
    *  one wins the run. */
@@ -210,7 +211,8 @@ export function createGame(seed: number): Game {
     gates: [],
     terrain: {},
     terrainHits: {},
-    bursts: [],
+    cues: [],
+    cueSeq: 0,
     floor: 0,
     descending: false,
     queue: [],

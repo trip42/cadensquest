@@ -5,7 +5,7 @@
        2. player  — play cards and move until energy and movement run out,
                     or the phase is ended
        3. enemy   — each enemy resolves the intent it drew
-       4. repeat until the player falls or reaches the end of the map
+       4. repeat until the player falls or takes the way out of the last floor
 
    Every function here takes a Game and mutates its state. They are ordinary
    synchronous calls — no Vue, no DOM — so the whole loop can be driven from
@@ -27,6 +27,7 @@ import {
   entityCell,
   setAnimation,
 } from './entities/types';
+import { cue, type HitVia } from './cues';
 import { CHUNK_ROWS } from './map/generate';
 import {
   type Cell,
@@ -178,20 +179,50 @@ export function drawCards(state: GameState, count: number): void {
   for (let i = 0; i < count; i += 1) drawOne(state);
 }
 
-function dealDamage(game: Game, target: Entity, amount: number, source?: Entity): void {
+/** How a blow arrived, and from whom — credited with a kill, and cued so
+ *  the screen can show where it came from. */
+interface Blow {
+  source?: Entity;
+  via: HitVia;
+  /** Thrown or cast from further than the next tile. */
+  ranged?: boolean;
+}
+
+function dealDamage(game: Game, target: Entity, amount: number, blow: Blow): void {
   const { state } = game;
+  const { source } = blow;
   if (source && target.id === state.playerId) state.lastHitBy = source.defId;
   const absorbed = Math.min(target.block, amount);
   target.block -= absorbed;
   const through = amount - absorbed;
   target.hp -= through;
   note(state, `${entityDef(target.defId).name} takes ${through} (${absorbed} blocked).`);
+  cue(state, {
+    type: 'hit',
+    target: target.id,
+    side: target.faction,
+    cell: entityCell(target),
+    amount: through,
+    blocked: absorbed,
+    fatal: target.hp <= 0,
+    via: blow.via,
+    ...(source ? { by: source.id, from: entityCell(source) } : {}),
+    ...(blow.ranged ? { ranged: true } : {}),
+  });
 
   if (target.hp <= 0) {
     target.hp = 0;
     target.dead = true;
     setAnimation(target, 'die');
     note(state, `${entityDef(target.defId).name} falls.`);
+    cue(state, {
+      type: 'fall',
+      target: target.id,
+      side: target.faction,
+      cell: entityCell(target),
+      guardian: !!entityDef(target.defId).guardian,
+      faded: false,
+    });
     if (target.faction === 'ally') record(state, { type: 'ally_fell', ally: target.defId, row: target.row });
     if (target.faction === 'enemy') {
       record(state, {
@@ -211,6 +242,27 @@ function dealDamage(game: Game, target: Entity, amount: number, source?: Entity)
   } else {
     setAnimation(target, 'hurt');
   }
+}
+
+/* Gains, cued only when something was actually gained — a heal at full
+   health shows nothing. */
+function gainBlock(state: GameState, entity: Entity, amount: number): void {
+  if (amount <= 0) return;
+  entity.block += amount;
+  cue(state, { type: 'gain', target: entity.id, side: entity.faction, cell: entityCell(entity), stat: 'block', amount });
+}
+
+function heal(state: GameState, entity: Entity, amount: number): void {
+  const gained = Math.max(0, Math.min(entity.maxHp, entity.hp + amount) - entity.hp);
+  if (!gained) return;
+  entity.hp += gained;
+  cue(state, { type: 'gain', target: entity.id, side: entity.faction, cell: entityCell(entity), stat: 'heal', amount: gained });
+}
+
+function gainPower(state: GameState, entity: Entity, amount: number): void {
+  if (amount <= 0) return;
+  entity.power += amount;
+  cue(state, { type: 'gain', target: entity.id, side: entity.faction, cell: entityCell(entity), stat: 'power', amount });
 }
 
 /** Who is playing an effect, at what, and with how much reach. */
@@ -358,6 +410,7 @@ function summon(game: Game, effect: SummonEffect, play: Play): void {
   creature.facing = actor.facing;
   creature.reward = null;
   state.entities.push(creature);
+  cue(state, { type: 'summon', target: creature.id, side, cell });
 
   const cardId = drawIntent(state, creature);
   creature.intent = cardId ? { cardId, label: intentDef(cardId).name } : null;
@@ -375,6 +428,7 @@ function ageSummons(state: GameState): void {
     creature.hp = 0;
     creature.dead = true;
     setAnimation(creature, 'die');
+    cue(state, { type: 'fall', target: creature.id, side: creature.faction, cell: entityCell(creature), guardian: false, faded: true });
     record(state, { type: 'summon_faded', entity: creature.defId, side: creature.faction === 'enemy' ? 'enemy' : 'ally' });
     noteNear(state, creature, `The summoned ${entityDef(creature.defId).name} fades.`);
   }
@@ -414,7 +468,9 @@ function markTile(game: Game, effect: TerrainEffect, play: Play): void {
 
   // Every tile in the radius gets a mark of its own, so each counts down,
   // stacks and hits on its own like any other.
-  for (const spot of cellsWithin(game, cell, effect.radius ?? 0)) {
+  const spots = cellsWithin(game, cell, effect.radius ?? 0);
+  if (spots.length) cue(state, { type: 'mark', cells: spots, colour: effect.colour });
+  for (const spot of spots) {
     const layer: TerrainLayer = { id: nextUid('mark'), effects, colour: effect.colour, rounds, ownerId: actor.id };
     const key = terrainKey(spot);
     (state.terrain[key] ??= []).push(layer);
@@ -434,7 +490,7 @@ function markTile(game: Game, effect: TerrainEffect, play: Play): void {
 function applyTile(game: Game, entity: Entity, layers: readonly TerrainLayer[]): void {
   for (const layer of layers) {
     const owner = game.state.entities.find((item) => item.id === layer.ownerId);
-    applyTo(game, entity, layer.effects, owner);
+    applyTo(game, entity, layer.effects, 'tile', owner);
   }
 }
 
@@ -442,17 +498,24 @@ function applyTile(game: Game, entity: Entity, layers: readonly TerrainLayer[]):
    hurts it, Block and Heal land on it, Energy/Draw/Movement only matter to
    the player. Shared by marked tiles (no bonus) and bursts (the caster's
    bonus on damage). `source` is credited with the damage. */
-function applyTo(game: Game, entity: Entity, effects: readonly TileEffect[], source?: Entity, damageBonus = 0): void {
+function applyTo(
+  game: Game,
+  entity: Entity,
+  effects: readonly TileEffect[],
+  via: HitVia,
+  source?: Entity,
+  damageBonus = 0,
+): void {
   const { state } = game;
   const isPlayer = entity.id === state.playerId;
   for (const { kind, amount } of effects) {
     if (entity.dead) return;
     switch (kind) {
-      case 'damage': dealDamage(game, entity, amount + damageBonus, source); break;
-      case 'block': entity.block += amount; break;
+      case 'damage': dealDamage(game, entity, amount + damageBonus, { source, via }); break;
+      case 'block': gainBlock(state, entity, amount); break;
       case 'loseBlock': entity.block = Math.max(0, entity.block - amount); break;
-      case 'heal': entity.hp = Math.min(entity.maxHp, entity.hp + amount); break;
-      case 'power': entity.power += amount; break;
+      case 'heal': heal(state, entity, amount); break;
+      case 'power': gainPower(state, entity, amount); break;
       case 'energy': if (isPlayer) state.energy += amount; break;
       case 'draw': if (isPlayer) drawCards(state, amount); break;
       case 'movement': if (isPlayer) state.movement += amount; break;
@@ -507,15 +570,11 @@ function burst(game: Game, effect: AreaEffect, play: Play): void {
   // part-way does not change who else is hit.
   const caught = state.entities.filter((entity) =>
     !entity.dead && cellDistance(entityCell(entity), center) <= effect.radius && caughtBy(actor, entity, effect.affects));
-  for (const entity of caught) applyTo(game, entity, effects, actor, bonus);
-
-  state.bursts.push({ id: nextUid('burst'), cells, colour: effect.colour });
-  if (state.bursts.length > MAX_BURSTS) state.bursts.splice(0, state.bursts.length - MAX_BURSTS);
+  // Cued before anything lands, so the flash goes off under the hits.
+  cue(state, { type: 'burst', center, cells, colour: effect.colour });
+  for (const entity of caught) applyTo(game, entity, effects, 'burst', actor, bonus);
   noteNear(state, actor, `${entityDef(actor.defId).name}'s burst catches ${caught.length}.`);
 }
-
-/** Recent bursts kept for the renderer to flash; older ones are dropped. */
-const MAX_BURSTS = 8;
 
 /** What playing this card at this tile would cover — for the aiming preview:
  *  the tiles of its widest area (burst or marked radius), and the creatures
@@ -608,11 +667,11 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
       faceToward(actor, entityCell(victim));
       if (!isPlayer) setAnimation(actor, 'attack');
       const bonus = actor.power + (isPlayer ? stat(state, 'damageBonus') : 0);
-      dealDamage(game, victim, amount + bonus, actor);
+      dealDamage(game, victim, amount + bonus, { source: actor, via: 'blow', ranged: range > 1 });
       break;
     }
     case 'block':
-      actor.block += amount + (isPlayer ? stat(state, 'blockBonus') : 0);
+      gainBlock(state, actor, amount + (isPlayer ? stat(state, 'blockBonus') : 0));
       if (!isPlayer) noteNear(state, actor, `${entityDef(actor.defId).name} braces.`);
       break;
     case 'loseBlock':
@@ -620,10 +679,10 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
       actor.block = Math.max(0, actor.block - amount);
       break;
     case 'heal':
-      actor.hp = Math.min(actor.maxHp, actor.hp + amount);
+      heal(state, actor, amount);
       break;
     case 'power':
-      actor.power += amount;
+      gainPower(state, actor, amount);
       if (!isPlayer) noteNear(state, actor, `${entityDef(actor.defId).name} grows stronger.`);
       break;
     case 'advance':
@@ -653,13 +712,14 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
       const cardId = drawIntent(state, victim);
       victim.intent = cardId ? { cardId, label: intentDef(cardId).name } : null;
       record(state, { type: 'enemy_tamed', enemy: victim.defId, health: victim.hp, row: victim.row });
+      cue(state, { type: 'tame', target: victim.id, cell: entityCell(victim) });
       note(state, `${name} joins you.`);
       break;
     }
     case 'mend': {
       const creature = target && entityAt(state, target.row, target.col);
       if (!creature || creature.dead || creature === actor || !sameSide(actor, creature)) break;
-      creature.hp = Math.min(creature.maxHp, creature.hp + amount);
+      heal(state, creature, amount);
       break;
     }
     case 'movement':
@@ -735,6 +795,7 @@ export function discardForMovement(game: Game, uid: string): boolean {
   state.movement += gained;
   note(state, `Discarded ${def.name} for ${gained} movement.`);
   record(state, { type: 'card_discarded', card: def.id, rarity: def.rarity, movement: gained, bulk: false });
+  cue(state, { type: 'discard', count: 1 });
   return true;
 }
 
@@ -760,6 +821,7 @@ export function discardAllForMovement(game: Game): number {
   state.movement += gained;
 
   note(state, `Discarded ${count} card${count === 1 ? '' : 's'} for ${gained} movement.`);
+  cue(state, { type: 'discard', count });
   return gained;
 }
 
@@ -787,6 +849,7 @@ export function playCard(game: Game, uid: string, target: Cell | null = null): b
   state.discardPile.push(card);
   note(state, `Played ${def.name}.`);
   record(state, { type: 'card_played', card: def.id, rarity: def.rarity, gems: gemsOf(card), energy: spent });
+  cue(state, { type: 'play', card: def.id, attack: def.targeting === 'enemy', ranged: def.range > 1 });
 
   const self = player(state);
   if (target) {
@@ -866,6 +929,7 @@ function openPortal(game: Game, cell: Cell): void {
     ownerId: state.playerId,
     portal: kind,
   });
+  cue(state, { type: 'portal', cell, way: kind });
   note(state, kind === 'out' ? 'The way out opens.' : 'A way down opens.');
 }
 
@@ -905,7 +969,6 @@ export function enterFloor(game: Game, floor: number): void {
 
   state.terrain = {};
   state.terrainHits = {};
-  state.bursts = [];
   state.gates = [];
   state.queue = [];
   state.descending = false;
@@ -924,6 +987,7 @@ function descend(game: Game): void {
     return;
   }
   enterFloor(game, state.floor + 1);
+  cue(state, { type: 'descend', floor: state.floor });
   note(state, `Down to ${ZONES[state.floor]!.name}.`);
   // Recorded now, as he arrives: rows are counted as depth through the
   // whole run, so the new floor's first rows — and its zone — are progress.
@@ -1052,6 +1116,7 @@ export function beginTurn(game: Game): void {
 
   state.phase = 'player';
   note(state, `Turn ${state.turn}.`);
+  cue(state, { type: 'turn', turn: state.turn });
 }
 
 /** Phase 2 ends here; phase 3 is queued up and played out by `tick`. */
@@ -1122,6 +1187,7 @@ function activateNextReward(game: Game): void {
   state.activeReward = reward.kind === 'card'
     ? { reward, offered: reward.options.map(makeCard) }
     : { reward };
+  cue(state, { type: 'reward', kind: reward.kind });
 }
 
 /** Take one of the offered cards. It goes on top of the draw pile, so it
@@ -1144,6 +1210,7 @@ export function chooseCardReward(game: Game, uid: string): boolean {
   });
   state.activeReward = null;
   note(state, `Took ${cardDef(chosen.defId).name}.`);
+  cue(state, { type: 'claim', kind: 'card' });
   return true;
 }
 
@@ -1160,6 +1227,7 @@ export function socketGemReward(game: Game, cardUid: string): boolean {
 
   card.gems = [...gems, active.reward.gemId];
   record(state, { type: 'gem_collected', gem: active.reward.gemId, card: card.defId });
+  cue(state, { type: 'claim', kind: 'gem' });
   state.activeReward = null;
   note(state, `Set ${gemDef(active.reward.gemId).name} into ${cardDef(card.defId).name}.`);
   return true;
@@ -1173,6 +1241,7 @@ export function takeTalismanReward(game: Game): boolean {
 
   state.talismans.push(active.reward.talismanId);
   record(state, { type: 'talisman_collected', talisman: active.reward.talismanId });
+  cue(state, { type: 'claim', kind: 'talisman' });
   syncStats(state);
   state.activeReward = null;
   return true;
@@ -1187,6 +1256,7 @@ export function skipReward(game: Game): boolean {
   state.activeReward = null;
   note(state, `Left the ${active.reward.kind} behind.`);
   record(state, { type: 'reward_skipped', kind: active.reward.kind });
+  cue(state, { type: 'claim', kind: 'skip' });
   return true;
 }
 
@@ -1218,6 +1288,7 @@ function checkEnding(game: Game): boolean {
 
 /** The whole run in one event: every per-card count, sent once. */
 function endRun(state: GameState, outcome: 'died' | 'won'): void {
+  cue(state, { type: 'end', outcome });
   record(state, {
     type: 'run_ended',
     outcome,
@@ -1258,6 +1329,7 @@ export function tick(game: Game, dt: number): void {
         entity.row = entity.motion.to.row;
         entity.col = entity.motion.to.col;
         entity.motion = null;
+        cue(state, { type: 'step', target: entity.id, side: entity.faction, cell: entityCell(entity) });
         // Stepping onto a marked tile sets it off, part-way through a walk too.
         // If that killed it, it is already falling: stop the walk and leave
         // the death animation be — setting it back to idle once left the body

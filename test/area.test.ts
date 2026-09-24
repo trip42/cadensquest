@@ -100,15 +100,17 @@ describe('a burst', () => {
     expect(foe.hp).toBe(40);
   });
 
-  it('is recorded for the renderer to flash, covering the diamond', () => {
+  it('is cued for the renderer to flash, covering the diamond', () => {
     const game = quiet();
     const { center } = crowd(game);
     define('blast', [BLAST]);
     play(game, 'blast', center);
-    const [burst] = game.state.bursts;
-    expect(burst!.colour).toBe('#feae34');
-    expect(burst!.cells).toEqual(cellsWithin(game, center, 1));
-    expect(burst!.cells.every((cell) => cellDistance(cell, center) <= 1)).toBe(true);
+    const burst = game.state.cues.find((item) => item.type === 'burst');
+    if (burst?.type !== 'burst') throw new Error('no burst cued');
+    expect(burst.center).toEqual(center);
+    expect(burst.colour).toBe('#feae34');
+    expect(burst.cells).toEqual(cellsWithin(game, center, 1));
+    expect(burst.cells.every((cell) => cellDistance(cell, center) <= 1)).toBe(true);
   });
 
   it('is aimed with a preview that shows the area and the friends it would catch', () => {

@@ -102,6 +102,7 @@ app/game/            the simulation — no Vue, no DOM (see the rule above)
   entities/            the player's definition, the ENTITIES registry, clips
   gems.ts talismans.ts rewards.ts   registries and reward rolling
   telemetry.ts         GameEvent, record(), the run tally
+  cues.ts              what just happened, for the screen and speakers: cue()
   sandbox.ts           trials: a run with one thing arranged (?try=)
   content/             schema.ts (zod), validate.ts, install.ts
   map/
@@ -242,7 +243,7 @@ of a dungeon. `state.floor` is the zone's index.
 - **`enterFloor`** bounds the world, puts the player at `arrivalOn` (on the
   trail, `START_ROW` rows in) and his allies on the nearest free tiles
   within four steps — any that do not fit are left behind — and clears the
-  old floor: enemies, terrain, hits, bursts, gates, queue. What he carries
+  old floor: enemies, terrain, hits, gates, queue. What he carries
   stays: deck, health, talismans, pending rewards. Tests use it to start on
   any floor.
 
@@ -517,9 +518,9 @@ marking every walkable tile in the diamond, each as its own layer. Aiming:
 while an area card is up, the store asks `areaPreview` and the renderer
 (`setAim`) shades the covered tiles and puts a blinking red ring under any
 of the player's own creatures that would be caught — friendly fire is never
-a surprise. Casting: `state.bursts` keeps the last `MAX_BURSTS` for the
-renderer, which flashes each once (`drawBursts`, keyed by id, fading over
-650ms); nothing in the rules reads them.
+a surprise. Casting cues a `burst` (see **Cues**) before anything lands,
+and the renderer flashes it once (`drawBursts`, keyed by the cue's seq,
+fading over 650ms).
 
 **Adding a verb** (a simple effect): the `EffectKind` union and
 `EFFECT_INFO` in effects.ts (label, help, sides, tile), a case in
@@ -708,6 +709,34 @@ Verifying delivery: **PostHog silently drops events from headless Chrome**
 (bot user-agent filter). Override the user agent over CDP, and block the
 upload URLs with `Network.setBlockedURLs` so a test run doesn't land in the
 real project.
+
+## Cues
+
+The screen and the speakers learn what happened from `game/cues.ts`, not
+by watching state change. The rules call `cue(state, ...)` at the moment
+something happens:
+
+- a hit: what it cost, what block took, whether it was fatal, how it
+  arrived (a blow, a tile or a burst) and from where
+- a fall, and a gain of block, health or power
+- a tame, a summon, a mark, a burst
+- a card played, a discard, each step
+- a portal opening, a descent, a turn
+- a reward coming up and being claimed, and the end of the run
+
+As with telemetry, the rules never know who is listening.
+
+- `state.cues` keeps the last `MAX_CUES`, and `state.cueSeq` numbers them.
+  A listener remembers the last seq it handled and reads `cuesSince` each
+  frame. Nobody drains the feed, so any number can listen.
+- A cue carries cells as well as ids, because by the time it is shown the
+  creature may be gone.
+- Gains are cued only when something was gained: a heal at full health
+  shows nothing. Go through `gainBlock`, `heal` and `gainPower` rather than
+  adding to `block`, `hp` or `power` directly, or the gain is never seen.
+- Cues are not analytics (that's `record`) and not the log (that's `note`).
+- Something new worth seeing or hearing: a member of `Cue`, a `cue()` where
+  it happens, and a line in `test/cues.test.ts`.
 
 ## HUD style
 

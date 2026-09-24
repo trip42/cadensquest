@@ -114,9 +114,9 @@ export class MapRenderer {
      it would catch — drawn so friendly fire is seen before it happens. */
   private aim: { cells: Set<string>; friends: Set<string> } | null = null;
   /* When each burst was first drawn, so each flashes once and fades. Keyed
-     by the burst's id; the game keeps the recent ones, the renderer only
-     reads them. */
-  private burstStarts = new Map<string, number>();
+     by the burst cue's seq; the game keeps the recent cues, the renderer
+     only reads them. */
+  private burstStarts = new Map<number, number>();
   private hover: Cell | null = null;
   /* Health and intent belong on top of the scene, not inside it: drawn in
      the depth pass they get painted over by whoever stands in front. */
@@ -130,7 +130,7 @@ export class MapRenderer {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('no 2d context');
     this.ctx = ctx;
-    for (const burst of game.state.bursts) this.burstStarts.set(burst.id, -Infinity);
+    for (const item of game.state.cues) if (item.type === 'burst') this.burstStarts.set(item.seq, -Infinity);
 
     const self = game.state.entities.find((entity) => entity.id === game.state.playerId)!;
     this.camera.row = self.row;
@@ -596,9 +596,10 @@ export class MapRenderer {
   private drawBursts(now: number): void {
     const DURATION = 650;
     const ctx = this.ctx;
-    for (const burst of this.game.state.bursts) {
-      if (!this.burstStarts.has(burst.id)) this.burstStarts.set(burst.id, now);
-      const age = (now - this.burstStarts.get(burst.id)!) / DURATION;
+    const bursts = this.game.state.cues.filter((item) => item.type === 'burst');
+    for (const burst of bursts) {
+      if (!this.burstStarts.has(burst.seq)) this.burstStarts.set(burst.seq, now);
+      const age = (now - this.burstStarts.get(burst.seq)!) / DURATION;
       if (age < 0 || age >= 1) continue;
       const fade = 1 - age;
       let cx = 0;
@@ -629,7 +630,7 @@ export class MapRenderer {
       ctx.restore();
     }
     // Forget bursts the game has already dropped.
-    const live = new Set(this.game.state.bursts.map((burst) => burst.id));
+    const live = new Set(bursts.map((burst) => burst.seq));
     for (const id of this.burstStarts.keys()) if (!live.has(id)) this.burstStarts.delete(id);
   }
 
