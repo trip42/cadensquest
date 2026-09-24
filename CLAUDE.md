@@ -349,8 +349,14 @@ fire burns once, standing in it burns every round, and pacing a healing tile
 heals once a round. Rounds count down in `beginTurn` (`ageTerrain`). Enemies
 do not path around marks, on purpose: fire is a way to route them. A
 cell-targeted card that only marks may target an occupied tile; one that
-leaps still needs an empty one. The renderer draws a stripe per mark in its
-colour (newest three, then a count) rather than blending colours; hovering a
+leaps still needs an empty one. The renderer (`drawMarks`) draws a mark in three
+layers so it reads as standing on the ground, not tinting it: a faint stain
+on the tile, a smaller plate hovering above it (bobbing, water-style
+highlights drifting across it) joined to the ground by two glowing walls, and
+motes rising off it. Each has a stripe per mark in its colour (newest three,
+then a count) rather than a blend; mote positions come from `hash` so they
+never crawl with the camera. Tuning dials are at the top of `drawMarks`
+(lift, alphas, `MOTES`, `RISE`); hovering a
 tile (`TileTip`) or an enemy on one lists the effects and rounds left, never
 the card that made them.
 

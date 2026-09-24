@@ -401,7 +401,7 @@ export class MapRenderer {
     const ty = sy - (stack.length - 1) * LAYER_H - top.elev;
 
     const marks = this.game.state.terrain[`${row},${col}`];
-    if (marks?.length) this.drawMarks(sx, ty, marks, now);
+    if (marks?.length) this.drawMarks(sx, ty, marks, row, col, now);
 
     const highlight = this.highlights.get(cellKey(row, col));
     const hovered = this.hover && this.hover.row === row && this.hover.col === col;
@@ -450,33 +450,100 @@ export class MapRenderer {
     }
   }
 
-  /* A marked tile: a stripe across its top for each mark, in the mark's own
-     colour, so fire and a healing spring on one tile read as red and green
-     rather than a blend of both. Past three, the three newest show and a
-     count says how many there are. A slow pulse tells a mark from the
-     ground's own colour. */
-  private drawMarks(sx: number, ty: number, marks: readonly TerrainLayer[], now: number): void {
+  /* A marked tile, drawn in three layers so it reads as something sitting
+     on the ground rather than a tint of it:
+
+       - a faint stain on the tile itself, which reads as the shadow of —
+       - a plate hovering a few units above the tile, bobbing slowly, with a
+         stripe across it for each mark in the mark's own colour (fire and
+         a healing spring on one tile read as red and green, not a blend)
+         and highlights drifting over it the way the water's do —
+       - motes in the marks' colours rising off it and fading.
+
+     Past three marks the three newest show, and a count says how many.
+     Positions come from `hash`, so each tile's motes are its own and never
+     crawl as the camera moves; time only drives the motion. */
+  private drawMarks(sx: number, ty: number, marks: readonly TerrainLayer[], row: number, col: number, now: number): void {
     const ctx = this.ctx;
     const shown = marks.slice(-3);
-    const pulse = 0.42 + 0.12 * Math.sin(now / 420);
+    const phase = (row + col) * 0.9;
+    const t = now / 1000;
 
+    // The stain: the stripes, faintly, on the tile itself.
+    this.stripes(sx, ty, 1, shown, 0.28);
+
+    // The plate: raised, a little smaller than the tile, bobbing.
+    const lift = 11 + Math.sin(t * 2 + phase) * 2;
+    const py = ty - lift;
+    const scale = 0.8;
+
+    // Its sides: two glowing walls from the ground up to the plate, the
+    // front faces of a shallow prism — the first mark's colour on the left,
+    // the newest on the right — brightest at the base and fading upward.
+    const walls: Array<[number, string]> = [[-1, shown[0]!.colour], [1, shown.at(-1)!.colour]];
+    for (const [side, colour] of walls) {
+      const edgeX = sx + side * HW * scale;
+      const glow = ctx.createLinearGradient(0, ty + HH * scale, 0, py);
+      glow.addColorStop(0, withAlpha(colour, 0.5));
+      glow.addColorStop(1, withAlpha(colour, 0.08));
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.moveTo(edgeX, ty);
+      ctx.lineTo(sx, ty + HH * scale);
+      ctx.lineTo(sx, py + HH * scale);
+      ctx.lineTo(edgeX, py);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    this.stripes(sx, py, scale, shown, 0.62);
+
+    // Highlights drifting across it, as on the water.
     ctx.save();
-    diamondPath(ctx, sx, ty);
+    scaledDiamond(ctx, sx, py, scale);
     ctx.clip();
-    const band = TILE_W / shown.length;
-    shown.forEach((mark, i) => {
-      ctx.globalAlpha = pulse;
-      ctx.fillStyle = mark.colour;
-      ctx.fillRect(sx - TILE_W / 2 + i * band, ty - TILE_H / 2, band + 0.5, TILE_H);
-    });
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let i = 0; i < 2; i += 1) {
+      const y = py + Math.sin(t * 1.4 + phase + i * 2.4) * HH * 0.3 + (i - 0.5) * 6;
+      ctx.moveTo(sx - HW * 0.28, y);
+      ctx.lineTo(sx + HW * 0.28, y);
+    }
+    ctx.stroke();
     ctx.restore();
 
+    // Its rim, in the newest mark's colour, and a darker lip under it for
+    // thickness.
     ctx.save();
-    ctx.strokeStyle = shown.at(-1)!.colour;
-    ctx.globalAlpha = 0.9;
-    ctx.lineWidth = 1.5;
-    diamondPath(ctx, sx, ty);
+    ctx.globalAlpha = 0.5;
+    ctx.strokeStyle = this.palette.ink;
+    ctx.lineWidth = 2;
+    scaledDiamond(ctx, sx, py + 2, scale);
     ctx.stroke();
+    ctx.globalAlpha = 0.95;
+    ctx.strokeStyle = shown.at(-1)!.colour;
+    ctx.lineWidth = 1.5;
+    scaledDiamond(ctx, sx, py, scale);
+    ctx.stroke();
+    ctx.restore();
+
+    // Motes rising off it, each a mark's colour, fading as they climb.
+    const MOTES = 9;
+    const RISE = 38;
+    ctx.save();
+    for (let i = 0; i < MOTES; i += 1) {
+      const a = hash(row, col, i + 300) * 2 - 1;
+      const b = hash(row, col, i + 340) * 2 - 1;
+      const speed = 0.35 + hash(row, col, i + 380) * 0.3;
+      const age = (t * speed + hash(row, col, i + 420)) % 1;
+      const mark = shown[i % shown.length]!;
+      ctx.globalAlpha = 0.85 * (1 - age);
+      ctx.fillStyle = mark.colour;
+      const x = sx + (a - b) * HW * 0.45 * scale;
+      const y = py + (a + b) * HH * 0.45 * scale - age * RISE;
+      ctx.fillRect(Math.round(x) - 2, Math.round(y) - 2, 4, 4);
+    }
     ctx.restore();
 
     if (marks.length > shown.length) {
@@ -485,14 +552,30 @@ export class MapRenderer {
       const label = `×${marks.length}`;
       const w = Math.ceil(ctx.measureText(label).width) + 6;
       ctx.fillStyle = ink;
-      ctx.fillRect(Math.round(sx - w / 2), Math.round(ty - 6), w, 11);
+      ctx.fillRect(Math.round(sx - w / 2), Math.round(py - 6), w, 11);
       ctx.fillStyle = text;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(label, sx, ty);
+      ctx.fillText(label, sx, py);
       ctx.textAlign = 'start';
       ctx.textBaseline = 'alphabetic';
     }
+  }
+
+  /** A diamond filled with a vertical stripe per mark. */
+  private stripes(sx: number, sy: number, scale: number, marks: readonly TerrainLayer[], alpha: number): void {
+    const ctx = this.ctx;
+    const w = TILE_W * scale;
+    const band = w / marks.length;
+    ctx.save();
+    scaledDiamond(ctx, sx, sy, scale);
+    ctx.clip();
+    ctx.globalAlpha = alpha;
+    marks.forEach((mark, i) => {
+      ctx.fillStyle = mark.colour;
+      ctx.fillRect(sx - w / 2 + i * band, sy - (TILE_H * scale) / 2, band + 0.5, TILE_H * scale);
+    });
+    ctx.restore();
   }
 
   /** One block: two walls, and a top face only when nothing is stacked on
@@ -826,6 +909,22 @@ export class MapRenderer {
 }
 
 /** Where a character is right now — between two cells while it walks. */
+/** A #rrggbb colour as rgba, at this opacity. */
+function withAlpha(hex: string, alpha: number): string {
+  const value = Number.parseInt(hex.slice(1), 16);
+  return `rgba(${(value >> 16) & 0xff}, ${(value >> 8) & 0xff}, ${value & 0xff}, ${alpha})`;
+}
+
+/** A tile-shaped diamond, scaled about its centre. */
+function scaledDiamond(ctx: CanvasRenderingContext2D, sx: number, sy: number, scale: number): void {
+  ctx.beginPath();
+  ctx.moveTo(sx, sy - HH * scale);
+  ctx.lineTo(sx + HW * scale, sy);
+  ctx.lineTo(sx, sy + HH * scale);
+  ctx.lineTo(sx - HW * scale, sy);
+  ctx.closePath();
+}
+
 /** Scale a #rrggbb colour towards black. */
 function darken(hex: string, factor: number): string {
   const value = Number.parseInt(hex.slice(1), 16);
