@@ -8,7 +8,7 @@
       "sheet": "enemies",
       "col": 0,
       "row": 0,
-      "faces": -1,
+      "faces": 1,
       "footprint": {
         "width": 50,
         "height": 36
@@ -21,10 +21,10 @@
       "slime_harden"
     ],
     "reward": {
+      "weights": {},
       "cardRarity": {
         "normal": 85,
-        "rare": 15,
-        "mythic": 0
+        "rare": 15
       }
     }
   },
@@ -37,7 +37,7 @@
       "sheet": "enemies",
       "col": 0,
       "row": 1,
-      "faces": -1,
+      "faces": 1,
       "footprint": {
         "width": 94,
         "height": 70
@@ -72,7 +72,7 @@
       "sheet": "enemies",
       "col": 0,
       "row": 2,
-      "faces": -1,
+      "faces": 1,
       "footprint": {
         "width": 64,
         "height": 40
@@ -94,7 +94,7 @@
       "sheet": "enemies",
       "col": 0,
       "row": 3,
-      "faces": -1,
+      "faces": 1,
       "footprint": {
         "width": 70,
         "height": 50
@@ -116,7 +116,7 @@
       "sheet": "enemies",
       "col": 0,
       "row": 4,
-      "faces": -1,
+      "faces": 1,
       "footprint": {
         "width": 42,
         "height": 48
@@ -151,7 +151,7 @@
       "sheet": "enemies",
       "col": 0,
       "row": 5,
-      "faces": -1,
+      "faces": 1,
       "footprint": {
         "width": 76,
         "height": 50
@@ -181,7 +181,7 @@
       "sheet": "enemies",
       "col": 1,
       "row": 5,
-      "faces": -1,
+      "faces": 1,
       "footprint": {
         "width": 96,
         "height": 64
@@ -211,7 +211,7 @@
       "sheet": "enemies",
       "col": 1,
       "row": 1,
-      "faces": -1,
+      "faces": 1,
       "footprint": {
         "width": 116,
         "height": 86

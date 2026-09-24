@@ -231,7 +231,7 @@
   {
     "id": "shield_slam",
     "name": "Shield Slam",
-    "enabled": false,
+    "enabled": true,
     "rarity": "rare",
     "art": "shield",
     "cost": 1,
@@ -256,7 +256,7 @@
   {
     "id": "flurry",
     "name": "Flurry",
-    "enabled": false,
+    "enabled": true,
     "rarity": "rare",
     "art": "slash",
     "cost": "X",
@@ -276,7 +276,7 @@
   {
     "id": "fire",
     "name": "Fire",
-    "enabled": false,
+    "enabled": true,
     "rarity": "rare",
     "art": "flame",
     "cost": 1,
@@ -300,7 +300,7 @@
   {
     "id": "spring",
     "name": "Spring",
-    "enabled": false,
+    "enabled": true,
     "rarity": "rare",
     "art": "heart",
     "cost": 1,
@@ -324,7 +324,7 @@
   {
     "id": "tame",
     "name": "Tame",
-    "enabled": false,
+    "enabled": true,
     "rarity": "rare",
     "art": "heart",
     "cost": 1,
@@ -345,7 +345,7 @@
   {
     "id": "patch_up",
     "name": "Patch Up",
-    "enabled": false,
+    "enabled": true,
     "rarity": "normal",
     "art": "heart",
     "cost": 1,
@@ -362,7 +362,7 @@
   {
     "id": "call_wolf",
     "name": "Call Wolf",
-    "enabled": false,
+    "enabled": true,
     "rarity": "rare",
     "art": "eye",
     "cost": 2,
@@ -381,7 +381,7 @@
   {
     "id": "firestorm",
     "name": "Firestorm",
-    "enabled": false,
+    "enabled": true,
     "rarity": "mythic",
     "art": "flame",
     "cost": 2,
@@ -405,7 +405,7 @@
   {
     "id": "nova",
     "name": "Nova",
-    "enabled": false,
+    "enabled": true,
     "rarity": "rare",
     "art": "heart",
     "cost": 1,
@@ -430,25 +430,32 @@
   {
     "id": "wildfire",
     "name": "Wildfire",
-    "enabled": false,
+    "enabled": true,
     "rarity": "mythic",
     "art": "flame",
-    "cost": 2,
+    "cost": "X",
     "targeting": "cell",
     "range": 3,
     "text": "Mark a tile within 3 and every tile within 1 of it: for 2 rounds, whoever is on it takes 2 damage.",
     "effects": [
       {
         "kind": "terrain",
-        "rounds": 2,
-        "colour": "#e43b44",
-        "radius": 1,
+        "rounds": {
+          "of": "x",
+          "times": 2
+        },
+        "colour": "#970af5",
         "effects": [
           {
-            "kind": "damage",
+            "kind": "power",
             "amount": 2
+          },
+          {
+            "kind": "draw",
+            "amount": 1
           }
-        ]
+        ],
+        "radius": 1
       }
     ]
   }

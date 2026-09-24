@@ -179,7 +179,7 @@
     "effects": [
       {
         "kind": "advance",
-        "amount": 8
+        "amount": 6
       }
     ]
   },

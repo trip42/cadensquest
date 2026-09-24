@@ -7,7 +7,7 @@
       "bug"
     ],
     "guardian": "warden",
-    "density": 3
+    "density": 5
   },
   {
     "id": "marsh",
@@ -17,7 +17,7 @@
       "spider"
     ],
     "guardian": "wyrm",
-    "density": 4
+    "density": 8
   },
   {
     "id": "highlands",
@@ -26,6 +26,6 @@
       "spider",
       "dragon"
     ],
-    "density": 3
+    "density": 10
   }
 ]
