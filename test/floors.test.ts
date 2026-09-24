@@ -101,8 +101,9 @@ describe('a floor', () => {
   });
 
   it('with no guardian, has its way off open from the start', () => {
-    // The last zone names no guardian: its way out is waiting.
-    expect(ZONES[FLOORS - 1]!.guardian).toBeUndefined();
+    // Whatever the content names — a final boss is one edit away — a floor
+    // without a guardian has its way out waiting. afterEach restores it.
+    delete ZONES[FLOORS - 1]!.guardian;
     const game = nearTheEnd(FLOORS - 1);
     const portal = portalAt(game);
     expect(portal?.row).toBe(floorRows(FLOORS - 1).last);
@@ -174,7 +175,10 @@ describe('going down', () => {
 
   it('out of the last floor wins the run', () => {
     const game = nearTheEnd(FLOORS - 1);
-    walkOnto(game, portalAt(game)!);
+    // Through a final guardian if the content names one; open if not.
+    const way = game.state.gates.length ? fell(game) : portalAt(game)!;
+    expect(terrainAt(game.state, way).find((layer) => layer.portal)?.portal).toBe('out');
+    walkOnto(game, way);
     expect(game.state.phase).toBe('victory');
     expect(game.state.events.filter((event) => event.type === 'run_won')).toHaveLength(1);
     expect(game.state.events.find((event) => event.type === 'run_ended')).toMatchObject({ outcome: 'won' });
