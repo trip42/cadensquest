@@ -1177,9 +1177,12 @@ export function tick(game: Game, dt: number): void {
         entity.col = entity.motion.to.col;
         entity.motion = null;
         // Stepping onto a marked tile sets it off, part-way through a walk too.
+        // If that killed it, it is already falling: stop the walk and leave
+        // the death animation be — setting it back to idle once left the body
+        // on the map for good, since the fallen are cleared when it finishes.
         triggerTile(game, entity);
         if (entity.dead) entity.path = [];
-        if (entity.path.length) startStep(entity);
+        else if (entity.path.length) startStep(entity);
         else setAnimation(entity, 'idle');
       }
     }

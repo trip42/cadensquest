@@ -6,7 +6,7 @@ import type { CardDefinition } from '~/game/cards/types';
 import { type Content, loadContent, validateContent } from '~/game/content';
 import type { Effect } from '~/game/effects';
 import { entityCell } from '~/game/entities/types';
-import { type Cell, reachable } from '~/game/map/navigation';
+import { type Cell, cellDistance, reachable } from '~/game/map/navigation';
 import { createGame, type Game, makeCard, makeEntity, player, resetUids } from '~/game/state';
 import { writeCardText } from '~/utils/contentText';
 import { readContentFiles } from './setup';
@@ -187,5 +187,39 @@ describe('terrain in content', () => {
 
   it('writes the text the way the cards say it', () => {
     expect(writeCardText([burn(3)], 3, 'player', 'cell')).toBe('Mark a tile within 3: for 3 rounds, whoever is on it takes 3 damage.');
+  });
+});
+
+describe('dying on a marked tile', () => {
+  it('leaves the map, even when the step onto it is what killed', () => {
+    const game = quiet();
+    const self = player(game.state);
+    self.block = 99;                      // keep the player out of it
+    const here = entityCell(self);
+    const pyre = cellAt(game, 2);
+    define('pyre', [burn(99)]);
+    play(game, 'pyre', pyre);
+
+    // One enemy already on the tile dies at once; a second walks onto it.
+    const first = makeEntity('chicken', pyre.row, pyre.col);
+    first.intent = null;
+    game.state.entities.push(first);
+    play(game, 'pyre', pyre);
+    expect(first.dead).toBe(true);
+
+    const approach = [...reachable(game.world, pyre, 1).values()]
+      .map((entry) => entry.cell)
+      .find((cell) => cellDistance(cell, pyre) === 1 && cellDistance(cell, here) > 1)!;
+    const second = makeEntity('chicken', approach.row, approach.col);
+    second.intent = null;
+    game.state.entities.push(second);
+    second.path = [pyre];
+    second.motion = { from: approach, to: second.path.shift()!, t: 0, speed: 4 };
+
+    for (let i = 0; i < 600; i += 1) tick(game, 1 / 60);
+    expect(second.dead).toBe(true);
+    expect(second.anim.state).toBe('die');
+    expect(game.state.entities).not.toContain(first);
+    expect(game.state.entities).not.toContain(second);
   });
 });

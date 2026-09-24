@@ -155,6 +155,10 @@ export const entityCell = (entity: Entity): Cell => ({ row: entity.row, col: ent
 
 export function setAnimation(entity: Entity, state: AnimationState): void {
   if (entity.anim.state === state) return;
+  // The fallen only ever fall. Removal waits for the death animation to
+  // finish, so anything that switched a dead creature to another clip would
+  // leave its body on the map for ever, unhoverable and walked through.
+  if (entity.dead && state !== 'die') return;
   entity.anim = { state, frame: 0, elapsed: 0, done: false };
 }
 
