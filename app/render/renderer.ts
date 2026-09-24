@@ -469,38 +469,46 @@ export class MapRenderer {
     const phase = (row + col) * 0.9;
     const t = now / 1000;
 
-    // The stain: the stripes, faintly, on the tile itself.
-    this.stripes(sx, ty, 1, shown, 0.28);
+    // The stain: the stripes, faintly, in a circle on the tile itself —
+    // the largest circle that sits inside the tile's diamond.
+    this.stripes(sx, ty, 0.7, shown, 0.28);
 
-    // The plate: raised, a little smaller than the tile, bobbing.
+    // The plate: a smaller circle, raised and bobbing.
     const lift = 11 + Math.sin(t * 2 + phase) * 2;
     const py = ty - lift;
-    const scale = 0.8;
+    const scale = 0.62;
+    const rx = HW * scale;
+    const ry = HH * scale;
 
-    // Its sides: two glowing walls from the ground up to the plate, the
-    // front faces of a shallow prism — the first mark's colour on the left,
-    // the newest on the right — brightest at the base and fading upward.
-    const walls: Array<[number, string]> = [[-1, shown[0]!.colour], [1, shown.at(-1)!.colour]];
-    for (const [side, colour] of walls) {
-      const edgeX = sx + side * HW * scale;
-      const glow = ctx.createLinearGradient(0, ty + HH * scale, 0, py);
+    // Its side: the front of a short cylinder from the ground up to the
+    // plate — the first mark's colour on the left half, the newest on the
+    // right — brightest at the base and fading upward.
+    const halves: Array<[number, string]> = [[-1, shown[0]!.colour], [1, shown.at(-1)!.colour]];
+    for (const [side, colour] of halves) {
+      const glow = ctx.createLinearGradient(0, ty + ry, 0, py);
       glow.addColorStop(0, withAlpha(colour, 0.5));
       glow.addColorStop(1, withAlpha(colour, 0.08));
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(side < 0 ? sx - rx - 1 : sx, py - ry, rx + 1, ty - py + ry * 2 + 1);
+      ctx.clip();
       ctx.fillStyle = glow;
       ctx.beginPath();
-      ctx.moveTo(edgeX, ty);
-      ctx.lineTo(sx, ty + HH * scale);
-      ctx.lineTo(sx, py + HH * scale);
-      ctx.lineTo(edgeX, py);
+      ctx.moveTo(sx - rx, py);
+      ctx.lineTo(sx - rx, ty);
+      ctx.ellipse(sx, ty, rx, ry, 0, Math.PI, 0, true);     // front of the base
+      ctx.lineTo(sx + rx, py);
+      ctx.ellipse(sx, py, rx, ry, 0, 0, Math.PI, false);    // front of the plate
       ctx.closePath();
       ctx.fill();
+      ctx.restore();
     }
 
     this.stripes(sx, py, scale, shown, 0.62);
 
     // Highlights drifting across it, as on the water.
     ctx.save();
-    scaledDiamond(ctx, sx, py, scale);
+    markCircle(ctx, sx, py, scale);
     ctx.clip();
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
     ctx.lineWidth = 1.5;
@@ -519,12 +527,12 @@ export class MapRenderer {
     ctx.globalAlpha = 0.5;
     ctx.strokeStyle = this.palette.ink;
     ctx.lineWidth = 2;
-    scaledDiamond(ctx, sx, py + 2, scale);
+    markCircle(ctx, sx, py + 2, scale);
     ctx.stroke();
     ctx.globalAlpha = 0.95;
     ctx.strokeStyle = shown.at(-1)!.colour;
     ctx.lineWidth = 1.5;
-    scaledDiamond(ctx, sx, py, scale);
+    markCircle(ctx, sx, py, scale);
     ctx.stroke();
     ctx.restore();
 
@@ -562,13 +570,14 @@ export class MapRenderer {
     }
   }
 
-  /** A diamond filled with a vertical stripe per mark. */
+  /** A circle (an ellipse, seen at this angle) filled with a vertical
+   *  stripe per mark. */
   private stripes(sx: number, sy: number, scale: number, marks: readonly TerrainLayer[], alpha: number): void {
     const ctx = this.ctx;
     const w = TILE_W * scale;
     const band = w / marks.length;
     ctx.save();
-    scaledDiamond(ctx, sx, sy, scale);
+    markCircle(ctx, sx, sy, scale);
     ctx.clip();
     ctx.globalAlpha = alpha;
     marks.forEach((mark, i) => {
@@ -915,14 +924,12 @@ function withAlpha(hex: string, alpha: number): string {
   return `rgba(${(value >> 16) & 0xff}, ${(value >> 8) & 0xff}, ${value & 0xff}, ${alpha})`;
 }
 
-/** A tile-shaped diamond, scaled about its centre. */
-function scaledDiamond(ctx: CanvasRenderingContext2D, sx: number, sy: number, scale: number): void {
+/** A circle lying flat on the ground, which the projection turns into an
+ *  ellipse half as tall as it is wide — the tile's own proportions. At
+ *  scale 1 it passes through the tile's corners; 0.7 sits inside it. */
+function markCircle(ctx: CanvasRenderingContext2D, sx: number, sy: number, scale: number): void {
   ctx.beginPath();
-  ctx.moveTo(sx, sy - HH * scale);
-  ctx.lineTo(sx + HW * scale, sy);
-  ctx.lineTo(sx, sy + HH * scale);
-  ctx.lineTo(sx - HW * scale, sy);
-  ctx.closePath();
+  ctx.ellipse(sx, sy, HW * scale, HH * scale, 0, 0, Math.PI * 2);
 }
 
 /** Scale a #rrggbb colour towards black. */

@@ -350,10 +350,12 @@ heals once a round. Rounds count down in `beginTurn` (`ageTerrain`). Enemies
 do not path around marks, on purpose: fire is a way to route them. A
 cell-targeted card that only marks may target an occupied tile; one that
 leaps still needs an empty one. The renderer (`drawMarks`) draws a mark in three
-layers so it reads as standing on the ground, not tinting it: a faint stain
-on the tile, a smaller plate hovering above it (bobbing, water-style
-highlights drifting across it) joined to the ground by two glowing walls, and
-motes rising off it. Each has a stripe per mark in its colour (newest three,
+layers so it reads as standing on the ground, not tinting it: a faint round
+stain on the tile, a smaller round plate hovering above it (bobbing,
+water-style highlights drifting across it) joined to the ground by the glowing
+front of a short cylinder, and motes rising off it. Circles are ellipses at
+the tile's 2:1 proportions (`markCircle`); the shared `diamondPath` in iso.ts
+is left alone because every tile top and highlight uses it. Each has a stripe per mark in its colour (newest three,
 then a count) rather than a blend; mote positions come from `hash` so they
 never crawl with the camera. Tuning dials are at the top of `drawMarks`
 (lift, alphas, `MOTES`, `RISE`); hovering a
