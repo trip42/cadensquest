@@ -1,9 +1,10 @@
 # Caden's Quest — art specification
 
 Caden's Quest is a card-driven roguelike played on an isometric map. Caden
-walks a procedurally generated trail through three zones, fighting the
-creatures he meets with cards — and every card he doesn't play can be spent
-as footsteps instead. Each zone ends at a boss who guards the way on.
+goes down through three floors — one per zone, each a procedurally generated
+trail — fighting the creatures he meets with cards, and every card he
+doesn't play can be spent as footsteps instead. Each floor ends at a boss;
+where it falls, a portal opens down to the next.
 
 **Play the current build at [cadensquest.com](https://cadensquest.com).**
 Add `?seed=90210` to the address to get the same map every time.
@@ -21,7 +22,7 @@ in.
 |---|------|----------|------|
 | 1 | **Caden** — the player character | 6 animations | First |
 | 2 | **Creatures** — 6 enemies and 2 zone bosses | 5 animations each | Second |
-| 3 | **Effects** — hits, projectiles, bursts, burning and healing ground | about 10 | Third |
+| 3 | **Effects** — hits, projectiles, bursts, burning and healing ground, the portal | about 11 | Third |
 | 4 | **Card illustrations** | 7 now, one per card later | Fourth |
 | 5 | **Talisman icons** | 8 | Fourth |
 | 6 | Store and marketing art | separate brief | When a store page is planned |
@@ -200,8 +201,8 @@ sheets, so size costs loading time.
 | **Spider** | Sunken Reach, Pale Shelf | 12 | Spits for 4 from two tiles away; scuttles; broods | Attack row = a spit |
 | **Wolf** | Pale Shelf | 16 | Lunges and bites for 6; circles to guard | A fast hunter |
 | **Dragon** | Pale Shelf | 30 | Breathes fire for 8 from three tiles away; rages; beats its wings to close in | The zone's big threat. Attack row = the breath pose; the flames are an effect sprite |
-| **Warden** — boss of North Basin | its zone's last row | 44 | Mauls for 8 from two tiles away; stands firm; roars | Guards the way on. Never moves. Currently a corrupted wolf |
-| **Wyrm** — boss of Sunken Reach | its zone's last row | 64 | Breathes fire for 11 from three tiles away; hardens its scales; builds fury | The bigger boss. Never moves. Currently a corrupted dragon |
+| **Warden** — boss of North Basin | its floor's last row | 44 | Mauls for 8 from two tiles away; stands firm; roars | Guards the way down. Never moves. Currently a corrupted wolf |
+| **Wyrm** — boss of Sunken Reach | its floor's last row | 64 | Breathes fire for 11 from three tiles away; hardens its scales; builds fury | The bigger boss. Never moves. Currently a corrupted dragon |
 
 The same art is used when a creature is **tamed or summoned** to fight on
 Caden's side. The game draws a coloured ring under it to show whose side
@@ -232,6 +233,7 @@ build support for, so each effect should follow the same simple format:
 | **Power** | Growing stronger | once | 5–6 | 256 × 256 |
 | **Tame** | An enemy joining Caden | once | about 8 | 256 × 256 |
 | **Summon** | A creature appearing | once | about 8 | 256 × 256 |
+| **Portal** | The way down to the next floor, opening where a boss falls (and the way out on the last floor) | opens once, then loops | 8 to open, 6–8 looping | 256 × 256: a white or pale glow on the tile, rising a little |
 
 **Colour.** Designers choose a colour for each marked tile and area burst in
 the game's editor. For **marked ground** and **area bursts**, deliver:
