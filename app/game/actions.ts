@@ -254,8 +254,20 @@ export function amountValues(state: GameState, actor: Entity, x = 0): AmountValu
 const onPlayersSide = (entity: Entity) => entity.faction !== 'enemy';
 export const sameSide = (a: Entity, b: Entity): boolean => onPlayersSide(a) === onPlayersSide(b);
 
-/** How far an ally looks for a fight before heading back to the player. */
+/** How far an ally looks for a fight before heading back to the player —
+ *  and how near a creature must be to the player for what it does to be
+ *  worth a line in the log. */
 const ENGAGE_RADIUS = 8;
+
+/* A line in the log about what an enemy or ally did — only when it is near
+   enough to matter. Enemies far up the map still take their turns, and
+   every one of them bracing or failing to reach, turn after turn, buried
+   the lines about the fight actually in front of the player. Anything that
+   lands a blow is logged regardless, by dealDamage. */
+function noteNear(state: GameState, actor: Entity, line: string): void {
+  if (actor.id !== state.playerId && cellDistance(entityCell(actor), entityCell(player(state))) > ENGAGE_RADIUS) return;
+  note(state, line);
+}
 
 /** Whom an enemy or ally acts against this moment: the nearest living one
  *  on the other side. Enemies choose between the player and his allies — a
@@ -314,7 +326,7 @@ function markTile(game: Game, effect: TerrainEffect, play: Play): void {
   const cell = play.target ?? entityCell(actor);
 
   if (!isPlayer && cellDistance(entityCell(actor), cell) > range) {
-    note(state, `${entityDef(actor.defId).name} cannot reach.`);
+    noteNear(state, actor, `${entityDef(actor.defId).name} cannot reach.`);
     return;
   }
   if (!world.walkable(cell.row, cell.col)) return;
@@ -414,7 +426,7 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
       // Never one's own side: an ally's blow lands on enemies only.
       if (!victim || victim === actor || sameSide(actor, victim)) break;
       if (!isPlayer && cellDistance(entityCell(actor), entityCell(victim)) > range) {
-        note(state, `${entityDef(actor.defId).name} cannot reach.`);
+        noteNear(state, actor, `${entityDef(actor.defId).name} cannot reach.`);
         break;
       }
       faceToward(actor, entityCell(victim));
@@ -425,7 +437,7 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
     }
     case 'block':
       actor.block += amount + (isPlayer ? stat(state, 'blockBonus') : 0);
-      if (!isPlayer) note(state, `${entityDef(actor.defId).name} braces.`);
+      if (!isPlayer) noteNear(state, actor, `${entityDef(actor.defId).name} braces.`);
       break;
     case 'loseBlock':
       // No bonus: blockBonus makes gaining block better, not losing it worse.
@@ -436,7 +448,7 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
       break;
     case 'power':
       actor.power += amount;
-      if (!isPlayer) note(state, `${entityDef(actor.defId).name} grows stronger.`);
+      if (!isPlayer) noteNear(state, actor, `${entityDef(actor.defId).name} grows stronger.`);
       break;
     case 'advance':
       if (!isPlayer && play.goal) advance(game, actor, amount, range, play.goal);
@@ -526,7 +538,7 @@ function advance(game: Game, enemy: Entity, steps: number, reach: number, goal: 
 
   enemy.path = walk;
   startStep(enemy);
-  note(state, `${entityDef(enemy.defId).name} ${sameSide(enemy, goal) ? 'follows you' : 'closes in'}.`);
+  noteNear(state, enemy, `${entityDef(enemy.defId).name} ${sameSide(enemy, goal) ? 'follows you' : 'closes in'}.`);
 }
 
 /* The other thing a card can be: a way to cover ground. Discarding pays no

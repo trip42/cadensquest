@@ -237,3 +237,19 @@ describe('guardians', () => {
     }
   });
 });
+
+describe('the log', () => {
+  it('keeps quiet about enemies far away, and still reports ones nearby', () => {
+    const game = quiet(4242);
+    const self = player(game.state);
+    const far = [...reachable(game.world, entityCell(self), 20).values()]
+      .find((entry) => cellDistance(entry.cell, entityCell(self)) > 10)!.cell;
+    place(game, 'slime', far, 'slime_harden');          // braces, far off
+    place(game, 'warden', cellAt(game, 5), 'warden_maul');   // reach 2, and a guardian never walks
+    const before = game.state.log.length;
+    runEnemyPhase(game);
+    const lines = game.state.log.slice(before).join(' | ');
+    expect(lines).not.toContain('Slime');
+    expect(lines).toContain('Warden cannot reach');
+  });
+});
