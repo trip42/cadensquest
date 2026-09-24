@@ -90,7 +90,7 @@ function crossCheck(content: Content): ContentIssue[] {
   const talismans = new Map(content.talismans.map((talisman) => [talisman.id, talisman]));
 
   const offSide = (kind: string, side: 'player' | 'enemy') =>
-    kind !== 'terrain' && !EFFECT_INFO[kind as EffectKind][side];
+    kind !== 'terrain' && kind !== 'summon' && !EFFECT_INFO[kind as EffectKind][side];
 
   /** Every amount in a list of effects, with where it sits — a terrain
    *  effect's rounds and the amounts on its tile count too. */
@@ -101,7 +101,12 @@ function crossCheck(content: Content): ContentIssue[] {
           { amount: effect.rounds, field: `${at}[${i}].rounds` },
           ...effect.effects.map((tile, t) => ({ amount: tile.amount, field: `${at}[${i}].effects[${t}].amount` })),
         ]
-        : [{ amount: effect.amount, field: `${at}[${i}].amount` }]);
+        : effect.kind === 'summon'
+          ? [
+            { amount: effect.amount, field: `${at}[${i}].amount` },
+            ...(effect.rounds === undefined ? [] : [{ amount: effect.rounds, field: `${at}[${i}].rounds` }]),
+          ]
+          : [{ amount: effect.amount, field: `${at}[${i}].amount` }]);
 
   const scaledOf = (amount: AmountData) => (typeof amount === 'object' ? amount.of : null);
   const usesX = (effects: readonly EffectData[]) => amountsIn(effects).some(({ amount }) => scaledOf(amount) === 'x');
@@ -117,6 +122,25 @@ function crossCheck(content: Content): ContentIssue[] {
       });
     });
   };
+  /** A summon names an enemy that exists, is not a guardian, and is not
+   *  disabled while the thing summoning it is enabled. */
+  const checkSummons = (file: ContentFile, id: string, enabled: boolean, effects: readonly EffectData[], at = 'effects') => {
+    effects.forEach((effect, i) => {
+      if (effect.kind !== 'summon') return;
+      const field = `${at}[${i}].entity`;
+      const creature = enemies.get(effect.entity);
+      if (!creature) return error(file, id, `it summons "${effect.entity}", which is not an enemy`, field);
+      if (creature.guardian) return error(file, id, `"${effect.entity}" is a guardian, which cannot be summoned`, field);
+      if (enabled && !creature.enabled) error(file, id, `it summons "${effect.entity}", which is disabled`, field);
+    });
+  };
+  for (const card of content.cards) checkSummons('cards', card.id, card.enabled, card.effects);
+  for (const card of content['enemy-cards']) checkSummons('enemy-cards', card.id, card.enabled, card.effects);
+  for (const gem of content.gems) checkSummons('gems', gem.id, gem.enabled, gem.effects);
+  for (const talisman of content.talismans) {
+    talisman.triggers?.forEach((trigger, t) => checkSummons('talismans', talisman.id, talisman.enabled, trigger.effects, `triggers[${t}].effects`));
+  }
+
   for (const card of content.cards) checkTiles('cards', card.id, card.effects);
   for (const card of content['enemy-cards']) checkTiles('enemy-cards', card.id, card.effects);
   for (const gem of content.gems) checkTiles('gems', gem.id, gem.effects);

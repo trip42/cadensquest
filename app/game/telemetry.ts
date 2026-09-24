@@ -23,7 +23,9 @@ export type GameEvent =
   | { type: 'talisman_collected'; talisman: string }
   | { type: 'reward_skipped'; kind: string }
   /** `by` is who landed the blow: the player, an ally's kind, or a tile. */
-  | { type: 'enemy_killed'; enemy: string; guardian: boolean; row: number; by?: string }
+  | { type: 'enemy_killed'; enemy: string; guardian: boolean; row: number; by?: string; summoned?: true }
+  | { type: 'summoned'; entity: string; side: 'ally' | 'enemy'; health: number }
+  | { type: 'summon_faded'; entity: string; side: 'ally' | 'enemy' }
   | { type: 'enemy_tamed'; enemy: string; health: number; row: number }
   | { type: 'ally_fell'; ally: string; row: number }
   | { type: 'player_died'; row: number; zone: string; killedBy: string | null; turn: number }

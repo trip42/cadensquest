@@ -144,6 +144,11 @@ export interface Entity {
   /** What it drops when it falls, decided when it was spawned. */
   reward: Reward | null;
   dead: boolean;
+  /** Who summoned it, if it was summoned rather than found. */
+  summonedBy: string | null;
+  /** Rounds left before a summoned creature fades; null for as long as it
+   *  lives. */
+  expires: number | null;
 }
 
 export const entityCell = (entity: Entity): Cell => ({ row: entity.row, col: entity.col });

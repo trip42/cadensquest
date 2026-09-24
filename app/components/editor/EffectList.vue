@@ -8,8 +8,10 @@
    warns — but marked, so the choice is an informed one. Inside a terrain
    mark only verbs that mean something on a tile are offered, and no
    terrain within terrain. */
+import { computed } from 'vue';
 import type { ContentIssue, EffectData } from '~/game/content';
-import { EFFECT_INFO, EFFECT_KINDS, type EffectKind, TERRAIN_INFO } from '~/game/effects';
+import { EFFECT_INFO, EFFECT_KINDS, type EffectKind, SUMMON_INFO, TERRAIN_INFO } from '~/game/effects';
+import { useEditorStore } from '~/stores/editor';
 
 const props = defineProps<{
   effects: EffectData[];
@@ -24,7 +26,20 @@ const props = defineProps<{
 
 const at = (index: number) => `${props.path ?? 'effects'}[${index}]`;
 const kinds = props.onTile ? EFFECT_KINDS.filter((kind) => EFFECT_INFO[kind].tile) : EFFECT_KINDS;
-const info = (kind: string) => (kind === 'terrain' ? { ...TERRAIN_INFO, player: true, enemy: true, tile: false } : EFFECT_INFO[kind as EffectKind]);
+const info = (kind: string) =>
+  kind === 'terrain' ? { ...TERRAIN_INFO, player: true, enemy: true, tile: false }
+    : kind === 'summon' ? { ...SUMMON_INFO, player: true, enemy: true, tile: false }
+      : EFFECT_INFO[kind as EffectKind];
+
+/** What can be summoned: every enemy in the draft but the guardians. */
+const editor = useEditorStore();
+const summonable = computed(() => (editor.draft?.enemies ?? []).filter((enemy) => !enemy.guardian));
+
+/** A summon's lifetime is optional: off, it stays until it falls. */
+function setLasting(effect: { rounds?: unknown }, on: boolean): void {
+  if (on) effect.rounds = 3;
+  else delete effect.rounds;
+}
 const usable = (kind: string) => (props.onTile ? info(kind).tile : info(kind)[props.side]);
 
 function rowProblems(index: number): string[] {
@@ -40,7 +55,10 @@ function setKind(index: number, kind: string): void {
   const current = props.effects[index]!;
   if (kind === 'terrain') {
     props.effects[index] = { kind: 'terrain', rounds: 3, colour: '#e43b44', effects: [{ kind: 'damage', amount: 3 }] };
-  } else if (current.kind === 'terrain') {
+  } else if (kind === 'summon') {
+    const first = summonable.value[0];
+    props.effects[index] = { kind: 'summon', entity: first?.id ?? 'bug', amount: first?.maxHp ?? 6 };
+  } else if (current.kind === 'terrain' || current.kind === 'summon') {
     props.effects[index] = { kind: kind as EffectKind, amount: 3 };
   } else {
     current.kind = kind as EffectKind;
@@ -66,6 +84,7 @@ function move(index: number, by: number): void {
           {{ EFFECT_INFO[kind].label }}{{ usable(kind) ? '' : ' (no effect here)' }}
         </option>
         <option v-if="!onTile" value="terrain">{{ TERRAIN_INFO.label }}</option>
+        <option v-if="!onTile" value="summon">{{ SUMMON_INFO.label }}</option>
       </select>
 
       <template v-if="effect.kind === 'terrain'">
@@ -74,6 +93,26 @@ function move(index: number, by: number): void {
           <EditorAmountInput :effect="effect" field="rounds" :side="side" />
           <span class="op">rounds, coloured</span>
           <input v-model="effect.colour" type="color" aria-label="Tile colour">
+        </span>
+      </template>
+      <template v-else-if="effect.kind === 'summon'">
+        <span class="terrain-head">
+          <select v-model="effect.entity" aria-label="Creature">
+            <option v-for="enemy in summonable" :key="enemy.id" :value="enemy.id">
+              {{ enemy.name }}{{ enemy.enabled ? '' : ' (disabled)' }}
+            </option>
+          </select>
+          <span class="op">with</span>
+          <EditorAmountInput :effect="effect" :side="side" />
+          <span class="op">health</span>
+          <label class="inline">
+            <input type="checkbox" :checked="effect.rounds !== undefined" @change="setLasting(effect, ($event.target as HTMLInputElement).checked)">
+            <span class="op">lasts</span>
+          </label>
+          <template v-if="effect.rounds !== undefined">
+            <EditorAmountInput :effect="effect" field="rounds" :side="side" />
+            <span class="op">rounds</span>
+          </template>
         </span>
       </template>
       <EditorAmountInput v-else-if="effect.kind !== 'step'" :effect="effect" :side="side" />

@@ -7,7 +7,22 @@
 import type { EffectData } from '~/game/content';
 import type { Targeting } from '~/game/cards/types';
 
-type SimpleData = Exclude<EffectData, { kind: 'terrain' }>;
+type SimpleData = Exclude<EffectData, { kind: 'terrain' } | { kind: 'summon' }>;
+type SummonData = Extract<EffectData, { kind: 'summon' }>;
+
+/** A creature's name for the text, from its id when no better name is known. */
+export type NameOf = (id: string) => string;
+const byId: NameOf = (id) => id.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase());
+
+/** "a Wolf", "an Owl". */
+const article = (name: string) => `${/^[aeiou]/i.test(name) ? 'an' : 'a'} ${name}`;
+
+/** "a Wolf with 10 health for 3 rounds". */
+function summonedPhrase(effect: SummonData, nameOf: NameOf, where = ''): string {
+  const health = describeAmount(effect.amount as Amount);
+  const rounds = effect.rounds === undefined ? '' : ` for ${describeAmount(effect.rounds as Amount)} round${describeAmount(effect.rounds as Amount) === '1' ? '' : 's'}`;
+  return `${article(nameOf(effect.entity))}${where} with ${health} health${rounds}`;
+}
 type TerrainData = Extract<EffectData, { kind: 'terrain' }>;
 import { type Amount, describeAmount, isScaled } from '~/game/effects';
 
@@ -61,7 +76,11 @@ function creaturePhrase(effect: SimpleData, range: number, targeting: Targeting 
   return afterTame ? `heal it ${n}` : `heal ${whom} for ${n}`;
 }
 
-function playerPhrase(effect: EffectData, range: number, targeting?: Targeting, afterTame = false): string {
+function playerPhrase(effect: EffectData, range: number, targeting?: Targeting, afterTame = false, nameOf: NameOf = byId): string {
+  if (effect.kind === 'summon') {
+    const where = targeting === 'cell' ? (range <= 1 ? ' onto an adjacent tile' : ` onto a tile within ${range}`) : '';
+    return `summon ${summonedPhrase(effect, nameOf, where)}`;
+  }
   if (effect.kind === 'tame' || effect.kind === 'mend') return creaturePhrase(effect, range, targeting, afterTame);
   if (effect.kind === 'terrain') {
     return `mark ${wherePhrase(targeting, range)}: ${roundsPhrase(effect)}, whoever is on it ${tilePhrase(effect.effects, 'your')}`;
@@ -118,7 +137,8 @@ function simplePlayerPhrase(effect: SimpleData, range: number): string {
   }
 }
 
-function enemyPhrase(effect: EffectData, range: number): string {
+function enemyPhrase(effect: EffectData, range: number, nameOf: NameOf = byId): string {
+  if (effect.kind === 'summon') return `calls ${summonedPhrase(effect, nameOf)}`;
   if (effect.kind === 'terrain') {
     // Neutral, not "your tile": a tamed creature plays this card too.
     return `marks its target's tile ${roundsPhrase(effect)}: whoever is on it ${tilePhrase(effect.effects, 'its')}`;
@@ -148,10 +168,12 @@ function sentence(phrases: string[]): string {
   return `${joined.charAt(0).toUpperCase()}${joined.slice(1)}.`;
 }
 
-export function writeCardText(effects: EffectData[], range: number, side: 'player' | 'enemy', targeting?: Targeting): string {
+export function writeCardText(
+  effects: EffectData[], range: number, side: 'player' | 'enemy', targeting?: Targeting, nameOf: NameOf = byId,
+): string {
   return sentence(effects.map((effect, i) => side === 'player'
-    ? playerPhrase(effect, range, targeting, effects.slice(0, i).some((earlier) => earlier.kind === 'tame'))
-    : enemyPhrase(effect, range)));
+    ? playerPhrase(effect, range, targeting, effects.slice(0, i).some((earlier) => earlier.kind === 'tame'), nameOf)
+    : enemyPhrase(effect, range, nameOf)));
 }
 
 /** A gem's effect happens on top of a card, so it reads as a rider. */

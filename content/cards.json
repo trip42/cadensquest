@@ -358,5 +358,24 @@
         "amount": 6
       }
     ]
+  },
+  {
+    "id": "call_wolf",
+    "name": "Call Wolf",
+    "enabled": false,
+    "rarity": "rare",
+    "art": "eye",
+    "cost": 2,
+    "targeting": "cell",
+    "range": 2,
+    "text": "Summon a Wolf onto a tile within 2 with 10 health for 3 rounds.",
+    "effects": [
+      {
+        "kind": "summon",
+        "entity": "wolf",
+        "amount": 10,
+        "rounds": 3
+      }
+    ]
   }
 ]

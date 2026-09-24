@@ -723,12 +723,19 @@ export class MapRenderer {
     ctx.fill();
 
     // An ally stands in a ring of the player's colour, so which side it is
-    // on reads at a glance, before any tooltip.
-    if (entity.faction === 'ally') {
+    // on reads at a glance, before any tooltip. A summoned creature's ring
+    // is dashed and slowly turns — in its side's colour, so an enemy's
+    // summons read as summoned too.
+    if (entity.faction === 'ally' || entity.summonedBy) {
+      const t = performance.now();
       ctx.save();
-      ctx.strokeStyle = this.palette.cyan;
-      ctx.globalAlpha = 0.75 + 0.2 * Math.sin(performance.now() / 300);
+      ctx.strokeStyle = entity.faction === 'enemy' ? this.palette.red : this.palette.cyan;
+      ctx.globalAlpha = 0.75 + 0.2 * Math.sin(t / 300);
       ctx.lineWidth = 2;
+      if (entity.summonedBy) {
+        ctx.setLineDash([5, 4]);
+        ctx.lineDashOffset = -t / 60;
+      }
       ctx.beginPath();
       ctx.ellipse(sx, sy, HW * 0.42, HH * 0.42, 0, 0, Math.PI * 2);
       ctx.stroke();

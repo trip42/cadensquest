@@ -382,6 +382,23 @@ ever heals the actor). Cards can target `ally`. Telemetry: `enemy_tamed`,
 `ally_fell`, and `enemy_killed.by` (who landed the blow). Enemy card text is
 written from the enemy's side ("toward you"), which reads oddly on an ally.
 
+**Summon.** `{ "kind": "summon", "entity", "amount", "rounds"? }` brings an
+enemy definition (never a guardian) into play on the side of whoever plays
+it — an ally for the player (or an ally), another enemy for an enemy.
+`amount` is its health (so "based on" and X work); `rounds`, if given, is its
+lifetime, counted down in `beginTurn` (`ageSummons`) — at 0 it fades, with
+nothing left behind. It stands on the card's target tile if that is free
+(and, for the player's side, not past a shut gate), else on the nearest
+free tile to its summoner (`summonSpot`). Limits: the player's side shares
+`maxAllies` with tamed creatures; an enemy keeps at most
+`MAX_SUMMONS_PER_ENEMY` (2) summons alive. It draws an intent at once and
+acts from the next enemy phase. Summoned creatures drop nothing
+(`reward: null`), are marked by `summonedBy`/`expires` on the entity, stand
+in a dashed, slowly turning ring (cyan on the player's side, red on the
+enemy's — a tamed ally's ring is solid), and their tooltip says SUMMONED
+with rounds left. Telemetry: `summoned`, `summon_faded`, and
+`enemy_killed.summoned`.
+
 **X cost.** `cost` is a number or `"X"`: the card spends all your energy
 (`energySpent`), is playable at 0 (`minimumCost`), and its effects — and
 its gems' — read what it spent as `{ "of": "x" }` (carried on `Play.x`).

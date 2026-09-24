@@ -85,9 +85,26 @@ export interface TerrainEffect {
   effects: SimpleEffect[];
 }
 
-export type Effect = SimpleEffect | TerrainEffect;
+/* Summon: bring a creature into play on the side of whoever plays it — an
+   ally for the player, another enemy for an enemy. `amount` is its health,
+   so it can be "based on" like any amount ("Summon a wolf with X health").
+   It stands on the card's target tile if that is free, or else next to its
+   summoner. `rounds`, when given, is how long it lasts; left out, it stays
+   until it falls. A summoned creature drops nothing. */
+export interface SummonEffect {
+  kind: 'summon';
+  /** The enemy definition to summon, by id. Never a guardian. */
+  entity: string;
+  /** Its health. */
+  amount: Amount;
+  /** How many rounds it lasts; left out, until it falls. */
+  rounds?: Amount;
+}
+
+export type Effect = SimpleEffect | TerrainEffect | SummonEffect;
 
 export const isTerrain = (effect: Effect): effect is TerrainEffect => effect.kind === 'terrain';
+export const isSummon = (effect: Effect): effect is SummonEffect => effect.kind === 'summon';
 
 /** A tile's effect once it has been placed: the amount is a plain number. */
 export interface TileEffect {
@@ -132,6 +149,8 @@ export function previewAmounts(effects: readonly Effect[], start: AmountValues):
   return effects.map((effect) => {
     // A mark changes nothing about its caster; its number is its rounds.
     if (isTerrain(effect)) return amountOf(effect.rounds, values);
+    // A summon changes nothing about its summoner; its number is its health.
+    if (isSummon(effect)) return amountOf(effect.amount, values);
     const amount = amountOf(effect.amount, values);
     switch (effect.kind) {
       case 'block': values.block += amount; break;
@@ -192,6 +211,13 @@ export function nowText(effects: readonly Effect[], values: AmountValues, style:
   const labels = style === 'short' ? NOW_SHORT : NOW_LABELS;
   const parts = effects
     .flatMap((effect, i) => {
+      if (isSummon(effect)) {
+        const health = isScaled(effect.amount) ? [style === 'short' ? `${amounts[i]} HP` : `${amounts[i]} health`] : [];
+        const rounds = effect.rounds !== undefined && isScaled(effect.rounds)
+          ? [style === 'short' ? `${amountOf(effect.rounds, values)} RND` : `${amountOf(effect.rounds, values)} rounds`]
+          : [];
+        return [...health, ...rounds];
+      }
       if (!isTerrain(effect)) return isScaled(effect.amount) ? [labels[effect.kind]?.(amounts[i]!)] : [];
       // A mark: how long, and what its tile will do, fixed from now.
       const rounds = isScaled(effect.rounds) ? [style === 'short' ? `${amounts[i]} RND` : `${amounts[i]} rounds`] : [];
@@ -209,7 +235,9 @@ export const hasScaledAmount = (effects: readonly Effect[]): boolean =>
   effects.some((effect) =>
     isTerrain(effect)
       ? isScaled(effect.rounds) || effect.effects.some((tile) => isScaled(tile.amount))
-      : isScaled(effect.amount));
+      : isSummon(effect)
+        ? isScaled(effect.amount) || (effect.rounds !== undefined && isScaled(effect.rounds))
+        : isScaled(effect.amount));
 
 
 /* What each verb is, for the content editor and the validator: a plain
@@ -237,6 +265,11 @@ export const EFFECT_KINDS = Object.keys(EFFECT_INFO) as EffectKind[];
 
 /** The verbs a marked tile can carry. */
 export const TILE_KINDS = EFFECT_KINDS.filter((kind) => EFFECT_INFO[kind].tile);
+
+export const SUMMON_INFO = {
+  label: 'Summon',
+  help: 'Bring a creature into play on your side, with this much health — on the target tile if it is free, else beside you.',
+};
 
 export const TERRAIN_INFO = {
   label: 'Terrain',
@@ -301,6 +334,10 @@ export function describeTileEffect(effect: SimpleEffect | TileEffect): string {
 }
 
 export function describeEffect(effect: Effect): string {
+  if (isSummon(effect)) {
+    const rounds = effect.rounds === undefined ? '' : ` for ${describeAmount(effect.rounds)} rounds`;
+    return `summon a ${effect.entity} with ${describeAmount(effect.amount)} health${rounds}`;
+  }
   if (isTerrain(effect)) {
     const rounds = describeAmount(effect.rounds);
     return `mark a tile for ${rounds} round${rounds === '1' ? '' : 's'}: ${effect.effects.map(describeTileEffect).join(', ')}`;

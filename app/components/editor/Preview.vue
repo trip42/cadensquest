@@ -9,7 +9,8 @@ import type {
   CardData, Content, ContentFile, EnemyCardData, EnemyData, GemData, TalismanData, ZoneData,
 } from '~/game/content';
 import {
-  amountOf, type AmountValues, describeEffect, describeTileEffect, type Effect, isTerrain, nowText, TRIGGER_INFO, type TriggerPoint,
+  amountOf, type AmountValues, describeEffect, describeTileEffect, type Effect, isSummon, isTerrain, nowText, TRIGGER_INFO,
+  type TriggerPoint,
 } from '~/game/effects';
 import type { GemDefinition } from '~/game/gems';
 import { ZONES } from '~/game/map/tiles';
@@ -70,6 +71,24 @@ const marks = computed(() => {
     return { colour: effect.colour, text: `${tiles.map(describeTileEffect).join(', ')} · ${rounds} round${rounds === 1 ? '' : 's'}` };
   });
 });
+/* The creatures a summon brings in, drawn as they will stand, with the
+   health and lifetime they will have from the same sample moment. */
+const summons = computed(() => {
+  const effects = (card.value?.effects ?? (move.value?.effects as Effect[] | undefined) ?? []).filter(isSummon);
+  const values = card.value ? cardSample.value : { ...SAMPLE, block: 0, energy: 0, hand: 0 };
+  return effects.flatMap((effect) => {
+    const creature = enemy(effect.entity);
+    if (!creature) return [];
+    const health = amountOf(effect.amount, values);
+    const rounds = effect.rounds === undefined ? null : amountOf(effect.rounds, values);
+    return [{
+      key: effect.entity,
+      sprite: spriteOf(creature),
+      text: `${creature.name} · ${health} health · ${rounds === null ? 'until it falls' : `${rounds} round${rounds === 1 ? '' : 's'}`}`,
+    }];
+  });
+});
+
 const stripes = computed(() => {
   const shown = marks.value.slice(-3);
   const step = 100 / (shown.length || 1);
@@ -147,6 +166,18 @@ watch(() => [card.value?.name, card.value?.text, cardNow.value], measure);
       <p v-if="cardNow" class="caption">"Now" shown as if you had {{ SAMPLE_TEXT }}</p>
       <p v-if="overflow.name" class="caption warn">The name is too long for the card — the end is cut off</p>
       <p v-if="overflow.text" class="caption warn">The rules text is too long for the card — the end is cut off</p>
+      <template v-if="summons.length">
+        <div class="summons">
+          <div v-for="summoned in summons" :key="summoned.key" class="summoned">
+            <EditorSprite :sprite="summoned.sprite" :scale="0.9" />
+            <span class="summon-ring" />
+          </div>
+        </div>
+        <div class="panel note">
+          <p class="note-title">Summons</p>
+          <p v-for="summoned in summons" :key="summoned.key">{{ summoned.text }}</p>
+        </div>
+      </template>
       <template v-if="marks.length">
         <div class="marked">
           <span class="tile-top" :style="{ background: stripes }" />
@@ -164,6 +195,18 @@ watch(() => [card.value?.name, card.value?.text, cardNow.value], measure);
       <div class="stage">
         <GameCard :def="asEnemyCard(move)" />
       </div>
+      <template v-if="summons.length">
+        <div class="summons">
+          <div v-for="summoned in summons" :key="summoned.key" class="summoned">
+            <EditorSprite :sprite="summoned.sprite" :scale="0.9" />
+            <span class="summon-ring" />
+          </div>
+        </div>
+        <div class="panel note">
+          <p class="note-title">Summons</p>
+          <p v-for="summoned in summons" :key="summoned.key">{{ summoned.text }}</p>
+        </div>
+      </template>
       <template v-if="marks.length">
         <div class="marked">
           <span class="tile-top" :style="{ background: stripes }" />
@@ -303,6 +346,11 @@ watch(() => [card.value?.name, card.value?.text, cardNow.value], measure);
 .stage { display: flex; justify-content: center; }
 .caption { margin: 0; color: var(--px-muted); font-size: 8px; text-align: center; }
 .caption.warn { color: var(--px-yellow); }
+.summons { display: flex; gap: 16px; }
+.summoned { display: flex; flex-direction: column; align-items: center; }
+.summoned canvas { position: relative; z-index: 1; margin-bottom: -14px; }
+/* The dashed ring a summoned creature stands in on the map. */
+.summon-ring { width: 64px; height: 32px; border: 2px dashed var(--px-cyan); border-radius: 50%; }
 /* A marked tile beside an unmarked one, the diamond the map draws. */
 .marked { display: flex; gap: 6px; }
 .tile-top {

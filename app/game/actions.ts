@@ -15,9 +15,11 @@
 import { cardDef, cardMovement, energySpent, minimumCost } from './cards/definitions';
 import { intentDef } from './cards/intents';
 import type { CardDefinition, CardInstance } from './cards/types';
-import { amountOf, type AmountValues, type Effect, isTerrain, type TerrainEffect, type TriggerPoint } from './effects';
+import {
+  amountOf, type AmountValues, type Effect, isSummon, isTerrain, type SummonEffect, type TerrainEffect, type TriggerPoint,
+} from './effects';
 import { GEM_SLOTS, gemDef } from './gems';
-import { ENEMY_IDS, entityDef, GUARDIAN_IDS } from './entities/definitions';
+import { ENEMY_IDS, ENTITIES, entityDef, GUARDIAN_IDS } from './entities/definitions';
 import {
   advanceAnimation,
   type Entity,
@@ -204,6 +206,7 @@ function dealDamage(game: Game, target: Entity, amount: number, source?: Entity)
         guardian: !!entityDef(target.defId).guardian,
         row: target.row,
         by: source?.defId,
+        ...(target.summonedBy ? { summoned: true } : {}),
       });
       // What it was carrying was decided when it spawned.
       if (target.reward) state.pendingRewards.push(target.reward);
@@ -302,6 +305,88 @@ function canTame(game: Game, def: CardDefinition, target: Entity): boolean {
   return target.hp <= threshold
     && !entityDef(target.defId).guardian
     && allies(state).length < stat(state, 'maxAllies');
+}
+
+/* ------------------------------ summoning ------------------------------- */
+
+/** How many summons one enemy can keep alive at once, so a spider calling
+ *  its brood every turn cannot fill the map. The player's side is limited
+ *  by the maxAllies stat instead, shared with tamed creatures. */
+const MAX_SUMMONS_PER_ENEMY = 2;
+
+/* Where a summon stands: the tile the card targets, if it is free to stand
+   on, or else the nearest free tile to its summoner. The player's side may
+   not summon past a shut gate — that would be a way round the guardian. */
+function summonSpot(game: Game, actor: Entity, target: Cell | null): Cell | null {
+  const { state, world } = game;
+  const playersSide = onPlayersSide(actor);
+  const free = (cell: Cell) =>
+    world.walkable(cell.row, cell.col)
+    && !entityAt(state, cell.row, cell.col)
+    && !(playersSide && barred(state, cell.row));
+  if (target && free(target)) return target;
+  return [...reachable(world, entityCell(actor), 3).values()]
+    .filter((entry) => entry.cost >= 1 && free(entry.cell))
+    .sort((a, b) => a.cost - b.cost || a.cell.row - b.cell.row || a.cell.col - b.cell.col)[0]?.cell ?? null;
+}
+
+/* Bring a creature into play on the actor's side, with the effect's amount
+   as its health. It gives nothing when it falls, and draws a card at once
+   so its intent shows — it acts in the next enemy phase. */
+function summon(game: Game, effect: SummonEffect, play: Play): void {
+  const { state } = game;
+  const { actor } = play;
+  const def = ENTITIES[effect.entity];
+  if (!def || def.faction !== 'enemy' || def.guardian) return;
+  const side = onPlayersSide(actor) ? 'ally' : 'enemy';
+
+  if (side === 'ally' && allies(state).length >= stat(state, 'maxAllies')) {
+    noteNear(state, actor, 'No room for another ally.');
+    return;
+  }
+  if (side === 'enemy' && state.entities.filter((item) => !item.dead && item.summonedBy === actor.id).length >= MAX_SUMMONS_PER_ENEMY) {
+    return;
+  }
+
+  const values = amountValues(state, actor, play.x);
+  const health = amountOf(effect.amount, values);
+  const rounds = effect.rounds === undefined ? null : amountOf(effect.rounds, values);
+  if (health <= 0 || (rounds !== null && rounds <= 0)) return;
+
+  const cell = summonSpot(game, actor, play.target);
+  if (!cell) {
+    noteNear(state, actor, `No room to summon a ${def.name}.`);
+    return;
+  }
+
+  const creature = makeEntity(def.id, cell.row, cell.col);
+  creature.faction = side;
+  creature.maxHp = creature.hp = health;
+  creature.summonedBy = actor.id;
+  creature.expires = rounds;
+  creature.facing = actor.facing;
+  creature.reward = null;
+  state.entities.push(creature);
+
+  const cardId = drawIntent(state, creature);
+  creature.intent = cardId ? { cardId, label: intentDef(cardId).name } : null;
+  record(state, { type: 'summoned', entity: def.id, side, health });
+  noteNear(state, actor, `${entityDef(actor.defId).name} summons a ${def.name}.`);
+}
+
+/** A new round: summons with a lifetime count down, and fade at the end of
+ *  it — gone, with nothing left behind. */
+function ageSummons(state: GameState): void {
+  for (const creature of state.entities) {
+    if (creature.dead || creature.expires === null) continue;
+    creature.expires -= 1;
+    if (creature.expires > 0) continue;
+    creature.hp = 0;
+    creature.dead = true;
+    setAnimation(creature, 'die');
+    record(state, { type: 'summon_faded', entity: creature.defId, side: creature.faction === 'enemy' ? 'enemy' : 'ally' });
+    noteNear(state, creature, `The summoned ${entityDef(creature.defId).name} fades.`);
+  }
 }
 
 /* ------------------------------ terrain --------------------------------- */
@@ -416,6 +501,10 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
   const isPlayer = actor.id === state.playerId;
   if (isTerrain(effect)) {
     markTile(game, effect, play);
+    return;
+  }
+  if (isSummon(effect)) {
+    summon(game, effect, play);
     return;
   }
   const amount = amountOf(effect.amount, amountValues(state, actor, play.x));
@@ -751,8 +840,10 @@ export function beginTurn(game: Game): void {
   state.phase = 'refresh';
   state.turn += 1;
   state.tally.turns = state.turn;
-  // A new round: marks count down, and every tile may hit again.
+  // A new round: marks count down, and every tile may hit again; summons
+  // with a lifetime count down too.
   ageTerrain(state);
+  ageSummons(state);
 
   const self = player(state);
   // Block from talismans replaces what was left, rather than adding to it.

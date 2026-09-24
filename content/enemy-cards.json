@@ -294,5 +294,20 @@
         "amount": 3
       }
     ]
+  },
+  {
+    "id": "spider_hatch",
+    "name": "Hatch",
+    "enabled": false,
+    "range": 1,
+    "text": "Calls a Bug with 4 health for 3 rounds.",
+    "effects": [
+      {
+        "kind": "summon",
+        "entity": "bug",
+        "amount": 4,
+        "rounds": 3
+      }
+    ]
   }
 ]

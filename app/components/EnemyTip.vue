@@ -22,6 +22,12 @@ const store = useGameStore();
     <p v-if="store.enemyTip.ally" class="guard">
       <span class="px-tag is-ally">ALLY</span> Fights for you against the nearest enemy.
     </p>
+    <p v-if="store.enemyTip.summoned" class="guard">
+      <span class="px-tag is-summoned" :class="{ 'is-enemy': !store.enemyTip.ally }">SUMMONED</span>
+      {{ store.enemyTip.summoned.rounds === null
+        ? 'Stays until it falls.'
+        : `Fades in ${store.enemyTip.summoned.rounds} round${store.enemyTip.summoned.rounds === 1 ? '' : 's'}.` }}
+    </p>
     <p v-if="store.enemyTip.guardian" class="guard">
       <span class="px-tag is-red">GUARDIAN</span> The way on is shut until it falls.
     </p>
@@ -69,6 +75,8 @@ const store = useGameStore();
 .drop { margin-top: 6px; color: var(--px-soft); }
 .px-tag.is-red { background: var(--px-red); color: var(--px-text); }
 .px-tag.is-ally { background: var(--px-cyan); }
+.px-tag.is-summoned { background: var(--px-panel); color: var(--px-cyan); outline: 1px dashed var(--px-cyan); }
+.px-tag.is-summoned.is-enemy { color: var(--px-red); outline-color: var(--px-red); }
 .standing { margin-top: 8px; display: flex; flex-direction: column; gap: 5px; }
 .px-tag.is-ground { align-self: flex-start; background: var(--px-soft); }
 </style>

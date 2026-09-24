@@ -3,11 +3,16 @@
 import { MOVEMENT_BY_RARITY } from '~/game/cards/definitions';
 import { RARITIES, TARGETINGS } from '~/game/cards/types';
 import type { CardData, ContentIssue } from '~/game/content';
+import { useEditorStore } from '~/stores/editor';
 import { writeCardText } from '~/utils/contentText';
 import { problemsAt, problemsOn } from '~/utils/editorProblems';
 
 const props = defineProps<{ item: CardData; issues: ContentIssue[] }>();
 const at = (field: string) => problemsAt(props.issues, field);
+
+/** Creature names for the written text, from the draft. */
+const editorStore = useEditorStore();
+const nameOf = (id: string) => editorStore.draft?.enemies.find((enemy) => enemy.id === id)?.name ?? id;
 
 const TARGET_LABELS = { enemy: 'An enemy', ally: 'An ally', cell: 'A square', self: 'Yourself', none: 'Nothing' } as const;
 
@@ -72,7 +77,7 @@ function toggleMovement(on: boolean): void {
 
   <EditorField label="Rules text" hint="What the card says. The game does not read it — keep it matching the effects." :problems="at('text')">
     <textarea v-model="item.text" rows="2" />
-    <button type="button" class="btn small" @click="item.text = writeCardText(item.effects, item.range, 'player', item.targeting)">Write it from the effects</button>
+    <button type="button" class="btn small" @click="item.text = writeCardText(item.effects, item.range, 'player', item.targeting, nameOf)">Write it from the effects</button>
   </EditorField>
 
   <EditorField group label="Art">

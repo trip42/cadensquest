@@ -48,7 +48,17 @@ export const terrainEffectSchema = z.strictObject({
   effects: z.array(simpleEffectSchema).min(1, 'a marked tile needs at least one effect'),
 });
 
-export const effectSchema = z.discriminatedUnion('kind', [simpleEffectSchema, terrainEffectSchema]);
+/** Bring a creature into play on the player's side — or, on an enemy card,
+ *  the enemy's. `amount` is its health; `rounds`, if given, how long it
+ *  lasts. */
+export const summonEffectSchema = z.strictObject({
+  kind: z.literal('summon'),
+  entity: idSchema,
+  amount: amountSchema,
+  rounds: amountSchema.optional(),
+});
+
+export const effectSchema = z.discriminatedUnion('kind', [simpleEffectSchema, terrainEffectSchema, summonEffectSchema]);
 
 export const cardSchema = z.strictObject({
   id: idSchema,

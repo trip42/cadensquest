@@ -135,6 +135,8 @@ export function makeEntity(defId: string, row: number, col: number): Entity {
     drawPile: [],
     reward: null,
     dead: false,
+    summonedBy: null,
+    expires: null,
   };
 }
 

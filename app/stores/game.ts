@@ -101,6 +101,9 @@ export interface EnemyTipView {
   ground: GroundLine[];
   /** Fights on the player's side: tamed, or summoned. */
   ally: boolean;
+  /** Brought in by a summon — and how many rounds it has left, or null for
+   *  as long as it lives. Undefined when it was not summoned. */
+  summoned?: { rounds: number | null };
   x: number;
   y: number;
 }
@@ -406,6 +409,7 @@ export const useGameStore = defineStore('game', () => {
       guardian: !!def.guardian,
       ground: groundOf({ row: foe.row, col: foe.col }),
       ally: foe.faction === 'ally',
+      summoned: foe.summonedBy ? { rounds: foe.expires } : undefined,
       rewardTint: !foe.reward
         ? 'var(--px-muted)'
         : foe.reward.kind === 'gem'
