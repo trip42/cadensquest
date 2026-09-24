@@ -85,7 +85,7 @@ to come back tomorrow.
   the player's browser, so they can be faked. Keep it for fun, with no
   prizes.
 
-**Watch out.** A run is the seed *plus* the content files. If content
+**Watch out.** A run is the seed _plus_ the content files. If content
 changes during the day, players before and after the change get different
 dailies. Publish content changes at the daily rollover.
 
@@ -173,17 +173,17 @@ own voice and post them.
 
 ### 6. Where to post
 
-| Place | Good for | Note |
-|-------|----------|------|
-| r/WebGames | A link people can play right away | The best fit: it runs in the browser |
-| r/roguelites | Deckbuilder and roguelite players | Read the self-promotion rules first |
-| r/roguelikes | Roguelike players | Stricter about what counts; a devlog goes down better than an ad |
-| r/roguelikedev | Other roguelike developers | Sharing Saturday threads |
-| r/indiegaming, r/IndieDev | Indie players and developers | Progress posts, clips |
-| r/playmygame | Honest early feedback | Before the big pushes |
-| Bluesky, X | Clips, #ScreenshotSaturday | Post regularly |
-| TikTok, YouTube Shorts | Vertical clips | Claude can record at phone size |
-| Discord servers | Roguelike and game-dev communities | Join and take part before posting |
+| Place                     | Good for                           | Note                                                             |
+| ------------------------- | ---------------------------------- | ---------------------------------------------------------------- |
+| r/WebGames                | A link people can play right away  | The best fit: it runs in the browser                             |
+| r/roguelites              | Deckbuilder and roguelite players  | Read the self-promotion rules first                              |
+| r/roguelikes              | Roguelike players                  | Stricter about what counts; a devlog goes down better than an ad |
+| r/roguelikedev            | Other roguelike developers         | Sharing Saturday threads                                         |
+| r/indiegaming, r/IndieDev | Indie players and developers       | Progress posts, clips                                            |
+| r/playmygame              | Honest early feedback              | Before the big pushes                                            |
+| Bluesky, X                | Clips, #ScreenshotSaturday         | Post regularly                                                   |
+| TikTok, YouTube Shorts    | Vertical clips                     | Claude can record at phone size                                  |
+| Discord servers           | Roguelike and game-dev communities | Join and take part before posting                                |
 
 The rule everywhere: post the game, not an ad, and reply to every comment.
 Claude can check each community's rules before a post goes up.
@@ -218,7 +218,7 @@ page should go up months before release, collecting them.
 - The Steam Direct fee: US$100 per game, paid back once the game has
   earned US$1,000.
 - A Steamworks account, with identity, tax and bank details.
-- The store images Steam asks for (the main one is called the *capsule*):
+- The store images Steam asks for (the main one is called the _capsule_):
   a cover image in several sizes, plus screenshots and ideally a trailer.
   Placeholder art hurts here, so commission these first (row 6 of
   ART_SPEC's first table: store art gets its own brief).
@@ -300,22 +300,38 @@ project and decide what to fix.
 
 ## Suggested order
 
-| When | What |
-|------|------|
-| **Now** (2–4 weeks) | PostHog dashboards, then fix the worst drop-off · Daily Descent · itch.io page · mailing-list signup at the end of a run · first devlog |
+| When                  | What                                                                                                                                                    |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Now** (2–4 weeks)   | PostHog dashboards, then fix the worst drop-off · Daily Descent · itch.io page · mailing-list signup at the end of a run · first devlog                 |
 | **Next** (1–3 months) | Juice and sound · clips every week or two · press page · first art commission: the Steam images and Caden, the cheapest way to a presentable store page |
-| **Then** | Steam "Coming Soon" page, desktop build, trailer · a Next Fest with a demo · streamer emails |
-| **Later** | Kickstarter or Early Access, once the list and the wishlists can fund the first days |
+| **Then**              | Steam "Coming Soon" page, desktop build, trailer · a Next Fest with a demo · streamer emails                                                            |
+| **Later**             | Kickstarter or Early Access, once the list and the wishlists can fund the first days                                                                    |
 
 ## Who does what
 
-| Claude can | Only you can |
-|------------|--------------|
+| Claude can                                                                                                                     | Only you can                                                                           |
+| ------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
 | **Build:** the daily seed, share results, capture mode, press page, signup form, desktop and itch.io builds, analytics tagging | **Own the accounts:** itch.io, Steamworks, the mailing list, social media, Kickstarter |
-| **Write:** store pages, devlogs, patch notes, the press kit, emails, the Kickstarter page, art briefs | **Post, send and reply.** Your voice is the marketing. |
-| **Research:** similar games, tags, communities and their rules, creators to contact | **Pay:** the Steam fee, the artist, the composer, any ads |
-| **Analyse:** PostHog numbers (given access), balance from simulated runs | **Decide:** price, name, and when to launch |
+| **Write:** store pages, devlogs, patch notes, the press kit, emails, the Kickstarter page, art briefs                          | **Post, send and reply.** Your voice is the marketing.                                 |
+| **Research:** similar games, tags, communities and their rules, creators to contact                                            | **Pay:** the Steam fee, the artist, the composer, any ads                              |
+| **Analyse:** PostHog numbers (given access), balance from simulated runs                                                       | **Decide:** price, name, and when to launch                                            |
 
 Claude can't post, send email or run ads on its own. With the Gmail and
 Google Drive connectors authorised in claude.ai, it can leave email drafts
 in Gmail and files in Drive for you to use.
+
+# Fun Factor Ideas
+
+- **Juice and sound.** Brief pauses and screen shake on big hits, damage numbers, death bursts, a shimmering portal, and retro sound effects (free generators suit the pixel look). This is the biggest gain in feel for the least work.
+
+- **Make forks a real choice.** Put something different on each branch: a tougher enemy with a better reward, a shrine that removes or upgrades a card, a rest spot. A promise like "every floor has one of each" gives players something to plan around.
+
+- **Lean into movement,** the game's real hook. Push and pull enemies (into fire, say), a bonus for attacking from higher ground (the terrain already has height), cards that get stronger the further you've moved, and effects that trigger when you discard.
+
+- **Give each boss its own trick.** Now that every floor ends in one, have each use a different system: the Warden summons help, the Wyrm sets tiles on fire.
+
+- **Let players shape their deck.** Card removal and upgrades (Strike+); right now rewards only add cards.
+
+- **Clarity.** Show which tiles enemies threaten, how much damage is coming next turn, and what an attack will do after block.
+
+- **A balance bot.** The game runs without a browser (that's how the tests play turns), so a simple bot could play thousands of runs and report win rate per floor and which cards never get played. That's how to tune difficulty without guessing.
