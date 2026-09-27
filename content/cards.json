@@ -182,7 +182,7 @@
     "cost": 0,
     "targeting": "self",
     "range": 0,
-    "text": "Gain 1 energy and draw 2 cards.",
+    "text": "Gain 1 energy and draw a card.",
     "effects": [
       {
         "kind": "energy",
@@ -190,7 +190,7 @@
       },
       {
         "kind": "draw",
-        "amount": 2
+        "amount": 1
       }
     ]
   },
