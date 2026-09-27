@@ -285,7 +285,7 @@ onBeforeUnmount(hide);
 /* A live number for cards whose amounts are "based on" something: the
    printed text says "equal to your block", this says 8. It rides across
    the bottom of the art rather than under the rules text, so the text
-   keeps all five of its lines however big the numbers get. */
+   keeps all six of its lines however big the numbers get. */
 .now {
   position: absolute;
   left: 0;
@@ -306,14 +306,15 @@ onBeforeUnmount(hide);
 
 .text {
   flex: none;
-  /* A fixed five lines, so every card is the same height whatever it
+  /* A fixed six lines, so every card is the same height whatever it
      says. Text that needs more is cut off — the content editor measures
-     the real card and warns before that can ship. */
+     the real card and warns before that can ship. 8px, not anything
+     between 8 and 12: Silkscreen is only sharp on its 4px grid. */
   height: 78px;
   overflow: hidden;
   color: var(--px-soft);
-  font-size: 12px;
-  line-height: 1.3;
+  font-size: 8px;
+  line-height: 13px;
 }
 
 /* ------------------------------ tooltip -------------------------------- */
