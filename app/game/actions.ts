@@ -40,7 +40,7 @@ import {
 } from './map/navigation';
 import { FLOORS, floorRows, gateRowOf, surfaceKind, ZONES } from './map/tiles';
 import { chunkIndexForRow } from './map/world';
-import { rollReward } from './rewards';
+import { rollDrop } from './rewards';
 import { resolveStat } from './stats';
 import { record } from './telemetry';
 import { nextInt, pick, shuffle } from './rng';
@@ -1136,7 +1136,7 @@ function placeGuardians(game: Game, chunkIndex: number): void {
 
     const guardian = makeEntity(zone.guardian, row, col);
     guardian.facing = -1;
-    guardian.reward = rollReward(state.rng, entityDef(guardian.defId).reward);
+    guardian.reward = rollDrop(state.rng, entityDef(guardian.defId).reward);
     state.entities.push(guardian);
     state.gates.push({ row, guardianId: guardian.id });
   });
@@ -1177,7 +1177,7 @@ export function ensureSpawns(game: Game): void {
       if (entityAt(state, spot.row, spot.col)) continue;
       const enemy = makeEntity(pick(state.rng, roster), spot.row, spot.col);
       enemy.facing = -1;
-      enemy.reward = rollReward(state.rng, entityDef(enemy.defId).reward);
+      enemy.reward = rollDrop(state.rng, entityDef(enemy.defId).reward);
       state.entities.push(enemy);
     }
   }

@@ -595,7 +595,10 @@ union changes — follow its errors.
   and so the whole thing stays a function of the seed.
   `DEFAULT_REWARD_CONFIG` is the frequency dial; any enemy definition may
   override part of it via `reward` (the dragon leans towards talismans and
-  offers four cards, the chicken offers two commons).
+  offers four cards, the chicken offers two commons). `reward.chance` (0..1,
+  default 1) is how likely an enemy is to carry anything at all; spawning
+  goes through `rollDrop`, which rolls no dice for it at 1, so seeds replay
+  as they did before the chance existed.
 
 A won reward queues in `pendingRewards` and is brought up by `tick` only
 when the player phase is idle — never mid-enemy-stride. While

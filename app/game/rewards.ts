@@ -10,7 +10,7 @@
 import { cardDef, REWARD_POOL } from "./cards/definitions";
 import type { Rarity } from "./cards/types";
 import { GEM_IDS } from "./gems";
-import { pickWeighted, type Rng } from "./rng";
+import { nextFloat, pickWeighted, type Rng } from "./rng";
 import { TALISMAN_IDS } from "./talismans";
 
 export type RewardKind = "card" | "gem" | "talisman";
@@ -35,6 +35,8 @@ export interface TalismanReward {
 export type Reward = CardReward | GemReward | TalismanReward;
 
 export interface RewardConfig {
+  /** How likely an enemy is to be carrying anything at all, 0..1. */
+  chance: number;
   /** Relative frequency of each kind. Zero turns a kind off. */
   weights: Record<RewardKind, number>;
   /** How many cards a card reward offers. */
@@ -48,6 +50,7 @@ export interface RewardConfig {
 }
 
 export const DEFAULT_REWARD_CONFIG: RewardConfig = {
+  chance: 1,
   weights: { card: 60, gem: 25, talisman: 15 },
   cardChoices: 3,
   // Starter cards are not in the reward pool at all; the zero is only here
@@ -63,6 +66,7 @@ export const DEFAULT_REWARD_CONFIG: RewardConfig = {
 /* What an enemy definition may say. Every part is optional, including the
    inside of each table, so an enemy states only what it changes. */
 export interface RewardOverrides {
+  chance?: number;
   weights?: Partial<Record<RewardKind, number>>;
   cardChoices?: number;
   cardRarity?: Partial<Record<Rarity, number>>;
@@ -105,6 +109,15 @@ function rollCardOptions(rng: Rng, config: RewardConfig): string[] {
     );
   }
   return options;
+}
+
+/** What an enemy is carrying when it spawns: a reward, or — `chance` of the
+ *  time short of 1 — nothing. With the chance at 1 no dice are rolled for
+ *  it, so every seed replays exactly as it did before there was a chance. */
+export function rollDrop(rng: Rng, overrides?: RewardOverrides): Reward | null {
+  const { chance } = rewardConfig(overrides);
+  if (chance < 1 && nextFloat(rng) >= chance) return null;
+  return rollReward(rng, overrides);
 }
 
 /** The reward this enemy is carrying. Pure given the rng state. */

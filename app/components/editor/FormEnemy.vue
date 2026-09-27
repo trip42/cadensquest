@@ -16,6 +16,15 @@ const deckOptions = computed(() =>
 );
 
 const hasReward = computed(() => props.item.reward !== undefined);
+
+/** 1 is the default, so it is left out of the file rather than written. */
+function setChance(raw: string): void {
+  const reward = props.item.reward;
+  if (!reward) return;
+  const value = Math.min(1, Math.max(0, Number(raw)));
+  if (raw === '' || Number.isNaN(value) || value >= 1) delete reward.chance;
+  else reward.chance = value;
+}
 function toggleReward(on: boolean): void {
   if (on) props.item.reward = { weights: { card: 60, gem: 25, talisman: 15 }, cardChoices: 3 };
   else delete props.item.reward;
@@ -103,6 +112,9 @@ function setOffset(value: string): void {
         </EditorField>
         <EditorField label="Cards offered" :problems="at('reward.cardChoices')">
           <input v-model.number="item.reward.cardChoices" type="number" min="1" max="6">
+        </EditorField>
+        <EditorField label="Chance it carries anything" :problems="at('reward.chance')">
+          <input :value="item.reward.chance ?? 1" type="number" min="0" max="1" step="0.05" @input="setChance(($event.target as HTMLInputElement).value)">
         </EditorField>
       </div>
       <p class="sub">Which rarities a card reward leans towards.</p>

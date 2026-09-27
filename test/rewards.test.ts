@@ -14,6 +14,7 @@ import { GEM_SLOTS } from '~/game/gems';
 import {
   DEFAULT_REWARD_CONFIG,
   rewardConfig,
+  rollDrop,
   rollReward,
   type RewardKind,
 } from '~/game/rewards';
@@ -312,5 +313,23 @@ describe('the stat table', () => {
 
   it('never goes below zero', () => {
     expect(resolveStat('handSize', [{ stat: 'handSize', add: -100 }])).toBe(0);
+  });
+});
+
+describe('a drop', () => {
+  it('is always a reward at chance 1, with no extra dice rolled — seeds replay as before', () => {
+    const a = createRng(7);
+    const b = createRng(7);
+    expect(rollDrop(a)).toEqual(rollReward(b));
+    expect(a).toEqual(b);
+  });
+
+  it('is nothing at chance 0, and about half the time at 0.5', () => {
+    const rng = createRng(11);
+    expect(rollDrop(rng, { chance: 0 })).toBeNull();
+    let carried = 0;
+    for (let i = 0; i < 4000; i += 1) if (rollDrop(rng, { chance: 0.5 })) carried += 1;
+    expect(carried / 4000).toBeGreaterThan(0.45);
+    expect(carried / 4000).toBeLessThan(0.55);
   });
 });

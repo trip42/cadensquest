@@ -104,6 +104,8 @@ const weightTable = <K extends string>(keys: readonly K[]) =>
   z.partialRecord(z.enum(keys as unknown as [K, ...K[]]), count(0, 1000));
 
 export const rewardSchema = z.strictObject({
+  /** How likely it is to be carrying anything at all, 0..1; 1 if left out. */
+  chance: z.number().min(0).max(1).optional(),
   weights: weightTable(REWARD_KINDS).optional(),
   cardChoices: count(1, 6).optional(),
   cardRarity: weightTable(RARITIES).optional(),
