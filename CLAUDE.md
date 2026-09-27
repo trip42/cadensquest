@@ -689,8 +689,10 @@ nothing about the card's own face.
 `--card-art-h` in `main.css` (phones get 112 wide, still the same on every
 screen). No screen overrides it — the hand, the spoils, the gem grid and
 the editor preview all used to set their own, and drifted. The height is
-fixed too: the rules text gets exactly six 10px Georgia lines (`height: 78px`,
-13px apart, overflow hidden), and the name one 12px line (about 13 capitals). Content
+fixed too: the rules text gets a box of five 12px Georgia lines (`height: 78px`,
+15px apart, overflow hidden), centred both ways by flex around an inner
+`.text-body` — which is what the editor measures, since a centred overflow
+spills out of the top too and `scrollHeight` only sees the bottom, and the name one 12px line (about 13 capitals). Content
 that does not fit is cut off, so the editor preview **measures the real
 card** (scrollWidth/scrollHeight once fonts are ready) and warns; a test
 run deals every card onto the spoils screen to check none is cut. The live
@@ -931,9 +933,8 @@ detours were tried and dropped on the way here: Pixelify Sans (its digits
 are ambiguous at any size) and DotGothic16 (clear, but the user did not
 like it). Card names are 12px — at 16px the wide capitals fit
 nine to a line and "Shield Slam" was cut short; the cost digit is 16px.
-Rules text on cards is the one exception to Silkscreen: 10px Georgia, a
-smooth serif, which reads at a size the pixel face cannot (10px Silkscreen
-blurs; 8px was tried and replaced).
+Rules text on cards is the one exception to Silkscreen: 12px Georgia, a
+smooth serif (8px Silkscreen and 10px Georgia were tried on the way).
 
 The canvas chips (intent labels, reward tags, health bars) are drawn by the
 renderer, which reads the same custom properties once at start

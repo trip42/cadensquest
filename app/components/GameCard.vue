@@ -120,7 +120,7 @@ onBeforeUnmount(hide);
         </span>
       </span>
 
-      <span class="text">{{ def.text }}</span>
+      <span class="text"><span class="text-body">{{ def.text }}</span></span>
     </span>
 
     <!-- Fixed, so it escapes the gem grid's scroll container, and inert so
@@ -285,7 +285,7 @@ onBeforeUnmount(hide);
 /* A live number for cards whose amounts are "based on" something: the
    printed text says "equal to your block", this says 8. It rides across
    the bottom of the art rather than under the rules text, so the text
-   keeps all six of its lines however big the numbers get. */
+   keeps all five of its lines however big the numbers get. */
 .now {
   position: absolute;
   left: 0;
@@ -306,17 +306,21 @@ onBeforeUnmount(hide);
 
 .text {
   flex: none;
-  /* A fixed six lines, so every card is the same height whatever it
-     says. Text that needs more is cut off — the content editor measures
-     the real card and warns before that can ship. Georgia, not the pixel
-     face: a smooth serif reads at 10px, where Silkscreen would blur off
-     its 4px grid. */
+  /* A fixed box of five lines, so every card is the same height whatever
+     it says, with the text centred in it both ways. Text that needs more
+     is cut off — the content editor measures the real card and warns
+     before that can ship. Georgia, not the pixel face: the one place the
+     HUD uses a smooth serif. */
   height: 78px;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
   color: var(--px-soft);
   font-family: Georgia, 'Times New Roman', serif;
-  font-size: 10px;
-  line-height: 13px;
+  font-size: 12px;
+  line-height: 15px;
 }
 
 /* ------------------------------ tooltip -------------------------------- */

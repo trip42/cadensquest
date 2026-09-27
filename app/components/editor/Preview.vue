@@ -162,9 +162,13 @@ async function measure(): Promise<void> {
   const el = cardBox.value;
   const name = el?.querySelector<HTMLElement>('.name');
   const text = el?.querySelector<HTMLElement>('.text');
+  const body = text?.querySelector<HTMLElement>('.text-body');
   overflow.value = {
     name: !!name && name.scrollWidth > name.clientWidth + 1,
-    text: !!text && text.scrollHeight > text.clientHeight + 1,
+    // The text is centred in its box, so an overflow spills out of the top
+    // as well as the bottom and scrollHeight only sees half of it: measure
+    // the text itself against the box.
+    text: !!text && !!body && body.offsetHeight > text.clientHeight + 1,
   };
 }
 onMounted(measure);
