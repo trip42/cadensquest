@@ -304,6 +304,56 @@ deaths on one floor, which is why they drop points. The Brute and the
 Bombardier raise close wins, so each would be worth keeping with some
 thought about where it appears.
 
+### 8. Since then
+
+- **Wildfire is a fire area,** as its text always said: for X rounds, 2
+  damage to whoever stands in it. The power and cards are gone.
+- **Delayed effects (Later) and Lose power.** Power can now last a while:
+  - **Battle Fury:** +2 for 2 rounds
+  - **Frenzy X:** +X for 2 rounds
+  - **Blood Pact:** a price paid later (+3 power now, 8 damage in 2 rounds)
+  - **Second Wind:** a reward worth waiting for (next round, heal and draw)
+
+  These are the trade-off cards suggested under "What to try next".
+- **Card removal** is a reward, about one drop in thirteen, so the deck can
+  be thinned. It's the most-loved deckbuilder decision.
+
+The game with all of that still scores 10 of 11:
+
+| | Score | Win | Most deaths on one floor | Close wins | One-hit deaths | Real choices | Positional kills | Card spread | Top card |
+|---|---|---|---|---|---|---|---|---|---|
+| After Later and removal | 10/11 | 50% | 60% | 39% | 8% | **27%** | 21% | 98% | 19% |
+
+Each new card, two copies added to the starting deck, against the same
+seeds:
+
+| Card | Win rate change | Other changes |
+|---|---|---|
+| Second Wind (heal 8, draw 2) | +33 | close wins −21 |
+| Spring | +10 | |
+| Mend | +8 | |
+| Wildfire, now a fire area | −20 | close wins +17, positional kills +14 |
+| Battle Fury | −13 | |
+| Frenzy X | −14 | |
+| Blood Pact | −41 | positional kills −15 |
+
+- **Second Wind was far too good** for one energy. It was tried at two
+  sizes, starting from a 48% win rate and 42% close wins:
+  - heal 5, draw 1: 54% win, 48% close
+  - heal 4, draw 2: 49% win, 38% close
+
+  It is now **heal 5, draw 1**: still worth a card slot, and it makes
+  close wins more common rather than less.
+- **Wildfire no longer snowballs.** It burns whoever stands in it, the
+  caster included, so the bot loses with it more often. The fights it does
+  win are closer and more positional, which is the point of the card.
+- **The power cards and Blood Pact look weak, but that is the bot.**
+  Tuning barely moves them: Battle Fury at +3 still scores 46% against 48%,
+  and Blood Pact paying 5 instead of 8 still scores 46%. The bot plays a
+  card for what it gives this turn. It does not save a burst of power for
+  a turn with several attacks, and it walks into a fight with Blood Pact's
+  bill due. Judge these cards by hand before changing them.
+
 ---
 
 ## What is still wrong
@@ -313,18 +363,10 @@ thought about where it appears.
   better or worse than each other rather than *different*, and energy is
   the only tension besides throwing cards away for steps. No number
   fixes that.
-- **Wildfire is still the strongest card.** With the fix, two copies still
-  add about 30 points of win rate. Power is permanent, so any card that
-  hands it out every round snowballs. Here's what else was tested:
-
-  | Option | Win rate |
-  |---|---|
-  | A power zone lasting one round | 94% |
-  | Burning zones | 6–18%: they burn the caster in close fights |
-  | A block zone | 32–33%: too tame for a mythic |
-
-  The honest fix is a temporary buff ("+2 damage this turn"), which needs
-  one new verb.
+- **Cards that pay off later need a better player than the bot.** Battle
+  Fury, Frenzy X and Blood Pact score badly in its hands, and no simple
+  tuning changes that. Either teach the bot to plan a turn ahead, or
+  playtest them by hand.
 - **Floor 2 is still where half of runs end.** That's healthy now (the
   target is at most 60%), but it's the place to watch.
 
@@ -339,7 +381,8 @@ with a variant in `sim/design.sim.ts` before it's built properly.
    a card, or upgrade one (Strike+). This is the most-loved deckbuilder
    decision, and it attacks the duplicate-Strike problem head on.
    *To test:* a variant that removes one starter per floor, then real
-   shrine tiles.
+   shrine tiles. *Removal now exists as a reward; upgrades and shrines
+   do not yet.*
 2. **Trade-off cards.** Big effects with a cost attached:
    - "Reckless Swing: deal 12, take 3"
    - "Last Stand: gain block equal to missing health, lose 1 energy next
@@ -348,7 +391,9 @@ with a variant in `sim/design.sim.ts` before it's built properly.
      leaves the deck
 
    Different cards with different costs are what "two good options" means.
-   *To test:* add them in `designs.ts` and watch real choices.
+   *To test:* add them in `designs.ts` and watch real choices. *Started:
+   Blood Pact and Second Wind use Later to put the cost or the reward in
+   a later round.*
 3. **Paths with a price.** Forks already exist. Put a guarded talisman
    (an elite) on one branch and a quiet route on the other. This is Slay
    the Spire's biggest decision per act, and it gives the map a purpose.
