@@ -81,8 +81,8 @@ describe('a Later', () => {
     const hp = self.hp;
     play(game, 'second_wind');
     beginTurn(game);
-    expect(self.hp).toBe(hp + 8);
-    expect(game.state.hand).toHaveLength(stat(game.state, 'handSize') + 2);
+    expect(self.hp).toBe(hp + 5);
+    expect(game.state.hand).toHaveLength(stat(game.state, 'handSize') + 1);
 
     define('brace_later', [{ kind: 'later', rounds: 1, effects: [{ kind: 'block', amount: 5 }] }]);
     play(game, 'brace_later');

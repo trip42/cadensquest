@@ -658,7 +658,7 @@
     "cost": 1,
     "targeting": "self",
     "range": 0,
-    "text": "Next round, heal 8 and draw 2.",
+    "text": "Next round, heal 5 and draw 1.",
     "effects": [
       {
         "kind": "later",
@@ -666,11 +666,11 @@
         "effects": [
           {
             "kind": "heal",
-            "amount": 8
+            "amount": 5
           },
           {
             "kind": "draw",
-            "amount": 2
+            "amount": 1
           }
         ]
       }
