@@ -30,6 +30,7 @@ import {
 import { cue, type HitVia } from './cues';
 import { CHUNK_ROWS } from './map/generate';
 import {
+  canEnter,
   type Cell,
   cellDistance,
   findPath,
@@ -40,6 +41,7 @@ import {
 import { FLOORS, floorRows, gateRowOf, surfaceKind, ZONES } from './map/tiles';
 import { chunkIndexForRow } from './map/world';
 import { rollReward } from './rewards';
+import { resolveStat } from './stats';
 import { record } from './telemetry';
 import { nextInt, pick, shuffle } from './rng';
 import { talismanEffects } from './talismans';
@@ -667,7 +669,10 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
       faceToward(actor, entityCell(victim));
       if (!isPlayer) setAnimation(actor, 'attack');
       const bonus = actor.power + (isPlayer ? stat(state, 'damageBonus') : 0);
-      dealDamage(game, victim, amount + bonus, { source: actor, via: 'blow', ranged: range > 1 });
+      // Ranged only if it has somewhere to fly: a far-reaching card played on
+      // something adjacent — or just pulled in — lands like a swing.
+      const ranged = range > 1 && cellDistance(entityCell(actor), entityCell(victim)) > 1;
+      dealDamage(game, victim, amount + bonus, { source: actor, via: 'blow', ranged });
       break;
     }
     case 'block':
@@ -722,6 +727,20 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
       heal(state, creature, amount);
       break;
     }
+    case 'push':
+    case 'pull': {
+      const victim = target && entityAt(state, target.row, target.col);
+      if (!victim || victim.dead || victim === actor) break;
+      if (!isPlayer && cellDistance(entityCell(actor), entityCell(victim)) > range) {
+        noteNear(state, actor, `${entityDef(actor.defId).name} cannot reach.`);
+        break;
+      }
+      const moved = shove(game, actor, victim, amount, effect.kind === 'pull');
+      // The rest of the card follows the creature to where it now stands:
+      // "pull it in, then hit it" still hits it.
+      if (moved) play.target = moved;
+      break;
+    }
     case 'movement':
       if (isPlayer) state.movement += amount;
       break;
@@ -740,6 +759,96 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
       }
       break;
   }
+}
+
+/* ------------------------------ knockback ------------------------------ */
+
+/** How long knockback takes to cross one tile, in seconds. Quick: a shove,
+ *  not a walk. */
+const SHOVE_TIME = 0.09;
+
+/* Knock a creature straight back from the actor, or drag it toward the
+   actor, a tile at a time by the same rule as walking: walkable, empty,
+   and no more than a layer up or down. Each tile it goes the way that
+   moves it most — the longer of the two directions between them — and
+   takes the other if that one is blocked.
+
+   A pull stops beside the actor. A push stopped short by a wall or the
+   edge hurts it `slamDamage` for each tile it had left; stopped by another
+   creature, that one takes the same — so knocking an enemy into its
+   neighbour hurts both, whichever side the neighbour is on. Guardians hold
+   their ground.
+
+   Where it lands is decided now, and it stands there at once as far as the
+   rules know; its motion only carries the picture across. The landing
+   tile's marks go off when that motion ends, as a step's would. Returns
+   where it ended up, or null if it did not move. */
+function shove(game: Game, actor: Entity, victim: Entity, tiles: number, pull: boolean): Cell | null {
+  const { state } = game;
+  const name = entityDef(victim.defId).name;
+  if (tiles <= 0) return null;
+  if (entityDef(victim.defId).guardian) {
+    noteNear(state, actor, `${name} holds its ground.`);
+    return null;
+  }
+
+  const origin = entityCell(actor);
+  const from = entityCell(victim);
+  let here = from;
+  let moved = 0;
+  let stoppedBy: Entity | undefined;
+  let blocked = false;
+  while (moved < tiles) {
+    if (pull && cellDistance(here, origin) <= 1) break;
+    const next = shoveStep(game, here, origin, pull, victim);
+    if (!next.cell) {
+      stoppedBy = next.creature;
+      blocked = true;
+      break;
+    }
+    here = next.cell;
+    moved += 1;
+  }
+
+  const left = pull || !blocked ? 0 : tiles - moved;
+  const slam = left * (actor.id === state.playerId ? stat(state, 'slamDamage') : resolveStat('slamDamage', []));
+
+  if (moved) {
+    victim.row = here.row;
+    victim.col = here.col;
+    victim.path = [];
+    victim.motion = { from, to: here, t: 0, speed: 1 / (SHOVE_TIME * moved) };
+    note(state, `${name} is ${pull ? 'pulled' : 'knocked back'} ${moved}.`);
+  }
+  cue(state, { type: 'shove', target: victim.id, side: victim.faction, from, to: here, origin, pull, slam });
+
+  if (slam > 0) {
+    note(state, stoppedBy ? `${name} slams into ${entityDef(stoppedBy.defId).name}.` : `${name} slams into the wall.`);
+    dealDamage(game, victim, slam, { source: actor, via: 'slam' });
+    if (stoppedBy && !stoppedBy.dead) dealDamage(game, stoppedBy, slam, { source: actor, via: 'slam' });
+  }
+  return moved ? here : null;
+}
+
+/** The next tile of a push or pull — or, if there is none, the creature
+ *  standing where it was knocked, if that is what stopped it. */
+function shoveStep(game: Game, here: Cell, origin: Cell, pull: boolean, victim: Entity): { cell?: Cell; creature?: Entity } {
+  const { state, world } = game;
+  const away = pull ? -1 : 1;
+  const dRow = Math.sign(here.row - origin.row) * away;
+  const dCol = Math.sign(here.col - origin.col) * away;
+  // The longer way first; the other, if there is one, only when that fails.
+  const rowFirst = Math.abs(here.row - origin.row) >= Math.abs(here.col - origin.col);
+  const tries = (rowFirst ? [[dRow, 0], [0, dCol]] : [[0, dCol], [dRow, 0]])
+    .filter(([r, c]) => r !== 0 || c !== 0)
+    .map(([r, c]) => ({ row: here.row + r!, col: here.col + c! }));
+  for (const cell of tries) {
+    const other = entityAt(state, cell.row, cell.col);
+    if ((!other || other === victim) && canEnter(world, here, cell.row, cell.col)) return { cell };
+  }
+  const first = tries[0];
+  const other = first && entityAt(state, first.row, first.col);
+  return { creature: other && other !== victim ? other : undefined };
 }
 
 function faceToward(entity: Entity, cell: Cell): void {

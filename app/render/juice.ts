@@ -94,6 +94,18 @@ interface Ring extends Anchored {
   width: number;
 }
 
+/** A pull's line, from whoever pulled to the creature coming in. */
+interface Tether {
+  origin: Cell;
+  from: Cell;
+  to: Cell;
+  start: number;
+  /** How long the creature takes to come in; the line fades after. */
+  travel: number;
+  life: number;
+  colour: string;
+}
+
 interface Fade {
   colour: string;
   start: number;
@@ -140,6 +152,7 @@ export class Juice {
   shots: Shot[] = [];
   rings: Ring[] = [];
   private fades: Fade[] = [];
+  tethers: Tether[] = [];
   private readonly flashes = new Map<string, { colour: string; start: number; life: number }>();
   /** How hard the screen is shaking, 0..1; it settles by itself. */
   trauma = 0;
@@ -251,6 +264,24 @@ export class Juice {
         this.motes(item.cell, tall * 0.3, colour, 14, now);
         this.flash(item.target, colour, now, 0.35, 0.7);
         if (item.type === 'tame') this.text(item.cell, tall, 'TAMED', colour, 12, now);
+        break;
+      }
+      case 'shove': {
+        const tiles = Math.abs(item.to.row - item.from.row) + Math.abs(item.to.col - item.from.col);
+        const travel = 0.09 * tiles;
+        if (item.pull) {
+          this.tethers.push({
+            origin: item.origin, from: item.from, to: item.to, start: now, travel, life: travel + 0.25,
+            colour: item.side === 'enemy' ? palette.cyan : palette.red,
+          });
+        } else if (!this.calm) {
+          this.dust(item.from, now);
+          if (tiles) this.dust(item.to, now + travel);
+        }
+        if (item.slam) {
+          this.ring(item.to, palette.text, now + travel, 0.35, 0.3, 0.9, 3);
+          this.shake(0.3);
+        }
         break;
       }
       case 'mark':
@@ -412,6 +443,7 @@ export class Juice {
     this.rings = this.rings.filter(alive);
     this.fades = this.fades.filter(alive);
     this.shots = this.shots.filter((shot) => now < shot.arrive);
+    this.tethers = this.tethers.filter(alive);
     for (const [id, flash] of this.flashes) if (now - flash.start >= flash.life) this.flashes.delete(id);
     this.trauma = Math.max(0, this.trauma - dt * 1.6);
   }
@@ -457,6 +489,30 @@ export class Juice {
       ctx.lineWidth = ring.width;
       ctx.beginPath();
       ctx.ellipse(top.x, top.y - ring.lift, halfWidth * radius, halfHeight * radius, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // A pull: a taut line from the puller to the creature, whose far end
+    // travels in with it, then fades.
+    for (const tether of this.tethers) {
+      const t = now - tether.start;
+      if (t < 0) continue;
+      const u = tether.travel > 0 ? clamp(t / tether.travel, 0, 1) : 1;
+      const a = stage.feet(tether.origin);
+      const from = stage.feet(tether.from);
+      const to = stage.feet(tether.to);
+      const x = from.x + (to.x - from.x) * u;
+      const y = from.y + (to.y - from.y) * u;
+      ctx.save();
+      ctx.globalAlpha = t < tether.travel ? 1 : 1 - (t - tether.travel) / (tether.life - tether.travel);
+      ctx.strokeStyle = tether.colour;
+      ctx.lineWidth = 3;
+      ctx.setLineDash([6, 4]);
+      ctx.lineDashOffset = t * 60;
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y - 40);
+      ctx.lineTo(x, y - 30);
       ctx.stroke();
       ctx.restore();
     }

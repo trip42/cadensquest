@@ -94,6 +94,30 @@ export const SOUNDS = {
     seed: 7,
   },
 
+  /** Knocked back: a heavy whoosh falling away, a low shove, and feet
+   *  scraping as it lands. */
+  shove: {
+    layers: [
+      { wave: 'noise', freq: 60000, attack: 0.01, decay: 0.22, curve: 1.5, lowpass: [2500, 500] },
+      { wave: 'sine', freq: 160, to: 70, decay: 0.15, drive: 0.6, gain: 0.7 },
+      { wave: 'noise', freq: 800, at: 0.06, decay: 0.15, lowpass: 1200, gain: 0.4 },
+    ],
+    gain: 0.6,
+    seed: 20,
+  },
+  /** Dragged in: a rope snapping taut — a whoosh rising towards you and a
+   *  bright clink as it catches. */
+  yank: {
+    layers: [
+      { wave: 'noise', freq: 60000, attack: 0.12, decay: 0.08, curve: 1, lowpass: [500, 4000], highpass: 300, gain: 0.7 },
+      { wave: 'triangle', freq: 300, to: 900, attack: 0.1, decay: 0.1, gain: 0.4 },
+      { wave: 'sine', freq: 1760, at: 0.16, decay: 0.15, curve: 3, gain: 0.35 },
+      { wave: 'sine', freq: 2640, at: 0.16, decay: 0.1, curve: 4, gain: 0.2 },
+    ],
+    gain: 0.55,
+    seed: 21,
+  },
+
   /* ------------------------------ falls -------------------------------- */
 
   /** A crystal creature breaking apart: bright glassy pings, one after

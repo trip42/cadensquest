@@ -77,7 +77,7 @@ describe('the sound of each cue', () => {
     // A new kind of cue fails to typecheck here until it is added — and
     // then fails this test until it makes a sound.
     const KINDS: Record<CueType, true> = {
-      hit: true, gain: true, fall: true, tame: true, summon: true, mark: true, burst: true, play: true,
+      hit: true, gain: true, fall: true, tame: true, shove: true, summon: true, mark: true, burst: true, play: true,
       discard: true, step: true, portal: true, descend: true, turn: true, reward: true, claim: true, end: true,
     };
     expect(new Set(every.map((item) => item.type))).toEqual(new Set(Object.keys(KINDS)));

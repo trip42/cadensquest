@@ -16,9 +16,9 @@
 import type { Faction } from './entities/types';
 import type { Cell } from './map/navigation';
 
-/** How damage arrived: a blow from a creature or card, a marked tile, or
- *  an area burst. */
-export type HitVia = 'blow' | 'tile' | 'burst';
+/** How damage arrived: a blow from a creature or card, a marked tile, an
+ *  area burst, or being knocked into something (a slam). */
+export type HitVia = 'blow' | 'tile' | 'burst' | 'slam';
 
 export type Cue =
   /** Damage landing. `amount` is the health it cost, `blocked` what block
@@ -35,6 +35,10 @@ export type Cue =
   /** A creature dying — or, for a summon whose rounds ran out, fading. */
   | { type: 'fall'; target: string; side: Faction; cell: Cell; guardian: boolean; faded: boolean }
   | { type: 'tame'; target: string; cell: Cell }
+  /** Knocked back (`pull` false) or dragged in, from `from` to `to`, by
+   *  whoever stands at `origin`. `slam` is the damage per creature if it
+   *  was stopped short, else 0. */
+  | { type: 'shove'; target: string; side: Faction; from: Cell; to: Cell; origin: Cell; pull: boolean; slam: number }
   | { type: 'summon'; target: string; side: Faction; cell: Cell }
   /** Tiles marked with terrain, in the mark's colour. */
   | { type: 'mark'; cells: Cell[]; colour: string }

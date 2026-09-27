@@ -29,6 +29,9 @@ export const BASE_STATS = {
   blockBonus: 0,
   /** How many tamed or summoned creatures can fight beside you at once. */
   maxAllies: 1,
+  /** Damage for each tile of knockback left when a wall or a creature
+   *  stops the one knocked back — to it, and to whatever it hit. */
+  slamDamage: 2,
 } as const;
 
 export type StatKey = keyof typeof BASE_STATS;
@@ -77,6 +80,7 @@ export const STAT_NAMES: Record<StatKey, string> = {
   movementBonus: 'movement per discard',
   blockBonus: 'block from cards',
   maxAllies: 'allies you can keep',
+  slamDamage: 'knockback slam damage',
 };
 
 export const STAT_KEYS = Object.keys(BASE_STATS) as StatKey[];

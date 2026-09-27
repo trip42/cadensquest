@@ -89,7 +89,26 @@ function creaturePhrase(effect: SimpleData, range: number, targeting: Targeting 
   return afterTame ? `heal it ${n}` : `heal ${whom} for ${n}`;
 }
 
-function playerPhrase(effect: EffectData, range: number, targeting?: Targeting, afterTame = false, nameOf: NameOf = byId): string {
+/* Knockback and pull move the creature the card is aimed at; once a card
+   has named it — hit it, tamed it, moved it — later effects say "it". */
+const NAMES_TARGET = new Set(['damage', 'tame', 'push', 'pull']);
+
+function movePhrase(effect: SimpleData, range: number, mentioned: boolean): string {
+  const n = describeAmount(effect.amount as Amount, 'your');
+  const scaled = isScaled(effect.amount as Amount) && (effect.amount as { of: string }).of !== 'x';
+  const who = mentioned ? 'it' : range <= 1 ? 'an adjacent enemy' : `an enemy within ${range}`;
+  if (effect.kind === 'push') return scaled ? `knock ${who} back tiles equal to ${n}` : `knock ${who} back ${n}`;
+  return scaled ? `pull ${who} closer by ${n}` : `pull ${who} up to ${n} closer`;
+}
+
+function playerPhrase(
+  effect: EffectData, range: number, targeting?: Targeting, afterTame = false, nameOf: NameOf = byId, mentioned = false,
+): string {
+  if (effect.kind === 'push' || effect.kind === 'pull') return movePhrase(effect, range, mentioned);
+  // After a pull or knockback the creature has moved: name it, not a tile.
+  if (effect.kind === 'damage' && mentioned) {
+    return simplePlayerPhrase(effect, range).replace(/to (an adjacent enemy|an enemy within \d+)$/, 'to it');
+  }
   if (effect.kind === 'summon') {
     const where = targeting === 'cell' ? (range <= 1 ? ' onto an adjacent tile' : ` onto a tile within ${range}`) : '';
     return `summon ${summonedPhrase(effect, nameOf, where)}`;
@@ -176,6 +195,8 @@ function enemyPhrase(effect: EffectData, range: number, nameOf: NameOf = byId): 
     case 'loseBlock': return isAllOf(amount, 'block') ? 'drops its guard' : scaled ? `loses block equal to ${n}` : `loses ${n} block`;
     case 'heal': return scaled ? `heals equal to ${n}` : `heals ${n}`;
     case 'power': return scaled ? `grows stronger by ${n}` : `grows ${n} stronger`;
+    case 'push': return `knocks its target back ${n}`;
+    case 'pull': return `drags its target up to ${n} closer`;
     default: return `${effect.kind} ${n}`;
   }
 }
@@ -191,9 +212,17 @@ function sentence(phrases: string[]): string {
 export function writeCardText(
   effects: EffectData[], range: number, side: 'player' | 'enemy', targeting?: Targeting, nameOf: NameOf = byId,
 ): string {
-  return sentence(effects.map((effect, i) => side === 'player'
-    ? playerPhrase(effect, range, targeting, effects.slice(0, i).some((earlier) => earlier.kind === 'tame'), nameOf)
-    : enemyPhrase(effect, range, nameOf)));
+  return sentence(effects.map((effect, i) => {
+    if (side === 'enemy') return enemyPhrase(effect, range, nameOf);
+    const earlier = effects.slice(0, i);
+    const tamed = earlier.some((item) => item.kind === 'tame');
+    // "It" only once the creature has been moved — or, for a move, once it
+    // has been named at all.
+    const moved = earlier.some((item) => item.kind === 'push' || item.kind === 'pull');
+    const named = earlier.some((item) => NAMES_TARGET.has(item.kind));
+    const mentioned = effect.kind === 'push' || effect.kind === 'pull' ? named : moved;
+    return playerPhrase(effect, range, targeting, tamed, nameOf, mentioned);
+  }));
 }
 
 /** A gem's effect happens on top of a card, so it reads as a rider. */

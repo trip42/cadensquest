@@ -124,6 +124,18 @@ Enemies make running past them costly: stepping away from one you are next
 to costs an extra step, every enemy walks up *and* acts on its turn, and
 each floor ends at its guardian — the way down only opens where it falls.
 
+Knockback and pull move enemies around the board:
+
+- **Knockback** and **Bull Rush** knock an enemy back. **Knockback X**
+  knocks it back as far as the energy you spend.
+- **Grapple Hook** and **Yank** pull an enemy in from range.
+- **Slams.** Knocked into a wall, the map's edge or another creature, an
+  enemy takes 2 damage for each tile it had left, and so does whatever it
+  hit.
+- **Marks.** Where it lands, marks go off, so an enemy knocked onto fire
+  burns.
+- **Guardians** can't be moved.
+
 `tick(game, dt)` is the only function that advances the clock. It moves
 characters between cells, steps animation frames, and pulls the next enemy
 off the queue once the previous one has finished — which is why the enemy

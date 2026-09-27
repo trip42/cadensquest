@@ -423,7 +423,8 @@ card is data; a new verb or shape is code (checklists at the end).
 
 **Four shapes.** A **simple** effect is `{ kind, amount }` with a verb
 from `EFFECT_INFO`: `damage`, `block`, `loseBlock`, `heal`, `power`,
-`movement`, `energy`, `draw`, `step` (Leap), `advance`, `tame`, `mend`.
+`movement`, `energy`, `draw`, `step` (Leap), `advance`, `tame`, `mend`,
+`push` (Knockback), `pull`.
 **Terrain** is `{ kind: "terrain", rounds, colour, effects: [simple...] }`.
 **Summon** is `{ kind: "summon", entity, amount, rounds? }`. **Area** is
 `{ kind: "area", radius, colour, affects?, effects: [simple...] }`. Code
@@ -433,8 +434,8 @@ validates them with a zod discriminated union.
 **Who an effect lands on.** Every effect is played by an actor. `damage`
 hits the actor's target (never its own side); `block`, `loseBlock`, `heal`,
 `power` land on the actor; `movement`, `energy`, `draw`, `step` only mean
-something for the player; `advance` only for an enemy or ally; `tame` and
-`mend` act on the targeted creature. `EFFECT_INFO[kind]` records which side
+something for the player; `advance` only for an enemy or ally; `tame`,
+`mend`, `push` and `pull` act on the targeted creature. `EFFECT_INFO[kind]` records which side
 each verb works for (`player`, `enemy`) and whether it can go on a tile
 (`tile`); the validator warns about a verb on the wrong side.
 
@@ -486,6 +487,30 @@ ellipses at the tile's 2:1 proportions (`markCircle`); the shared
 Tuning dials are at the top of `drawMarks`. Hovering a tile (`TileTip`) or
 a creature on one lists the effects and rounds left, never the card that
 made them.
+
+**Knockback and pull.** `push` knocks the targeted creature back from the
+actor, `pull` drags it in, a tile at a time (`shove`), for either side.
+
+- **How it moves.** Each tile goes the way that moves it most: the longer
+  of the two directions between them, then the other if that is blocked. It
+  steps by walking's rule (`canEnter`): walkable, empty, at most a layer up
+  or down.
+- **Pull** stops beside the actor.
+- **Slam.** A push stopped short takes `slamDamage` (a stat, base 2) for
+  each tile it had left. The wall, the map's edge or a creature it hits all
+  count, and a creature it hits takes the same, whichever side it is on.
+  The damage arrives as `via: 'slam'`.
+- **Guardians hold their ground.**
+- **Where it lands is decided at once.** `row`/`col` move now and the
+  `motion` only carries the picture, so the rest of the card sees it where
+  it landed. `play.target` follows it: Grapple Hook pulls, then hits.
+- **Marks** on the landing tile go off when the motion ends, like a step's.
+  Tiles crossed on the way are not triggered.
+- **Cue.** It pushes a `shove` cue. The juice shows dust on a push, a
+  dashed tether on a pull, and a ring and shake on a slam.
+- **Ranged or not** is judged by distance when the blow lands, so a far
+  card played on something adjacent — or just pulled in — swings rather
+  than throws.
 
 **Allies, Tame and Mend.** A third faction, `ally`, fights on the player's
 side; `sameSide` groups player + allies against enemies. Every non-player
@@ -729,7 +754,7 @@ something happens:
 - a hit: what it cost, what block took, whether it was fatal, how it
   arrived (a blow, a tile or a burst) and from where
 - a fall, and a gain of block, health or power
-- a tame, a summon, a mark, a burst
+- a tame, a summon, a shove (knockback or pull), a mark, a burst
 - a card played, a discard, each step
 - a portal opening, a descent, a turn
 - a reward coming up and being claimed, and the end of the run

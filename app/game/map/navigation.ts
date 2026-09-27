@@ -41,7 +41,9 @@ const key = (row: number, col: number) => `${row}:${col}`;
 export const sameCell = (a: Cell, b: Cell) => a.row === b.row && a.col === b.col;
 export const cellDistance = (a: Cell, b: Cell) => Math.abs(a.row - b.row) + Math.abs(a.col - b.col);
 
-function canEnter(world: World, from: Cell, row: number, col: number, options: MoveOptions): boolean {
+/** Can a character step from `from` onto this cell — walkable, not blocked,
+ *  and no more than a layer up or down? Knockback moves by the same rule. */
+export function canEnter(world: World, from: Cell, row: number, col: number, options: MoveOptions = {}): boolean {
   if (!world.walkable(row, col)) return false;
   if (options.blocked?.(row, col)) return false;
   const step = Math.abs(world.heightAt(row, col) - world.heightAt(from.row, from.col));

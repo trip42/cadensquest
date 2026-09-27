@@ -33,7 +33,13 @@ export type EffectKind =
    *  amount or less. Never a guardian, and only while there is room. */
   | 'tame'
   /** Heal the targeted creature — an ally, or one this card just tamed. */
-  | 'mend';
+  | 'mend'
+  /** Knock the targeted creature this many tiles straight back from the
+   *  actor. Stopped by a wall or a creature, it takes the rest as damage. */
+  | 'push'
+  /** Drag the targeted creature up to this many tiles toward the actor,
+   *  stopping beside it. */
+  | 'pull';
 
 /* How much. Either a fixed number, or worked out from something about the
    actor at the moment the effect happens: `{ of: 'block' }` is "as much as
@@ -215,6 +221,8 @@ const NOW_SHORT: Partial<Record<EffectKind, (n: number) => string>> = {
   advance: (n) => `ADV ${n}`,
   tame: (n) => `TAME ≤${n}`,
   mend: (n) => `MEND ${n}`,
+  push: (n) => `PUSH ${n}`,
+  pull: (n) => `PULL ${n}`,
 };
 
 const NOW_LABELS: Partial<Record<EffectKind, (n: number) => string>> = {
@@ -229,6 +237,8 @@ const NOW_LABELS: Partial<Record<EffectKind, (n: number) => string>> = {
   advance: (n) => `advance ${n}`,
   tame: (n) => `tames at ${n} health or less`,
   mend: (n) => `mends ${n}`,
+  push: (n) => `knocks back ${n}`,
+  pull: (n) => `pulls in ${n}`,
 };
 
 /** What the effects that depend on the moment come to right now — "8
@@ -296,6 +306,8 @@ export const EFFECT_INFO: Record<EffectKind, { label: string; help: string; play
   advance: { label: 'Advance', help: 'Walk up to this many tiles toward the nearest foe, stopping once in range.', player: false, enemy: true, tile: false },
   tame: { label: 'Tame', help: 'Turn the targeted enemy to your side if its health is this much or less. Not guardians; only while you have room for another ally.', player: true, enemy: false, tile: false },
   mend: { label: 'Mend', help: 'Heal the targeted creature this much — an ally, or one this card just tamed.', player: true, enemy: false, tile: false },
+  push: { label: 'Knockback', help: 'Knock the target this many tiles straight back. If a wall or another creature stops it, both take damage for each tile it had left. Guardians hold their ground.', player: true, enemy: true, tile: false },
+  pull: { label: 'Pull', help: 'Drag the target up to this many tiles toward you, stopping beside you. Guardians hold their ground.', player: true, enemy: true, tile: false },
 };
 
 export const EFFECT_KINDS = Object.keys(EFFECT_INFO) as EffectKind[];
@@ -403,5 +415,7 @@ export function describeEffect(effect: Effect): string {
     case 'power': return scaled ? `gain power equal to ${n}` : `+${n} damage from now on`;
     case 'tame': return `tame it if its health is ${n} or less`;
     case 'mend': return scaled ? `heal the target equal to ${n}` : `heal the target ${n}`;
+    case 'push': return scaled ? `knock the target back equal to ${n}` : `knock the target back ${n}`;
+    case 'pull': return scaled ? `pull the target in equal to ${n}` : `pull the target in ${n}`;
   }
 }

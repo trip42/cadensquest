@@ -37,7 +37,7 @@ export function soundsFor(item: Cue, timing: CueTiming = { impact: 0 }): SoundCa
       }
       if (item.via === 'tile') calls.push({ name: 'sizzle', volume: 0.7 });
       if (item.amount > 0) {
-        const heavy = item.fatal || item.amount >= 10;
+        const heavy = item.fatal || item.amount >= 10 || item.via === 'slam';
         const name: SoundName = item.side === 'player' ? 'hurt' : heavy ? 'smash' : 'hit';
         calls.push({ name, delay: impact, vary: 0.08 });
       }
@@ -58,6 +58,8 @@ export function soundsFor(item: Cue, timing: CueTiming = { impact: 0 }): SoundCa
       return [{ name: 'power', volume: 0.8 }];
     case 'tame':
       return [{ name: 'tame' }];
+    case 'shove':
+      return [{ name: item.pull ? 'yank' : 'shove', volume: 0.9 }];
     case 'summon':
       // An enemy's summons arrive a little lower and darker.
       return [{ name: 'summon', rate: item.side === 'enemy' ? 0.8 : 1 }];
@@ -113,6 +115,9 @@ export const EXAMPLE_CUES: Array<{ label: string; cue: Cue }> = [
   { label: 'a summon fading', cue: { type: 'fall', target: 'a', side: 'ally', cell: at, guardian: false, faded: true } },
   { label: 'Caden falling', cue: { type: 'fall', target: 'a', side: 'player', cell: at, guardian: false, faded: false } },
   { label: 'taming', cue: { type: 'tame', target: 'a', cell: at } },
+  { label: 'a knockback', cue: { type: 'shove', target: 'a', side: 'enemy', from: at, to: at, origin: at, pull: false, slam: 0 } },
+  { label: 'a pull', cue: { type: 'shove', target: 'a', side: 'enemy', from: at, to: at, origin: at, pull: true, slam: 0 } },
+  { label: 'slammed into a wall', cue: { type: 'hit', target: 'a', side: 'enemy', cell: at, amount: 4, blocked: 0, fatal: false, via: 'slam' } },
   { label: 'summoning', cue: { type: 'summon', target: 'a', side: 'enemy', cell: at } },
   { label: 'marking a tile', cue: { type: 'mark', cells: [at], colour: '#e43b44' } },
   { label: 'an area burst', cue: { type: 'burst', center: at, cells: [at], colour: '#feae34' } },

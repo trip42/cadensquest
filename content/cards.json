@@ -458,5 +458,111 @@
         "radius": 1
       }
     ]
+  },
+  {
+    "id": "knockback",
+    "name": "Knockback",
+    "enabled": true,
+    "rarity": "normal",
+    "art": "push",
+    "cost": 1,
+    "targeting": "enemy",
+    "range": 1,
+    "text": "Deal 4 damage to an adjacent enemy and knock it back 2.",
+    "effects": [
+      {
+        "kind": "damage",
+        "amount": 4
+      },
+      {
+        "kind": "push",
+        "amount": 2
+      }
+    ]
+  },
+  {
+    "id": "knockback_x",
+    "name": "Knockback X",
+    "enabled": true,
+    "rarity": "rare",
+    "art": "push",
+    "cost": "X",
+    "targeting": "enemy",
+    "range": 1,
+    "text": "Deal 2X damage to an adjacent enemy and knock it back X.",
+    "effects": [
+      {
+        "kind": "damage",
+        "amount": {
+          "of": "x",
+          "times": 2
+        }
+      },
+      {
+        "kind": "push",
+        "amount": {
+          "of": "x"
+        }
+      }
+    ]
+  },
+  {
+    "id": "bull_rush",
+    "name": "Bull Rush",
+    "enabled": true,
+    "rarity": "rare",
+    "art": "push",
+    "cost": 2,
+    "targeting": "enemy",
+    "range": 1,
+    "text": "Deal 8 damage to an adjacent enemy and knock it back 3.",
+    "effects": [
+      {
+        "kind": "damage",
+        "amount": 8
+      },
+      {
+        "kind": "push",
+        "amount": 3
+      }
+    ]
+  },
+  {
+    "id": "grapple_hook",
+    "name": "Grapple Hook",
+    "enabled": true,
+    "rarity": "normal",
+    "art": "hook",
+    "cost": 1,
+    "targeting": "enemy",
+    "range": 4,
+    "text": "Pull an enemy within 4 up to 3 closer and deal 3 damage to it.",
+    "effects": [
+      {
+        "kind": "pull",
+        "amount": 3
+      },
+      {
+        "kind": "damage",
+        "amount": 3
+      }
+    ]
+  },
+  {
+    "id": "yank",
+    "name": "Yank",
+    "enabled": true,
+    "rarity": "normal",
+    "art": "hook",
+    "cost": 0,
+    "targeting": "enemy",
+    "range": 3,
+    "text": "Pull an enemy within 3 up to 2 closer.",
+    "effects": [
+      {
+        "kind": "pull",
+        "amount": 2
+      }
+    ]
   }
 ]
