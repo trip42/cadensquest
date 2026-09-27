@@ -517,7 +517,10 @@ function markTile(game: Game, effect: TerrainEffect, play: Play): void {
   const values = amountValues(state, actor, play.x);
   const rounds = amountOf(effect.rounds, values);
   if (rounds <= 0) return;
-  const effects = effect.effects.map((tile) => ({ kind: tile.kind, amount: amountOf(tile.amount, values) }));
+  const fix = (list: TerrainEffect['effects']) => list.map((tile) => ({ kind: tile.kind, amount: amountOf(tile.amount, values) }));
+  const effects = fix(effect.effects);
+  const enter = effect.enter?.length ? fix(effect.enter) : undefined;
+  const exit = effect.exit?.length ? fix(effect.exit) : undefined;
 
   // Every tile in the radius gets a mark of its own, so each counts down,
   // stacks and hits on its own like any other.
@@ -525,6 +528,7 @@ function markTile(game: Game, effect: TerrainEffect, play: Play): void {
   if (spots.length) cue(state, { type: 'mark', cells: spots, colour: effect.colour });
   for (const spot of spots) {
     const layer: TerrainLayer = { id: nextUid('mark'), effects, colour: effect.colour, rounds, ownerId: actor.id };
+    if (enter || exit) Object.assign(layer, { enter, exit, inside: [] });
     const key = terrainKey(spot);
     (state.terrain[key] ??= []).push(layer);
 
@@ -534,6 +538,7 @@ function markTile(game: Game, effect: TerrainEffect, play: Play): void {
     if (occupant && !occupant.dead) {
       state.terrainHits[`${occupant.id}@${key}`] = state.turn;
       applyTile(game, occupant, [layer]);
+      crossMarks(game, occupant);
     }
   }
 }
@@ -657,6 +662,7 @@ export function areaPreview(game: Game, def: CardDefinition, target: Cell): { ce
 function triggerTile(game: Game, entity: Entity): void {
   const { state } = game;
   if (entity.dead) return;
+  crossMarks(game, entity);
   const key = terrainKey(entityCell(entity));
   const layers = state.terrain[key];
   if (!layers?.length) return;
@@ -672,11 +678,53 @@ function triggerTile(game: Game, entity: Entity): void {
   applyTile(game, entity, layers);
 }
 
-/** A new round: every mark loses one, and the ones that run out are gone. */
-function ageTerrain(state: GameState): void {
+/* Enter and exit: a mark with either keeps a list of who is inside it.
+   Whoever is on its tile and not yet inside gets the `enter`; whoever is
+   inside but no longer on it gets the `exit`. Called wherever a creature
+   arrives — every step, push, pull and leap ends in `triggerTile` — and
+   when a tile is marked under one. Unlike `effects`, this has no
+   once-a-round limit: every arrival enters and every departure leaves. */
+function crossMarks(game: Game, entity: Entity): void {
+  const { state } = game;
+  const here = terrainKey(entityCell(entity));
+  for (const [key, layers] of Object.entries(state.terrain)) {
+    for (const layer of layers) {
+      if (!layer.inside) continue;
+      const inside = layer.inside.includes(entity.id);
+      const on = key === here && !entity.dead;
+      if (inside === on) continue;
+      if (on) {
+        layer.inside.push(entity.id);
+        if (layer.enter) applyTile(game, entity, [{ ...layer, effects: layer.enter }]);
+      } else {
+        leaveMark(game, entity, layer);
+      }
+    }
+  }
+}
+
+/** Off a mark's tile, or the mark gone from under it: the `exit`, once. */
+function leaveMark(game: Game, entity: Entity, layer: TerrainLayer): void {
+  layer.inside = layer.inside?.filter((id) => id !== entity.id);
+  if (layer.exit && !entity.dead) applyTile(game, entity, [{ ...layer, effects: layer.exit }]);
+}
+
+/** Every mark's `exit` for whoever is inside it, as the mark goes. */
+function emptyMark(game: Game, layer: TerrainLayer): void {
+  for (const id of layer.inside ?? []) {
+    const entity = game.state.entities.find((item) => item.id === id);
+    if (entity) leaveMark(game, entity, layer);
+  }
+}
+
+/** A new round: every mark loses one, and the ones that run out are gone —
+ *  taking back what their `enter` gave anyone still standing on them. */
+function ageTerrain(game: Game): void {
+  const { state } = game;
   for (const [key, layers] of Object.entries(state.terrain)) {
     // Portals never run out; every other mark loses a round.
     const left = layers.filter((layer) => layer.portal || (layer.rounds -= 1) > 0);
+    for (const layer of layers) if (!left.includes(layer)) emptyMark(game, layer);
     if (left.length) state.terrain[key] = left;
     else delete state.terrain[key];
   }
@@ -1118,6 +1166,8 @@ export function enterFloor(game: Game, floor: number): void {
   const self = player(state);
   const party = allies(state);
   const { first, last } = floorRows(floor);
+  // Leaving the floor is leaving its marks: whatever they gave is taken back.
+  for (const layers of Object.values(state.terrain)) for (const layer of layers) emptyMark(game, layer);
   state.floor = floor;
   world.setBounds(first, last);
 
@@ -1256,7 +1306,7 @@ export function beginTurn(game: Game): void {
   state.tally.turns = state.turn;
   // A new round: marks count down, and every tile may hit again; summons
   // with a lifetime count down too.
-  ageTerrain(state);
+  ageTerrain(game);
   ageSummons(state);
 
   const self = player(state);

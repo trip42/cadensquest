@@ -99,7 +99,8 @@ function crossCheck(content: Content): ContentIssue[] {
       effect.kind === 'terrain'
         ? [
           { amount: effect.rounds, field: `${at}[${i}].rounds` },
-          ...effect.effects.map((tile, t) => ({ amount: tile.amount, field: `${at}[${i}].effects[${t}].amount` })),
+          ...(['effects', 'enter', 'exit'] as const).flatMap((list) => (effect[list] ?? [])
+            .map((tile, t) => ({ amount: tile.amount, field: `${at}[${i}].${list}[${t}].amount` }))),
         ]
         : effect.kind === 'summon'
           ? [
@@ -125,11 +126,17 @@ function crossCheck(content: Content): ContentIssue[] {
     effects.forEach((effect, i) => {
       if (effect.kind !== 'terrain' && effect.kind !== 'area' && effect.kind !== 'later') return;
       const where = effect.kind === 'area' ? 'in a burst' : effect.kind === 'later' ? 'in a Later' : 'on a tile';
-      effect.effects.forEach((tile, t) => {
-        if (!EFFECT_INFO[tile.kind].tile) {
-          error(file, id, `${EFFECT_INFO[tile.kind].label} cannot go ${where}`, `${at}[${i}].effects[${t}].kind`);
-        }
-      });
+      const lists = effect.kind === 'terrain' ? (['effects', 'enter', 'exit'] as const) : (['effects'] as const);
+      for (const list of lists) {
+        ((effect as Extract<EffectData, { kind: 'terrain' }>)[list] ?? []).forEach((tile, t) => {
+          if (!EFFECT_INFO[tile.kind].tile) {
+            error(file, id, `${EFFECT_INFO[tile.kind].label} cannot go ${where}`, `${at}[${i}].${list}[${t}].kind`);
+          }
+        });
+      }
+      if (effect.kind === 'terrain' && !effect.effects.length && !effect.enter?.length && !effect.exit?.length) {
+        error(file, id, 'a marked tile needs at least one effect', `${at}[${i}].effects`);
+      }
     });
   };
   /** A summon names an enemy that exists, is not a guardian, and is not
@@ -244,7 +251,8 @@ function crossCheck(content: Content): ContentIssue[] {
     // Setting fire under the player counts as an attack too.
     const attacks = enemy.deck.some((cardId) => enemyCards.get(cardId)?.effects.some((effect) =>
       effect.kind === 'damage'
-      || ((effect.kind === 'terrain' || effect.kind === 'area') && effect.effects.some((tile) => tile.kind === 'damage'))));
+      || (effect.kind === 'area' && effect.effects.some((tile) => tile.kind === 'damage'))
+      || (effect.kind === 'terrain' && [...effect.effects, ...(effect.enter ?? []), ...(effect.exit ?? [])].some((tile) => tile.kind === 'damage'))));
     if (!attacks) warn('enemies', enemy.id, 'nothing in its deck deals damage', 'deck');
 
     for (const gemId of Object.keys(enemy.reward?.gemWeights ?? {})) {

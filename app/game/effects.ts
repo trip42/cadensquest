@@ -92,10 +92,22 @@ export interface TerrainEffect {
   colour: string;
   /** What happens to whoever is on it. Simple effects only. */
   effects: SimpleEffect[];
+  /** Once, as a creature arrives on the tile, or when the tile is marked
+   *  under it — not again while it stays. Pair a gain with an `exit` that
+   *  takes it back: "+1 power on entering, lose 1 on leaving". */
+  enter?: SimpleEffect[];
+  /** Once, as a creature that got the `enter` leaves the tile — or when the
+   *  mark runs out or the floor ends under it, so a buff is always taken
+   *  back. */
+  exit?: SimpleEffect[];
   /** Mark every tile within this many steps of the target too, not just
    *  the target — a whole burning area. 0 or left out: the one tile. */
   radius?: number;
 }
+
+/** Every simple effect a mark carries: while on it, on entering, on leaving. */
+export const markEffects = (effect: TerrainEffect): SimpleEffect[] =>
+  [...effect.effects, ...(effect.enter ?? []), ...(effect.exit ?? [])];
 
 /* Area: a burst centred on the target tile that hits every creature within
    `radius` steps of it, once, at once — friend and foe alike, the caster too
@@ -301,7 +313,7 @@ export function nowText(effects: readonly Effect[], values: AmountValues, style:
       if (!isTerrain(effect)) return isScaled(effect.amount) ? [labels[effect.kind]?.(amounts[i]!)] : [];
       // A mark: how long, and what its tile will do, fixed from now.
       const rounds = isScaled(effect.rounds) ? [style === 'short' ? `${amounts[i]} RND` : `${amounts[i]} rounds`] : [];
-      const inner = effect.effects
+      const inner = markEffects(effect)
         .filter((tile) => isScaled(tile.amount))
         .map((tile) => `${style === 'short' ? 'TILE' : 'tile'} ${labels[tile.kind]?.(amountOf(tile.amount, values))}`);
       return [...rounds, ...inner];
@@ -314,7 +326,7 @@ export function nowText(effects: readonly Effect[], values: AmountValues, style:
 export const hasScaledAmount = (effects: readonly Effect[]): boolean =>
   effects.some((effect) =>
     isTerrain(effect)
-      ? isScaled(effect.rounds) || effect.effects.some((tile) => isScaled(tile.amount))
+      ? isScaled(effect.rounds) || markEffects(effect).some((tile) => isScaled(tile.amount))
       : isSummon(effect)
         ? isScaled(effect.amount) || (effect.rounds !== undefined && isScaled(effect.rounds))
         : isArea(effect)
@@ -431,6 +443,16 @@ export function describeTileEffect(effect: SimpleEffect | TileEffect): string {
   }
 }
 
+/** A mark's effects, fixed: "take 2 damage; on entering, gain 1 power;
+ *  on leaving, lose 1 power". For the tile's tooltip. */
+export function describeMark(effects: readonly TileEffect[], enter?: readonly TileEffect[], exit?: readonly TileEffect[]): string {
+  return [
+    effects.map(describeTileEffect).join(', '),
+    enter?.length ? `on entering, ${enter.map(describeTileEffect).join(', ')}` : '',
+    exit?.length ? `on leaving, ${exit.map(describeTileEffect).join(', ')}` : '',
+  ].filter(Boolean).join('; ');
+}
+
 export function describeEffect(effect: Effect): string {
   if (isArea(effect)) {
     const who = effect.affects === 'foes' ? 'every foe' : effect.affects === 'friends' ? 'every friend' : 'everyone';
@@ -446,7 +468,12 @@ export function describeEffect(effect: Effect): string {
   }
   if (isTerrain(effect)) {
     const rounds = describeAmount(effect.rounds);
-    return `mark a tile for ${rounds} round${rounds === '1' ? '' : 's'}: ${effect.effects.map(describeTileEffect).join(', ')}`;
+    const parts = [
+      effect.effects.length ? effect.effects.map(describeTileEffect).join(', ') : '',
+      effect.enter?.length ? `on entering, ${effect.enter.map(describeTileEffect).join(', ')}` : '',
+      effect.exit?.length ? `on leaving, ${effect.exit.map(describeTileEffect).join(', ')}` : '',
+    ].filter(Boolean);
+    return `mark a tile for ${rounds} round${rounds === '1' ? '' : 's'}: ${parts.join('; ')}`;
   }
   const n = describeAmount(effect.amount);
   const scaled = isScaled(effect.amount);

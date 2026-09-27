@@ -66,6 +66,27 @@ function tilePhrase(tiles: TerrainData['effects'], owner: string): string {
   }).join(' and ');
 }
 
+/* What a mark does, in all its parts: to whoever is on it, as it arrives,
+   as it leaves. Power on entering taken back on leaving reads as what it
+   is: "whoever stands on it deals 1 more damage". */
+function markPhrase(effect: TerrainData, owner: string): string {
+  const { enter = [], exit = [] } = effect;
+  const [gain] = enter;
+  const [loss] = exit;
+  const standing = enter.length === 1 && exit.length === 1 && gain!.kind === 'power' && loss!.kind === 'losePower'
+    && JSON.stringify(gain!.amount) === JSON.stringify(loss!.amount);
+  const parts = [
+    effect.effects.length ? `whoever is on it ${tilePhrase(effect.effects, owner)}` : '',
+    standing
+      ? `whoever stands on it deals ${describeAmount(gain!.amount as Amount, owner)} more damage`
+      : [
+        enter.length ? `whoever arrives ${tilePhrase(enter, owner)}` : '',
+        exit.length ? `whoever leaves ${tilePhrase(exit, owner)}` : '',
+      ].filter(Boolean).join(' and '),
+  ].filter(Boolean);
+  return parts.join(' and ');
+}
+
 /** "for 3 rounds", "for X rounds", "for 1 round". */
 function roundsPhrase(effect: TerrainData): string {
   const n = describeAmount(effect.rounds as Amount);
@@ -145,7 +166,7 @@ function playerPhrase(
   if (effect.kind === 'tame' || effect.kind === 'mend') return creaturePhrase(effect, range, targeting, afterTame);
   if (effect.kind === 'terrain') {
     const area = effect.radius ? ` and every tile within ${effect.radius} of it` : '';
-    return `mark ${wherePhrase(targeting, range)}${area}: ${roundsPhrase(effect)}, whoever is on it ${tilePhrase(effect.effects, 'your')}`;
+    return `mark ${wherePhrase(targeting, range)}${area}: ${roundsPhrase(effect)}, ${markPhrase(effect, 'your')}`;
   }
   if (effect.kind === 'area') {
     const at = targeting === 'self' || targeting === 'none' ? 'around you' : `at ${wherePhrase(targeting, range)}`;
@@ -208,7 +229,7 @@ function enemyPhrase(effect: EffectData, range: number, nameOf: NameOf = byId): 
   if (effect.kind === 'terrain') {
     // Neutral, not "your tile": a tamed creature plays this card too.
     const area = effect.radius ? ` and every tile within ${effect.radius} of it` : '';
-    return `marks its target's tile${area} ${roundsPhrase(effect)}: whoever is on it ${tilePhrase(effect.effects, 'its')}`;
+    return `marks its target's tile${area} ${roundsPhrase(effect)}: ${markPhrase(effect, 'its')}`;
   }
   if (effect.kind === 'area') return `bursts at its target's tile: ${caughtPhrase(effect, 'its')}`;
   if (effect.kind === 'later') return `${whenPhrase(effect.rounds as Amount)}, ${tilePhrase(effect.effects, 'its')}`;

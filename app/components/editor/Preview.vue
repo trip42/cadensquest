@@ -9,7 +9,7 @@ import type {
   CardData, Content, ContentFile, EnemyCardData, EnemyData, GemData, TalismanData, ZoneData,
 } from '~/game/content';
 import {
-  amountOf, type AmountValues, describeEffect, describeTileEffect, type Effect, isArea, isSummon, isTerrain, nowText,
+  amountOf, type AmountValues, describeEffect, describeMark, describeTileEffect, type Effect, isArea, isSummon, isTerrain, nowText,
   TRIGGER_INFO, type TriggerPoint,
 } from '~/game/effects';
 import type { GemDefinition } from '~/game/gems';
@@ -67,8 +67,9 @@ const marks = computed(() => {
   const values = card.value ? cardSample.value : { ...SAMPLE, block: 0, energy: 0, hand: 0 };
   return effects.map((effect) => {
     const rounds = amountOf(effect.rounds, values);
-    const tiles = effect.effects.map((tile) => ({ kind: tile.kind, amount: amountOf(tile.amount, values) }));
-    return { colour: effect.colour, text: `${tiles.map(describeTileEffect).join(', ')} · ${rounds} round${rounds === 1 ? '' : 's'}` };
+    const fix = (list: typeof effect.effects = []) => list.map((tile) => ({ kind: tile.kind, amount: amountOf(tile.amount, values) }));
+    const text = describeMark(fix(effect.effects), fix(effect.enter), fix(effect.exit));
+    return { colour: effect.colour, text: `${text} · ${rounds} round${rounds === 1 ? '' : 's'}` };
   });
 });
 /* What a burst does to each creature it catches, from the same sample

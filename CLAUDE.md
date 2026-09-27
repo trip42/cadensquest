@@ -500,6 +500,18 @@ Tuning dials are at the top of `drawMarks`. Hovering a tile (`TileTip`) or
 a creature on one lists the effects and rounds left, never the card that
 made them.
 
+**Enter and exit.** A mark may also carry `enter` and `exit` lists (and
+then its `effects` may be empty; the validator wants at least one of the
+three). `enter` lands once as a creature arrives: a step, push, pull or
+leap (all of which end in `triggerTile`), or the tile being marked under
+it. `exit` lands once as it leaves, and also when the mark runs out or the
+floor ends beneath it (`emptyMark`), so a buff is always taken back.
+`crossMarks` keeps `TerrainLayer.inside`, the ids that got the enter; only
+layers with enter or exit carry it. Unlike `effects` there is no
+once-a-round guard, so pair a gain with an exit that takes it back:
+Rallying Ground is +1 power on entering and Lose 1 power on leaving, which
+the card text reads as "whoever stands on it deals 1 more damage".
+
 **Knockback and pull.** `push` knocks the targeted creature back from the
 actor, `pull` drags it in, a tile at a time (`shove`), for either side.
 

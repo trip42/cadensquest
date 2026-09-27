@@ -36,6 +36,12 @@ export interface ActiveReward {
 export interface TerrainLayer {
   id: string;
   effects: TileEffect[];
+  /** Once as a creature arrives, and once as it leaves (or the mark goes
+   *  from under it). */
+  enter?: TileEffect[];
+  exit?: TileEffect[];
+  /** Who has had the `enter` and is owed the `exit`, by entity id. */
+  inside?: string[];
   colour: string;
   rounds: number;
   /** Who marked it, so a death by fire is credited to them. */

@@ -34,7 +34,7 @@ import {
   tick,
 } from '~/game/actions';
 import { cardDef, cardMovement, energySpent } from '~/game/cards/definitions';
-import { describeTileEffect, nowText } from '~/game/effects';
+import { describeMark, describeTileEffect, nowText } from '~/game/effects';
 import { intentDef } from '~/game/cards/intents';
 import { applyTrial, type Trial, trialText } from '~/game/sandbox';
 import type { CardDefinition, CardInstance } from '~/game/cards/types';
@@ -408,7 +408,7 @@ export const useGameStore = defineStore('game', () => {
         ? 'Step on to leave, and win the run'
         : layer.portal === 'down'
           ? `Step on to go down to ${ZONES[state.floor + 1]?.name ?? 'the next floor'}`
-          : `${layer.effects.map(describeTileEffect).join(', ')} · ${layer.rounds} round${layer.rounds === 1 ? '' : 's'}`,
+          : `${describeMark(layer.effects, layer.enter, layer.exit)} · ${layer.rounds} round${layer.rounds === 1 ? '' : 's'}`,
     }));
   }
 

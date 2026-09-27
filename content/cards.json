@@ -675,5 +675,37 @@
         ]
       }
     ]
+  },
+  {
+    "id": "rallying_ground",
+    "name": "Rallying Ground",
+    "enabled": true,
+    "rarity": "normal",
+    "art": "shield",
+    "cost": 1,
+    "targeting": "cell",
+    "range": 2,
+    "text": "Mark a tile within 2 and every tile within 1 of it: for 3 rounds, whoever stands on it deals 1 more damage.",
+    "effects": [
+      {
+        "kind": "terrain",
+        "rounds": 3,
+        "colour": "#fee761",
+        "effects": [],
+        "enter": [
+          {
+            "kind": "power",
+            "amount": 1
+          }
+        ],
+        "exit": [
+          {
+            "kind": "losePower",
+            "amount": 1
+          }
+        ],
+        "radius": 1
+      }
+    ]
   }
 ]

@@ -61,7 +61,8 @@ function rowProblems(index: number): string[] {
   const prefix = at(index);
   // A terrain row's own effects show their problems on their own rows.
   return (props.issues ?? [])
-    .filter((issue) => issue.field?.startsWith(prefix) && !issue.field.startsWith(`${prefix}.effects[`))
+    .filter((issue) => issue.field?.startsWith(prefix)
+      && !['effects', 'enter', 'exit'].some((list) => issue.field!.startsWith(`${prefix}.${list}[`)))
     .map((issue) => issue.message);
 }
 
@@ -81,6 +82,17 @@ function setKind(index: number, kind: string): void {
     props.effects[index] = { kind: kind as EffectKind, amount: 3 };
   } else {
     current.kind = kind as EffectKind;
+  }
+}
+
+/** A mark's enter and exit lists are optional; left out, it has neither. */
+function setCrossing(effect: { enter?: unknown[]; exit?: unknown[] }, on: boolean): void {
+  if (on) {
+    effect.enter = [{ kind: 'power', amount: 1 }];
+    effect.exit = [{ kind: 'losePower', amount: 1 }];
+  } else {
+    delete effect.enter;
+    delete effect.exit;
   }
 }
 
@@ -169,8 +181,18 @@ function move(index: number, by: number): void {
       </span>
 
       <div v-if="effect.kind === 'terrain'" class="tile-effects">
-        <span class="tile-label">Whoever is on the tile:</span>
+        <span class="tile-label">Whoever is on the tile, each round:</span>
         <EditorEffectList :effects="effect.effects" :side="side" on-tile :issues="issues" :path="`${at(index)}.effects`" />
+        <label class="tile-label">
+          <input type="checkbox" :checked="!!(effect.enter || effect.exit)" @change="setCrossing(effect, ($event.target as HTMLInputElement).checked)">
+          On entering and leaving
+        </label>
+        <template v-if="effect.enter || effect.exit">
+          <span class="tile-label">Once, as a creature arrives:</span>
+          <EditorEffectList :effects="(effect.enter ??= [])" :side="side" on-tile :issues="issues" :path="`${at(index)}.enter`" />
+          <span class="tile-label">Once, as it leaves or the mark runs out:</span>
+          <EditorEffectList :effects="(effect.exit ??= [])" :side="side" on-tile :issues="issues" :path="`${at(index)}.exit`" />
+        </template>
       </div>
       <div v-if="effect.kind === 'later'" class="tile-effects">
         <span class="tile-label">Then, on {{ side === 'player' ? 'you' : 'it' }}:</span>

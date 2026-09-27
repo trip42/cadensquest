@@ -42,12 +42,16 @@ export const simpleEffectSchema = z.strictObject({
 
 const colourSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'a colour like #d9544d');
 
-/** Mark a tile: whoever is on it gets `effects`, for `rounds` rounds. */
+/** Mark a tile: whoever is on it gets `effects`, for `rounds` rounds —
+ *  and `enter` once as it arrives, `exit` once as it leaves. The validator
+ *  checks that at least one of the three has something in it. */
 export const terrainEffectSchema = z.strictObject({
   kind: z.literal('terrain'),
   rounds: amountSchema,
   colour: colourSchema,
-  effects: z.array(simpleEffectSchema).min(1, 'a marked tile needs at least one effect'),
+  effects: z.array(simpleEffectSchema),
+  enter: z.array(simpleEffectSchema).optional(),
+  exit: z.array(simpleEffectSchema).optional(),
   /** Mark every tile within this many steps of the target too. */
   radius: count(0, 3).optional(),
 });
