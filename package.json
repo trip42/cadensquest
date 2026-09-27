@@ -10,7 +10,8 @@
     "preview": "nuxt preview",
     "generate": "nuxt generate",
     "postinstall": "nuxt prepare",
-    "typecheck": "vue-tsc --build"
+    "typecheck": "vue-tsc --build",
+    "sim": "vitest run --config sim/vitest.config.ts"
   },
   "keywords": [],
   "author": "",

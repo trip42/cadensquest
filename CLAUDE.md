@@ -17,8 +17,9 @@ tests, which run headless with no browser.
 ```bash
 npm run dev          # http://localhost:3000, and the content editor at /editor
 npm test             # vitest: map invariants, rules, content, every effect
-npm run typecheck    # vue-tsc --build across app, server and tests
+npm run typecheck    # vue-tsc --build across app, server, tests and sim
 npm run build
+npm run sim          # the fun simulator: a bot plays thousands of runs
 ```
 
 `?seed=90210` on the URL replays a run exactly. Use it when reproducing
@@ -143,6 +144,8 @@ app/utils/           analytics.ts, contentText.ts ("Write it from the
 content/             the game's content as JSON — see "Content"
 server/api/content.put.ts  the editor's save endpoint (dev only)
 test/                runs in Node; setup.ts installs content/ first
+sim/                 the fun simulator: bot, recorder, scorecard, experiments
+                     (see "Simulator"); reports/ is generated, not committed
 docs/                ART_SPEC.md (the brief for an artist), MARKETING.md
                      (the plan for finding an audience)
 legacy/              the original single-file prototype this grew from
@@ -1050,6 +1053,46 @@ game.
   about enemies and allies more than `ENGAGE_RADIUS` from the player; hits
   and falls are always logged. Use it for any new creature line, or distant
   enemies bury the fight in front of the player.
+
+## Simulator
+
+`sim/` plays the game without anyone playing it: a bot plays whole runs
+through the real rules, and a recorder turns them into a **fun scorecard**.
+`docs/FUN.md` has the research behind each measure, the findings, and what
+was changed because of them. `npm run sim` runs every experiment (about ten
+minutes); `npm run sim -- sim/final.sim.ts` runs one. Reports land in
+`sim/reports/` as markdown and JSON.
+
+- **The bot** (`bot.ts`) is a careful player of middling skill. It chooses
+  card plays by trying each sensible one on a copy of the game and scoring
+  the result (`value`), and moves by a positional score: walking distance
+  to the goal, incoming damage, a chance to hit something, and marks
+  underfoot.
+  - **Its numbers compare variants.** They are not a human win rate.
+  - **Copies share the world's chunks but get their own bounds**
+    (`cloneGame`). A trial that stepped on a portal once moved the real map
+    down a floor.
+  - **Three stalls it once had are worth knowing about:** walking by
+    straight-line distance into dead ends at forks; the goal tile missing
+    from its own distance field (`reachable` leaves out where it starts);
+    and camping on its own healing mark instead of taking the portal.
+  - **A stall-breaker** drops caution after 4 turns without progress.
+- **The recorder** (`run.ts`) taps the cue feed as cues are pushed, since the
+  feed only keeps the last 64 and an enemy phase can push more. Kills are
+  credited to how the killing blow arrived.
+- **The scorecard** (`metrics.ts`) has 11 targets across challenge, drama,
+  fairness, decisions, pacing, tactics and variety. `score` counts the passes
+  and `funDistance` measures how far off the misses are.
+- **Content under test** (`content.ts`) is the committed content (`git show
+  HEAD`), so a half-done editor experiment does not skew anything; set
+  `SIM_CONTENT=working` to use the files on disk. Variants change a copy of
+  it (enemy health and damage, density, decks, rewards, new cards and
+  enemies), and stat changes go in as a hidden talisman. Everything is still
+  validated.
+- **Experiments** are `*.sim.ts` files, run in parallel. Each variant gets
+  the same seeds (`seeds()`), so differences come from the variant, not the
+  dice. 150 runs give about ±8% on a win rate; `final` and `rebalance` use
+  300.
 
 ## Verifying UI work
 
