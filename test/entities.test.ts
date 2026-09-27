@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { cardDef } from '~/game/cards/definitions';
 import { intentDef } from '~/game/cards/intents';
 import { ENEMY_IDS, ENTITIES, entityDef, GUARDIAN_IDS } from '~/game/entities/definitions';
+import type { Effect } from '~/game/effects';
 import type { AnimationState } from '~/game/entities/types';
 import { ZONES } from '~/game/map/tiles';
 
@@ -10,8 +11,8 @@ const SHEET_COLUMNS = 3;
 const SHEET_ROWS = 6;
 
 describe('entity definitions', () => {
-  it('has the six enemies from the sheet', () => {
-    expect(ENEMY_IDS.sort()).toEqual(['bug', 'chicken', 'dragon', 'slime', 'spider', 'wolf']);
+  it('has the enemies from the sheet', () => {
+    expect(ENEMY_IDS.sort()).toEqual(['bug', 'chicken', 'dragon', 'slime', 'spider', 'whelp', 'wolf']);
   });
 
   it('gives each enemy its own cell of the sheet, in sheet order', () => {
@@ -73,7 +74,11 @@ describe('entity definitions', () => {
       const deck = entityDef(id).deck;
       expect(deck.length).toBeGreaterThan(0);
       for (const cardId of deck) expect(() => intentDef(cardId)).not.toThrow();
-      const attacks = deck.some((cardId) => intentDef(cardId).effects.some((e) => e.kind === 'damage'));
+      // An attack is a blow, or a mark or burst that hurts: the Ember Whelp
+      // sets your tile burning rather than biting.
+      const hurts = (e: Effect): boolean => e.kind === 'damage'
+        || ((e.kind === 'terrain' || e.kind === 'area') && 'effects' in e && e.effects.some((inner) => inner.kind === 'damage'));
+      const attacks = deck.some((cardId) => intentDef(cardId).effects.some(hurts));
       expect(attacks, id).toBe(true);
     }
   });

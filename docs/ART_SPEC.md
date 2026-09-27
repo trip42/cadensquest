@@ -21,7 +21,7 @@ in.
 | # | What | How much | When |
 |---|------|----------|------|
 | 1 | **Caden** — the player character | 6 animations | First |
-| 2 | **Creatures** — 6 enemies and 2 zone bosses | 5 animations each | Second |
+| 2 | **Creatures** — 7 enemies and 2 zone bosses | 5 animations each | Second |
 | 3 | **Effects** — hits, projectiles, bursts, burning and healing ground, the portal | about 11 | Third |
 | 4 | **Card illustrations** | 7 now, one per card later | Fourth |
 | 5 | **Talisman icons** | 8 | Fourth |
@@ -195,14 +195,15 @@ sheets, so size costs loading time.
 
 | Creature | Found in | Health | How it fights | Notes for the art |
 |----------|----------|--------|---------------|-------------------|
-| **Slime** | North Basin, Sunken Reach | 14 | Creeps one tile and hits for 3; hardens its body to block | Slow and sturdy |
+| **Slime** | North Basin, Sunken Reach | 14 | Creeps one tile and hits for 2; hardens its body to block | Slow and sturdy |
 | **Chicken** | North Basin | 6 | Flaps up to 6–8 tiles closer; pecks for 2 | Fast, weak, a bit comic |
-| **Bug** (beetle) | North Basin, Sunken Reach | 9 | Skitters up to 6 tiles; bites for 3 | Quick and low to the ground |
-| **Spider** | Sunken Reach, Pale Shelf | 12 | Spits for 4 from two tiles away; scuttles; broods | Attack row = a spit |
-| **Wolf** | Pale Shelf | 16 | Lunges and bites for 6; circles to guard | A fast hunter |
-| **Dragon** | Pale Shelf | 30 | Breathes fire for 8 from three tiles away; rages; beats its wings to close in | The zone's big threat. Attack row = the breath pose; the flames are an effect sprite |
-| **Warden** — boss of North Basin | its floor's last row | 44 | Mauls for 8 from two tiles away; stands firm; roars | Guards the way down. Never moves. Currently a corrupted wolf |
-| **Wyrm** — boss of Sunken Reach | its floor's last row | 64 | Breathes fire for 11 from three tiles away; hardens its scales; builds fury | The bigger boss. Never moves. Currently a corrupted dragon |
+| **Bug** (beetle) | North Basin, Sunken Reach | 9 | Skitters up to 6 tiles; bites for 2 | Quick and low to the ground |
+| **Spider** | Sunken Reach, Pale Shelf | 12 | Spits for 3 from two tiles away; scuttles; broods | Attack row = a spit |
+| **Wolf** | Pale Shelf | 16 | Lunges and bites for 5; circles to guard | A fast hunter |
+| **Dragon** | Pale Shelf | 30 | Breathes fire for 6 from three tiles away; rages; beats its wings to close in | The zone's big threat. Attack row = the breath pose; the flames are an effect sprite |
+| **Ember Whelp** | Sunken Reach, Pale Shelf | 10 | Hops closer and sets the ground under its target burning for two rounds | Small and quick; its attack is a spit of fire that lands as a burning patch. Currently borrows the cute red dragon |
+| **Warden** — boss of North Basin | its floor's last row | 44 | Mauls for 6 from two tiles away; stands firm; roars | Guards the way down. Never moves. Currently a corrupted wolf |
+| **Wyrm** — boss of Sunken Reach | its floor's last row | 64 | Breathes fire for 8 from three tiles away; hardens its scales; builds fury | The bigger boss. Never moves. Currently a corrupted dragon |
 
 The same art is used when a creature is **tamed or summoned** to fight on
 Caden's side. The game draws a coloured ring under it to show whose side

@@ -7,25 +7,27 @@
       "bug"
     ],
     "guardian": "warden",
-    "density": 5
+    "density": 4
   },
   {
     "id": "marsh",
     "enemies": [
       "slime",
       "bug",
-      "spider"
+      "spider",
+      "whelp"
     ],
     "guardian": "wyrm",
-    "density": 8
+    "density": 6
   },
   {
     "id": "highlands",
     "enemies": [
       "wolf",
       "spider",
-      "dragon"
+      "dragon",
+      "whelp"
     ],
-    "density": 10
+    "density": 8
   }
 ]

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { beginTurn, endPlayerPhase, playCard, tick } from '~/game/actions';
-import { CARDS } from '~/game/cards/definitions';
+import { cardDef, CARDS } from '~/game/cards/definitions';
 import { INTENTS } from '~/game/cards/intents';
 import type { CardDefinition } from '~/game/cards/types';
 import { type Content, loadContent, validateContent } from '~/game/content';
@@ -195,7 +195,10 @@ describe('X cost', () => {
     game.state.energy = 3;
     play(game, 'flurry', entityCell(foe));
     expect(game.state.energy).toBe(0);
-    expect(foe.hp).toBe(99 - 4 * 3 - stat(game.state, 'damageBonus'));
+    // X times whatever Flurry multiplies it by in content.
+    const hit = cardDef('flurry').effects[0]!;
+    const times = 'amount' in hit && typeof hit.amount === 'object' ? (hit.amount.times ?? 1) : NaN;
+    expect(foe.hp).toBe(99 - times * 3 - stat(game.state, 'damageBonus'));
   });
 
   it('can be played with nothing left, for an X of 0', () => {

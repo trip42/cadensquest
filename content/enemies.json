@@ -230,5 +230,26 @@
         "talisman": 1
       }
     }
+  },
+  {
+    "id": "whelp",
+    "name": "Ember Whelp",
+    "enabled": true,
+    "maxHp": 10,
+    "sprite": {
+      "sheet": "enemies",
+      "col": 2,
+      "row": 1,
+      "faces": 1,
+      "footprint": {
+        "width": 60,
+        "height": 54
+      }
+    },
+    "deck": [
+      "whelp_scorch",
+      "whelp_scorch",
+      "whelp_hop"
+    ]
   }
 ]

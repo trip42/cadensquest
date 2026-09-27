@@ -182,15 +182,15 @@
     "cost": 0,
     "targeting": "self",
     "range": 0,
-    "text": "Gain 2 energy and draw a card.",
+    "text": "Gain 1 energy and draw 2 cards.",
     "effects": [
       {
         "kind": "energy",
-        "amount": 2
+        "amount": 1
       },
       {
         "kind": "draw",
-        "amount": 1
+        "amount": 2
       }
     ]
   },
@@ -262,13 +262,13 @@
     "cost": "X",
     "targeting": "enemy",
     "range": 1,
-    "text": "Deal 4X damage to an adjacent enemy.",
+    "text": "Deal 5X damage to an adjacent enemy.",
     "effects": [
       {
         "kind": "damage",
         "amount": {
           "of": "x",
-          "times": 4
+          "times": 5
         }
       }
     ]
@@ -348,7 +348,7 @@
     "enabled": true,
     "rarity": "normal",
     "art": "heart",
-    "cost": 1,
+    "cost": 0,
     "targeting": "ally",
     "range": 3,
     "text": "Heal an ally within 3 for 6.",
@@ -436,22 +436,17 @@
     "cost": "X",
     "targeting": "cell",
     "range": 3,
-    "text": "Mark a tile within 3 and every tile within 1 of it: for 2 rounds, whoever is on it takes 2 damage.",
+    "text": "Mark a tile within 3 and every tile within 1 of it: for X rounds, whoever is on it gains 1 power.",
     "effects": [
       {
         "kind": "terrain",
         "rounds": {
-          "of": "x",
-          "times": 2
+          "of": "x"
         },
         "colour": "#970af5",
         "effects": [
           {
             "kind": "power",
-            "amount": 2
-          },
-          {
-            "kind": "draw",
             "amount": 1
           }
         ],
@@ -489,13 +484,13 @@
     "cost": "X",
     "targeting": "enemy",
     "range": 1,
-    "text": "Deal 2X damage to an adjacent enemy and knock it back X.",
+    "text": "Deal 3X damage to an adjacent enemy and knock it back X.",
     "effects": [
       {
         "kind": "damage",
         "amount": {
           "of": "x",
-          "times": 2
+          "times": 3
         }
       },
       {
@@ -557,11 +552,15 @@
     "cost": 0,
     "targeting": "enemy",
     "range": 3,
-    "text": "Pull an enemy within 3 up to 2 closer.",
+    "text": "Pull an enemy within 3 up to 2 closer and draw a card.",
     "effects": [
       {
         "kind": "pull",
         "amount": 2
+      },
+      {
+        "kind": "draw",
+        "amount": 1
       }
     ]
   }

@@ -337,6 +337,8 @@ describe('the turn loop', () => {
 
     // Put an enemy next door and hit it with a melee card.
     const foe = state.entities.find((entity) => entity.faction === 'enemy')!;
+    // Sturdy enough to take the swing and still be there for the throw.
+    foe.hp = foe.maxHp = 50;
     foe.row = self.row + 1;
     foe.col = self.col;
     foe.motion = null;

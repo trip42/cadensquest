@@ -4,7 +4,7 @@
     "name": "Ooze",
     "enabled": true,
     "range": 1,
-    "text": "Creeps 1 closer and hits for 3.",
+    "text": "Creeps 1 closer and hits for 2.",
     "effects": [
       {
         "kind": "advance",
@@ -12,7 +12,7 @@
       },
       {
         "kind": "damage",
-        "amount": 3
+        "amount": 2
       }
     ]
   },
@@ -38,7 +38,7 @@
     "name": "Breath",
     "enabled": true,
     "range": 3,
-    "text": "Closes up to 2, then burns for 8 at range 3.",
+    "text": "Closes up to 2, then burns for 6 at range 3.",
     "effects": [
       {
         "kind": "advance",
@@ -46,7 +46,7 @@
       },
       {
         "kind": "damage",
-        "amount": 8
+        "amount": 6
       }
     ]
   },
@@ -94,7 +94,7 @@
     "name": "Bite",
     "enabled": true,
     "range": 1,
-    "text": "Closes up to 3 and bites for 3.",
+    "text": "Closes up to 3 and bites for 2.",
     "effects": [
       {
         "kind": "advance",
@@ -102,7 +102,7 @@
       },
       {
         "kind": "damage",
-        "amount": 3
+        "amount": 2
       }
     ]
   },
@@ -111,7 +111,7 @@
     "name": "Spit",
     "enabled": true,
     "range": 2,
-    "text": "Closes up to 3, then spits for 4 at range 2.",
+    "text": "Closes up to 3, then spits for 3 at range 2.",
     "effects": [
       {
         "kind": "advance",
@@ -119,7 +119,7 @@
       },
       {
         "kind": "damage",
-        "amount": 4
+        "amount": 3
       }
     ]
   },
@@ -141,7 +141,7 @@
     "name": "Brood",
     "enabled": true,
     "range": 2,
-    "text": "Closes up to 3; its attacks deal 2 more from now on.",
+    "text": "Closes up to 3; its attacks deal 1 more from now on.",
     "effects": [
       {
         "kind": "advance",
@@ -149,7 +149,7 @@
       },
       {
         "kind": "power",
-        "amount": 2
+        "amount": 1
       }
     ]
   },
@@ -188,7 +188,7 @@
     "name": "Lunge",
     "enabled": true,
     "range": 1,
-    "text": "Closes up to 4 and bites for 6.",
+    "text": "Closes up to 4 and bites for 5.",
     "effects": [
       {
         "kind": "advance",
@@ -196,7 +196,7 @@
       },
       {
         "kind": "damage",
-        "amount": 6
+        "amount": 5
       }
     ]
   },
@@ -222,11 +222,11 @@
     "name": "Maul",
     "enabled": true,
     "range": 2,
-    "text": "Mauls for 8 at range 2.",
+    "text": "Mauls for 6 at range 2.",
     "effects": [
       {
         "kind": "damage",
-        "amount": 8
+        "amount": 6
       }
     ]
   },
@@ -261,11 +261,11 @@
     "name": "Firestorm",
     "enabled": true,
     "range": 3,
-    "text": "Burns for 11 at range 3.",
+    "text": "Burns for 8 at range 3.",
     "effects": [
       {
         "kind": "damage",
-        "amount": 11
+        "amount": 8
       }
     ]
   },
@@ -287,11 +287,11 @@
     "name": "Fury",
     "enabled": true,
     "range": 3,
-    "text": "Its attacks deal 3 more from now on.",
+    "text": "Its attacks deal 2 more from now on.",
     "effects": [
       {
         "kind": "power",
-        "amount": 3
+        "amount": 2
       }
     ]
   },
@@ -307,6 +307,43 @@
         "entity": "bug",
         "amount": 4,
         "rounds": 3
+      }
+    ]
+  },
+  {
+    "id": "whelp_scorch",
+    "name": "Scorch",
+    "enabled": true,
+    "range": 3,
+    "text": "Closes up to 2 and sets its target's tile burning: 3 damage a round for 2 rounds.",
+    "effects": [
+      {
+        "kind": "advance",
+        "amount": 2
+      },
+      {
+        "kind": "terrain",
+        "rounds": 2,
+        "colour": "#e43b44",
+        "effects": [
+          {
+            "kind": "damage",
+            "amount": 3
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "whelp_hop",
+    "name": "Hop",
+    "enabled": true,
+    "range": 3,
+    "text": "Closes up to 3.",
+    "effects": [
+      {
+        "kind": "advance",
+        "amount": 3
       }
     ]
   }

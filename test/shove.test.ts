@@ -189,7 +189,7 @@ describe('the sample cards', () => {
     }
   });
 
-  it('Knockback X knocks back as far as the energy spent, for twice that', () => {
+  it('Knockback X knocks back as far as the energy spent, for three times that', () => {
     const game = quiet();
     const run = line(game, 5, 'row');
     place(game, run[0]!);
@@ -197,6 +197,6 @@ describe('the sample cards', () => {
     game.state.energy = 3;
     play(game, 'knockback_x', run[1]!);
     expect(entityCell(wolf)).toEqual(run[4]);
-    expect(wolf.hp).toBe(24);
+    expect(wolf.hp).toBe(21);
   });
 });

@@ -149,9 +149,10 @@ someone behind a rock outcrop is hidden by it. Health bars and intent chips
 are drawn in a pass of their own afterwards, so they stay legible when two
 characters overlap.
 
-The six enemies come from `assets/spritesheets/enemies-grid.png`, a 3-wide
-by 6-tall grid of 350x300 cells. The definitions use the first column, one
-row each:
+The enemies come from `assets/spritesheets/enemies-grid.png`, a 3-wide
+by 6-tall grid of 350x300 cells. Six use the first column, one row each;
+the guardians use the dark middle column; and the Ember Whelp borrows the
+little red dragon from the cute third column until it has art of its own:
 
 | row | enemy   | zone                        |
 |-----|---------|-----------------------------|
@@ -161,6 +162,7 @@ row each:
 | 3   | spider  | Sunken Reach, Pale Shelf    |
 | 4   | chicken | North Basin                 |
 | 5   | wolf    | Pale Shelf                  |
+| 1 (col 2) | ember whelp | Sunken Reach, Pale Shelf |
 
 Two things keep this tidy. `game/entities` names a sheet *key* and a cell,
 never a file, so the simulation still knows nothing about asset URLs — the

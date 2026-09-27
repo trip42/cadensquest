@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { beginTurn, endPlayerPhase, isValidTarget, nearestFoe, playCard, playerMoveOptions, tick } from '~/game/actions';
 import { CARDS } from '~/game/cards/definitions';
-import { INTENTS } from '~/game/cards/intents';
+import { intentDef, INTENTS } from '~/game/cards/intents';
 import type { CardDefinition } from '~/game/cards/types';
 import { loadContent } from '~/game/content';
 import type { Effect } from '~/game/effects';
@@ -140,7 +140,9 @@ describe('allies in the fight', () => {
     endPlayerPhase(game);
     expect(game.state.queue[0]?.entityId).toBe(friend.id);
     for (let i = 0; i < 30000 && game.state.phase === 'enemy'; i += 1) tick(game, 1 / 60);
-    expect(foe.hp).toBe(30 - 6);
+    // Whatever the lunge hits for in content.
+    const lunge = intentDef('wolf_lunge').effects.find((effect) => effect.kind === 'damage');
+    expect(foe.hp).toBe(30 - (lunge && 'amount' in lunge && typeof lunge.amount === 'number' ? lunge.amount : NaN));
     expect(self.hp).toBe(hp);
   });
 

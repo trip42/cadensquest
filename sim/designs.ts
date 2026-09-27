@@ -38,15 +38,16 @@ export const BRUTE = {
   ],
 };
 
-/** Sets its target's tile burning — the ground itself becomes the threat. */
-export const HEXER = {
-  enemies: [enemy('hexer', 'Hexer', 10, 3, ['hexer_scorch', 'hexer_scorch', 'hexer_drift'])],
+/** Sets its target's tile burning — the ground itself becomes the threat.
+ *  Drawn as the cute column's little red dragon. */
+export const WHELP = {
+  enemies: [{ ...enemy('whelp', 'Ember Whelp', 10, 1, ['whelp_scorch', 'whelp_scorch', 'whelp_hop']), sprite: { sheet: 'enemies', col: 2, row: 1, faces: 1, footprint: { width: 60, height: 54 } } }],
   cards: [
-    card('hexer_scorch', 'Scorch', 3, "Closes up to 2 and sets its target's tile burning: 3 damage a round for 2 rounds.", [
+    card('whelp_scorch', 'Scorch', 3, "Closes up to 2 and sets its target's tile burning: 3 damage a round for 2 rounds.", [
       { kind: 'advance', amount: 2 },
       { kind: 'terrain', rounds: 2, colour: '#e43b44', effects: [{ kind: 'damage', amount: 3 }] },
     ]),
-    card('hexer_drift', 'Drift', 3, 'Closes up to 3.', [{ kind: 'advance', amount: 3 }]),
+    card('whelp_hop', 'Hop', 3, 'Closes up to 3.', [{ kind: 'advance', amount: 3 }]),
   ],
 };
 
@@ -94,7 +95,7 @@ export const CARD_FIXES = (raw: Raw): void => {
     if (found) change(found);
   };
   set('wildfire', (card) => {
-    card.effects = [{ kind: 'terrain', rounds: { of: 'x' }, colour: '#970af5', radius: 1, effects: [{ kind: 'power', amount: 1 }] }];
+    card.effects = [{ kind: 'terrain', rounds: { of: 'x' }, colour: '#970af5', effects: [{ kind: 'power', amount: 1 }], radius: 1 }];
     card.text = 'Mark a tile within 3 and every tile within 1 of it: for X rounds, whoever is on it gains 1 power.';
   });
   set('surge', (card) => {
@@ -118,7 +119,7 @@ export const CARD_FIXES = (raw: Raw): void => {
   });
 };
 
-export const HEXER_ZONES = { marsh: ['hexer'], highlands: ['hexer'] };
+export const WHELP_ZONES = { marsh: ['whelp'], highlands: ['whelp'] };
 
 /** Basics with a way to use the board from the first turn. */
 export const TACTICAL_DECK = ['strike', 'strike', 'strike', 'strike', 'guard', 'guard', 'guard', 'guard', 'knockback', 'fire'];
