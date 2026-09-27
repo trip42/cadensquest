@@ -308,12 +308,14 @@ onBeforeUnmount(hide);
   flex: none;
   /* A fixed six lines, so every card is the same height whatever it
      says. Text that needs more is cut off — the content editor measures
-     the real card and warns before that can ship. 8px, not anything
-     between 8 and 12: Silkscreen is only sharp on its 4px grid. */
+     the real card and warns before that can ship. Georgia, not the pixel
+     face: a smooth serif reads at 10px, where Silkscreen would blur off
+     its 4px grid. */
   height: 78px;
   overflow: hidden;
   color: var(--px-soft);
-  font-size: 8px;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 10px;
   line-height: 13px;
 }
 

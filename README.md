@@ -308,7 +308,7 @@ artwork in the middle, rules text along the bottom.
 A card is one size everywhere it appears — the hand, the spoils screen,
 the gem grid, the editor — set by `--card-w` and `--card-art-h` in
 `app/assets/css/main.css`: 164 × 211. The name gets one line and the rules
-text six, in 8px; the editor's preview warns if either is too long to fit.
+text six, in 10px Georgia; the editor's preview warns if either is too long to fit.
 
 The frame colour is the card's rarity — grey for starter, pale for normal,
 cyan for rare, yellow for mythic — so `rarity` is a field on `CardDefinition` alongside cost
