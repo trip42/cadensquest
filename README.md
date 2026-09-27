@@ -450,6 +450,10 @@ files read-only and has no editor and no way to write.
 - **Art** — everything on screen is placeholder art. The brief for an
   artist — what's needed, the style, sheet layout, sizes, effects, card and
   talisman art, delivery format — is [docs/ART_SPEC.md](docs/ART_SPEC.md).
+- **Fun and balance** — what players enjoy in tactics games and
+  deckbuilders, a scorecard that measures it, a simulator that plays
+  thousands of runs (`npm run sim`), what it found and what to try next:
+  [docs/FUN.md](docs/FUN.md).
 - **Marketing** — how to build an audience to pay for that art: a daily
   seed, itch.io and Steam, clips, devlogs, crowdfunding, and what to measure
   first. The plan is [docs/MARKETING.md](docs/MARKETING.md).

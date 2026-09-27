@@ -1,4 +1,4 @@
-/* A search over the dials that moved the surveys: which starting deck, how
+/* A search around the committed game, over the dials that moved the surveys: which starting deck, how
    often an enemy carries a reward, and enemy health, damage and numbers.
    A random sample of the grid is run in slices, in parallel; the best are
    then confirmed with more runs (tune-confirm.sim.ts). */
@@ -12,7 +12,7 @@ import { mulberry } from './run';
 export const DECKS: Record<string, string[] | null> = {
   committed: null,
   lean: ['strike', 'strike', 'strike', 'strike', 'strike', 'guard', 'guard', 'guard', 'guard', 'guard'],
-  tactical: ['strike', 'strike', 'strike', 'strike', 'guard', 'guard', 'guard', 'guard', 'knockback', 'grapple_hook'],
+  hooked: ['strike', 'strike', 'strike', 'strike', 'guard', 'guard', 'guard', 'guard', 'knockback', 'grapple_hook'],
 };
 
 export interface Dials {

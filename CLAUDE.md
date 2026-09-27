@@ -147,7 +147,8 @@ test/                runs in Node; setup.ts installs content/ first
 sim/                 the fun simulator: bot, recorder, scorecard, experiments
                      (see "Simulator"); reports/ is generated, not committed
 docs/                ART_SPEC.md (the brief for an artist), MARKETING.md
-                     (the plan for finding an audience)
+                     (the plan for finding an audience), FUN.md (research,
+                     the fun scorecard, the simulator's findings)
 legacy/              the original single-file prototype this grew from
 ```
 
@@ -1091,8 +1092,8 @@ minutes); `npm run sim -- sim/final.sim.ts` runs one. Reports land in
   validated.
 - **Experiments** are `*.sim.ts` files, run in parallel. Each variant gets
   the same seeds (`seeds()`), so differences come from the variant, not the
-  dice. 150 runs give about ±8% on a win rate; `final` and `rebalance` use
-  300.
+  dice. 150 runs give about ±8% on a win rate; `final` (the committed
+  game's scorecard, the number to beat) uses 300.
 
 ## Verifying UI work
 
