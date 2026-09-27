@@ -13,8 +13,8 @@ import { GEM_IDS } from "./gems";
 import { nextFloat, pickWeighted, type Rng } from "./rng";
 import { TALISMAN_IDS } from "./talismans";
 
-export type RewardKind = "card" | "gem" | "talisman";
-export const REWARD_KINDS: RewardKind[] = ["card", "gem", "talisman"];
+export type RewardKind = "card" | "gem" | "talisman" | "removal";
+export const REWARD_KINDS: RewardKind[] = ["card", "gem", "talisman", "removal"];
 
 export interface CardReward {
   kind: "card";
@@ -32,7 +32,13 @@ export interface TalismanReward {
   talismanId: string;
 }
 
-export type Reward = CardReward | GemReward | TalismanReward;
+/** Take one card out of the deck for good — a thinner deck draws its best
+ *  cards more often. */
+export interface RemovalReward {
+  kind: "removal";
+}
+
+export type Reward = CardReward | GemReward | TalismanReward | RemovalReward;
 
 export interface RewardConfig {
   /** How likely an enemy is to be carrying anything at all, 0..1. */
@@ -51,7 +57,8 @@ export interface RewardConfig {
 
 export const DEFAULT_REWARD_CONFIG: RewardConfig = {
   chance: 1,
-  weights: { card: 60, gem: 25, talisman: 15 },
+  // Removal is rarer than the rest: a handful a run is plenty.
+  weights: { card: 60, gem: 25, talisman: 15, removal: 8 },
   cardChoices: 3,
   // Starter cards are not in the reward pool at all; the zero is only here
   // because the table covers every rarity.
@@ -133,6 +140,8 @@ export function rollReward(rng: Rng, overrides?: RewardOverrides): Reward {
     return { kind: "gem", gemId: pickWeighted(rng, gems) };
   }
 
+  if (kind === "removal") return { kind: "removal" };
+
   if (kind === "talisman" && config.talismanPool.length) {
     return {
       kind: "talisman",
@@ -159,4 +168,4 @@ export function rollReward(rng: Rng, overrides?: RewardOverrides): Reward {
 
 /** Short label for the pill above an enemy's head. */
 export const rewardLabel = (reward: Reward): string =>
-  reward.kind === "card" ? "CARD" : reward.kind === "gem" ? "GEM" : "TALISMAN";
+  reward.kind === "card" ? "CARD" : reward.kind === "gem" ? "GEM" : reward.kind === "removal" ? "REMOVE" : "TALISMAN";

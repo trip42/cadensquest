@@ -248,8 +248,11 @@ export class Juice {
       }
       case 'gain': {
         const tall = stage.heightOf(item.target);
-        const colour = item.stat === 'block' ? palette.blue : item.stat === 'heal' ? palette.green : palette.yellow;
-        const label = item.stat === 'block' ? `+${item.amount} BLOCK` : item.stat === 'heal' ? `+${item.amount}` : `+${item.amount} POWER`;
+        // Power lost comes as a negative amount: the same place, greyed.
+        const lost = item.amount < 0;
+        const colour = lost ? '#8b9bb4' : item.stat === 'block' ? palette.blue : item.stat === 'heal' ? palette.green : palette.yellow;
+        const label = item.stat === 'block' ? `+${item.amount} BLOCK` : item.stat === 'heal' ? `+${item.amount}`
+          : lost ? `−${-item.amount} POWER` : `+${item.amount} POWER`;
         this.text(item.cell, tall, label, colour, item.stat === 'heal' ? 16 : 12, now);
         this.flash(item.target, colour, now, 0.25, 0.5);
         if (item.stat === 'block') this.ring(item.cell, colour, now, 0.35, 0.6, 0.35, 2, tall * 0.45);

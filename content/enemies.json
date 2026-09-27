@@ -197,7 +197,8 @@
       "weights": {
         "card": 0,
         "gem": 0,
-        "talisman": 1
+        "talisman": 1,
+        "removal": 0
       }
     }
   },
@@ -227,7 +228,8 @@
       "weights": {
         "card": 0,
         "gem": 0,
-        "talisman": 1
+        "talisman": 1,
+        "removal": 0
       }
     }
   },

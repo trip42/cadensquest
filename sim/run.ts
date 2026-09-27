@@ -6,7 +6,7 @@ import type { SeqCue } from '../app/game/cues';
 import { createGame, enemies, type Game, player, resetUids, syncStats } from '../app/game/state';
 import { playTurn } from './bot';
 
-export type KillWay = 'blow' | 'tile' | 'burst' | 'slam' | 'other';
+export type KillWay = 'blow' | 'tile' | 'burst' | 'slam' | 'later' | 'other';
 
 export interface RunRecord {
   seed: number;
@@ -83,7 +83,7 @@ export function playRun(seed: number, talismans: string[] = []): RunRecord {
   const record: RunRecord = {
     seed, outcome: 'stuck', floor: 0, turns: 0, turnsOnFloor: [0], healthOnArrival: [1], lowest: 1, phaseLoss: [],
     decisions: 0, choices: 0, obvious: 0, empty: 0, engaged: 0, quiet: 0, crowd: 0,
-    kills: { blow: 0, tile: 0, burst: 0, slam: 0, other: 0 }, played: {}, discarded: {}, picked: {}, skipped: 0,
+    kills: { blow: 0, tile: 0, burst: 0, slam: 0, later: 0, other: 0 }, played: {}, discarded: {}, picked: {}, skipped: 0,
     shoves: 0, allies: 0, deck: 0, talismans: [],
   };
 

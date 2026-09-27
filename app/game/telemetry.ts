@@ -22,6 +22,8 @@ export type GameEvent =
   | { type: 'gem_collected'; gem: string; card: string }
   | { type: 'talisman_collected'; talisman: string }
   | { type: 'reward_skipped'; kind: string }
+  /** A card taken out of the deck for good, by a removal reward. */
+  | { type: 'card_removed'; card: string; deckSize: number }
   /** `by` is who landed the blow: the player, an ally's kind, or a tile. */
   | { type: 'enemy_killed'; enemy: string; guardian: boolean; row: number; by?: string; summoned?: true }
   | { type: 'summoned'; entity: string; side: 'ally' | 'enemy'; health: number }
@@ -46,6 +48,7 @@ export interface RunTally {
   kills: Record<string, number>;
   tamed: Record<string, number>;
   rewardsSkipped: Record<string, number>;
+  cardsRemoved: Record<string, number>;
 }
 
 export const emptyTally = (startRow: number): RunTally => ({
@@ -59,6 +62,7 @@ export const emptyTally = (startRow: number): RunTally => ({
   kills: {},
   tamed: {},
   rewardsSkipped: {},
+  cardsRemoved: {},
 });
 
 const bump = (table: Record<string, number>, key: string): void => {
@@ -96,6 +100,9 @@ export function record(into: Recorder, event: GameEvent): void {
       break;
     case 'reward_skipped':
       bump(tally.rewardsSkipped, event.kind);
+      break;
+    case 'card_removed':
+      bump(tally.cardsRemoved, event.card);
       break;
     case 'enemy_killed':
       bump(tally.kills, event.enemy);

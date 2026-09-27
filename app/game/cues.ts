@@ -17,8 +17,9 @@ import type { Faction } from './entities/types';
 import type { Cell } from './map/navigation';
 
 /** How damage arrived: a blow from a creature or card, a marked tile, an
- *  area burst, or being knocked into something (a slam). */
-export type HitVia = 'blow' | 'tile' | 'burst' | 'slam';
+ *  area burst, being knocked into something (a slam), or a price coming due
+ *  (a Later). */
+export type HitVia = 'blow' | 'tile' | 'burst' | 'slam' | 'later';
 
 export type Cue =
   /** Damage landing. `amount` is the health it cost, `blocked` what block
@@ -30,7 +31,7 @@ export type Cue =
     by?: string; from?: Cell; ranged?: boolean;
   }
   /** Block, health or power actually gained — nothing is cued for a heal
-   *  at full health. */
+   *  at full health. Power lost comes as a negative amount. */
   | { type: 'gain'; target: string; side: Faction; cell: Cell; stat: 'block' | 'heal' | 'power'; amount: number }
   /** A creature dying — or, for a summon whose rounds ran out, fading. */
   | { type: 'fall'; target: string; side: Faction; cell: Cell; guardian: boolean; faded: boolean }
@@ -56,8 +57,8 @@ export type Cue =
   /** The player's phase begins. */
   | { type: 'turn'; turn: number }
   /** A won reward comes up to be chosen, and what was done with it. */
-  | { type: 'reward'; kind: 'card' | 'gem' | 'talisman' }
-  | { type: 'claim'; kind: 'card' | 'gem' | 'talisman' | 'skip' }
+  | { type: 'reward'; kind: 'card' | 'gem' | 'talisman' | 'removal' }
+  | { type: 'claim'; kind: 'card' | 'gem' | 'talisman' | 'remove' | 'skip' }
   | { type: 'end'; outcome: 'won' | 'died' };
 
 export type CueType = Cue['type'];

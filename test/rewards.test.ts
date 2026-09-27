@@ -59,12 +59,12 @@ function slay(game: Game): void {
 describe('reward rolling', () => {
   it('follows the configured frequencies', () => {
     const rng = createRng(4242);
-    const tally: Record<RewardKind, number> = { card: 0, gem: 0, talisman: 0 };
+    const tally: Record<RewardKind, number> = { card: 0, gem: 0, talisman: 0, removal: 0 };
     for (let i = 0; i < 20000; i += 1) tally[rollReward(rng).kind] += 1;
 
     const { weights } = DEFAULT_REWARD_CONFIG;
-    const total = weights.card + weights.gem + weights.talisman;
-    for (const kind of ['card', 'gem', 'talisman'] as RewardKind[]) {
+    const total = weights.card + weights.gem + weights.talisman + weights.removal;
+    for (const kind of ['card', 'gem', 'talisman', 'removal'] as RewardKind[]) {
       const share = tally[kind] / 20000;
       expect(Math.abs(share - weights[kind] / total)).toBeLessThan(0.02);
     }
@@ -73,7 +73,7 @@ describe('reward rolling', () => {
   it('honours a table that switches a kind off', () => {
     const rng = createRng(11);
     for (let i = 0; i < 500; i += 1) {
-      const reward = rollReward(rng, { weights: { card: 1, gem: 0, talisman: 0 } });
+      const reward = rollReward(rng, { weights: { card: 1, gem: 0, talisman: 0, removal: 0 } });
       expect(reward.kind).toBe('card');
     }
   });
@@ -81,7 +81,7 @@ describe('reward rolling', () => {
   it('offers the configured number of distinct cards', () => {
     const rng = createRng(99);
     for (let i = 0; i < 200; i += 1) {
-      const reward = rollReward(rng, { weights: { card: 1, gem: 0, talisman: 0 }, cardChoices: 3 });
+      const reward = rollReward(rng, { weights: { card: 1, gem: 0, talisman: 0, removal: 0 }, cardChoices: 3 });
       if (reward.kind !== 'card') continue;
       expect(reward.options).toHaveLength(3);
       expect(new Set(reward.options).size).toBe(3);

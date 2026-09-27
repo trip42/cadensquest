@@ -14,7 +14,7 @@
 
 import {
   amountValues, canPlay, chooseCardReward, discardForMovement, endPlayerPhase, gemTargets, isBusy, isValidTarget,
-  movePlayerTo, playCard, playerMoveOptions, skipReward, socketGemReward, takeTalismanReward, terrainAt, tick,
+  movePlayerTo, playCard, playerMoveOptions, removeCardReward, skipReward, socketGemReward, takeTalismanReward, terrainAt, tick,
 } from '../app/game/actions';
 import { cardDef, cardMovement } from '../app/game/cards/definitions';
 import { intentDef } from '../app/game/cards/intents';
@@ -162,6 +162,18 @@ export function value(game: Game): number {
 
   let v = self.hp - Math.max(0, incoming(state, here) - self.block) * 1.1;
   v += self.power * 3;
+  // What is still owed to him counts, a little less than now: power that
+  // will be taken back is worth less than power kept.
+  for (const entry of state.later) {
+    if (entry.actorId !== state.playerId) continue;
+    for (const effect of entry.effects) {
+      if (effect.kind === 'power') v += effect.amount * 2.5;
+      else if (effect.kind === 'losePower') v -= Math.min(effect.amount, self.power) * 2.5;
+      else if (effect.kind === 'damage') v -= effect.amount * 0.9;
+      else if (effect.kind === 'heal') v += Math.min(effect.amount, self.maxHp - self.hp) * 0.8;
+      else if (effect.kind === 'draw' || effect.kind === 'energy') v += effect.amount * 0.6;
+    }
+  }
   v += state.hand.length * (state.energy > 0 ? 0.8 : 0.2) + state.energy * 0.2 + state.movement * 0.25;
   if (state.descending) v += 40;
 
@@ -407,6 +419,15 @@ function claim(game: Game, random: () => number): void {
   if (!active) return;
   if (active.reward.kind === 'talisman') {
     takeTalismanReward(game);
+    return;
+  }
+  if (active.reward.kind === 'removal') {
+    // Out goes a basic: a Strike while there are plenty, then a Guard.
+    const deck = gemTargets(state);
+    const count = (id: string) => deck.filter((card) => card.defId === id).length;
+    const id = count('strike') >= 3 ? 'strike' : count('guard') >= 3 ? 'guard' : null;
+    const card = id && deck.find((item) => item.defId === id);
+    if (!card || !removeCardReward(game, card.uid)) skipReward(game);
     return;
   }
   if (active.reward.kind === 'gem') {

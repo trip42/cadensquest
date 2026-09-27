@@ -23,9 +23,11 @@ import {
   handMovementValue,
   isBusy,
   isValidTarget,
+  MIN_DECK,
   movePlayerTo,
   movementRange,
   playCard,
+  removeCardReward,
   skipReward,
   socketGemReward,
   takeTalismanReward,
@@ -80,9 +82,12 @@ export type HandCardView = CardView;
 export type DeckCardView = CardView;
 
 export interface RewardView {
-  kind: 'card' | 'gem' | 'talisman';
+  kind: 'card' | 'gem' | 'talisman' | 'removal';
   /** Card rewards: what is on offer. */
   cards?: DeckCardView[];
+  /** Gem and removal rewards: every card in the deck to choose from. A
+   *  removal also says whether the deck is already as thin as it may go. */
+  atMinimum?: boolean;
   /** Gem rewards: which gem, and every card it could go into. */
   gem?: GemDefinition;
   deck?: DeckCardView[];
@@ -138,6 +143,10 @@ export interface GameView {
   hp: number;
   maxHp: number;
   block: number;
+  /** Extra damage on every hit, for as long as it lasts. */
+  power: number;
+  /** The player's delayed effects still to come, soonest first. */
+  upcoming: Array<{ rounds: number; text: string }>;
   /** How far into the current floor the player is, and how far it goes. */
   row: number;
   lastRow: number;
@@ -184,6 +193,10 @@ export const useGameStore = defineStore('game', () => {
       hp: self.hp,
       maxHp: self.maxHp,
       block: self.block,
+      power: self.power,
+      upcoming: state.later
+        .filter((entry) => entry.actorId === state.playerId)
+        .map((entry) => ({ rounds: entry.due - state.turn, text: entry.effects.map(describeTileEffect).join(', ') })),
       row: self.row - floorRows(state.floor).first,
       lastRow: floorRows(state.floor).last - floorRows(state.floor).first,
       floor: state.floor + 1,
@@ -239,6 +252,10 @@ export const useGameStore = defineStore('game', () => {
         deck: wholeDeck(current.state).map(describeCard),
       };
     }
+    if (active.reward.kind === 'removal') {
+      const deck = wholeDeck(current.state);
+      return { kind: 'removal', deck: deck.map(describeCard), atMinimum: deck.length <= MIN_DECK };
+    }
     return { kind: 'talisman', talisman: talismanDef(active.reward.talismanId) };
   }
 
@@ -253,6 +270,7 @@ export const useGameStore = defineStore('game', () => {
       // same size still has to repaint, or the deal animation never runs.
       state.hand.map((card) => `${card.uid}:${(card.gems ?? []).join('+')}`).join(','),
       state.entities.length, enemies(state).length, state.log.length,
+      state.later.map((entry) => `${entry.id}@${entry.due}`).join(','),
       isBusy(state) ? 1 : 0, selectedUid.value ?? '',
       state.talismans.join(','),
       state.activeReward ? state.activeReward.reward.kind : '',
@@ -453,7 +471,7 @@ export const useGameStore = defineStore('game', () => {
         ? 'var(--px-muted)'
         : foe.reward.kind === 'gem'
           ? gemDef(foe.reward.gemId).colour
-          : foe.reward.kind === 'talisman' ? 'var(--px-yellow)' : 'var(--px-green)',
+          : foe.reward.kind === 'talisman' ? 'var(--px-yellow)' : foe.reward.kind === 'removal' ? 'var(--px-red)' : 'var(--px-green)',
       x: Math.round(point.x),
       y: Math.round(point.y),
     };
@@ -578,6 +596,10 @@ export const useGameStore = defineStore('game', () => {
     if (game && socketGemReward(game, cardUid)) sync(true);
   }
 
+  function removeCard(cardUid: string): void {
+    if (game && removeCardReward(game, cardUid)) sync(true);
+  }
+
   /** Decline whatever is on offer. */
   function skip(): void {
     if (game && skipReward(game)) sync(true);
@@ -620,7 +642,7 @@ export const useGameStore = defineStore('game', () => {
     view, selected, selectedUid, hoverCell, enemyTip, tileTip, run,
     start, attach, detach, frame,
     select, commitCell, hover, pickAt, discard, discardAll, endPhase,
-    chooseCard, socketGem, takeTalisman, skip,
+    chooseCard, socketGem, removeCard, takeTalisman, skip,
     soundOn, toggleSound, howLeft,
     rawGame, entityDef,
   };

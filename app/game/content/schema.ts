@@ -72,7 +72,17 @@ export const summonEffectSchema = z.strictObject({
   rounds: amountSchema.optional(),
 });
 
-export const effectSchema = z.discriminatedUnion('kind', [simpleEffectSchema, terrainEffectSchema, summonEffectSchema, areaEffectSchema]);
+/** Effects that land on whoever played it, `rounds` rounds from now, with
+ *  amounts fixed when played. */
+export const laterEffectSchema = z.strictObject({
+  kind: z.literal('later'),
+  rounds: amountSchema,
+  effects: z.array(simpleEffectSchema).min(1, 'needs at least one effect'),
+});
+
+export const effectSchema = z.discriminatedUnion('kind', [
+  simpleEffectSchema, terrainEffectSchema, summonEffectSchema, areaEffectSchema, laterEffectSchema,
+]);
 
 export const cardSchema = z.strictObject({
   id: idSchema,

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 /* Claiming what an enemy dropped. Play is paused while this is up.
 
-   Three shapes behind one screen: pick one of the offered cards, choose
-   which card a gem goes into, or accept a talisman. */
+   Four shapes behind one screen: pick one of the offered cards, choose
+   which card a gem goes into, choose a card to remove, or accept a
+   talisman. */
 
 import { computed, ref, watch } from 'vue';
 import { describeEffect } from '~/game/effects';
@@ -37,6 +38,7 @@ function confirm(): void {
   const uid = picked.value;
   if (!uid) return;
   if (store.view?.reward?.kind === 'card') store.chooseCard(uid);
+  else if (store.view?.reward?.kind === 'removal') store.removeCard(uid);
   else store.socketGem(uid);
   picked.value = null;
 }
@@ -111,6 +113,40 @@ function skip(): void {
           </button>
         </span>
         <span v-else class="prompt">Choose a card to set it into</span>
+      </footer>
+    </section>
+
+    <!-- A removal: choose the card to take out of the deck for good. -->
+    <section v-else-if="store.view.reward.kind === 'removal'" class="sheet panel wide">
+      <header>
+        <h2>Lighten the load</h2>
+        <p v-if="store.view.reward.atMinimum">Your deck is as thin as it can go.</p>
+        <p v-else>Choose a card to remove from your deck for good. A thinner deck draws its best cards more often.</p>
+      </header>
+      <div class="deck">
+        <GameCard
+          v-for="card in store.view.reward.deck"
+          :key="card.uid"
+          class="target"
+          :class="{ 'is-chosen': picked === card.uid }"
+          :def="card.def"
+          :gems="card.gems"
+          :movement="card.movement"
+          :disabled="store.view.reward.atMinimum"
+          :title="`Remove ${card.def.name}`"
+          @click="picked = picked === card.uid ? null : card.uid"
+        />
+      </div>
+
+      <footer class="actions">
+        <button class="px-button is-quiet" type="button" @click="skip()">SKIP</button>
+        <span v-if="pickedCard" class="pair">
+          <button class="px-button is-quiet" type="button" @click="picked = null">BACK</button>
+          <button class="px-button is-yellow" type="button" @click="confirm()">
+            REMOVE {{ pickedCard.def.name.toUpperCase() }}
+          </button>
+        </span>
+        <span v-else class="prompt">Choose a card to remove</span>
       </footer>
     </section>
 

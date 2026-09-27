@@ -90,7 +90,7 @@ function crossCheck(content: Content): ContentIssue[] {
   const talismans = new Map(content.talismans.map((talisman) => [talisman.id, talisman]));
 
   const offSide = (kind: string, side: 'player' | 'enemy') =>
-    kind !== 'terrain' && kind !== 'summon' && kind !== 'area' && !EFFECT_INFO[kind as EffectKind][side];
+    kind !== 'terrain' && kind !== 'summon' && kind !== 'area' && kind !== 'later' && !EFFECT_INFO[kind as EffectKind][side];
 
   /** Every amount in a list of effects, with where it sits — a terrain
    *  effect's rounds and the amounts on its tile count too. */
@@ -108,17 +108,23 @@ function crossCheck(content: Content): ContentIssue[] {
           ]
           : effect.kind === 'area'
             ? effect.effects.map((inner, t) => ({ amount: inner.amount, field: `${at}[${i}].effects[${t}].amount` }))
-            : [{ amount: effect.amount, field: `${at}[${i}].amount` }]);
+            : effect.kind === 'later'
+              ? [
+                { amount: effect.rounds, field: `${at}[${i}].rounds` },
+                ...effect.effects.map((inner, t) => ({ amount: inner.amount, field: `${at}[${i}].effects[${t}].amount` })),
+              ]
+              : [{ amount: effect.amount, field: `${at}[${i}].amount` }]);
 
   const scaledOf = (amount: AmountData) => (typeof amount === 'object' ? amount.of : null);
   const usesX = (effects: readonly EffectData[]) => amountsIn(effects).some(({ amount }) => scaledOf(amount) === 'x');
 
   /** A marked tile can only carry verbs that mean something on a tile. */
-  /** A burst lands its effects the same way, so the same verbs. */
+  /** A burst, and a Later, land their effects the same way, so the same
+   *  verbs. */
   const checkTiles = (file: ContentFile, id: string, effects: readonly EffectData[], at = 'effects') => {
     effects.forEach((effect, i) => {
-      if (effect.kind !== 'terrain' && effect.kind !== 'area') return;
-      const where = effect.kind === 'area' ? 'in a burst' : 'on a tile';
+      if (effect.kind !== 'terrain' && effect.kind !== 'area' && effect.kind !== 'later') return;
+      const where = effect.kind === 'area' ? 'in a burst' : effect.kind === 'later' ? 'in a Later' : 'on a tile';
       effect.effects.forEach((tile, t) => {
         if (!EFFECT_INFO[tile.kind].tile) {
           error(file, id, `${EFFECT_INFO[tile.kind].label} cannot go ${where}`, `${at}[${i}].effects[${t}].kind`);

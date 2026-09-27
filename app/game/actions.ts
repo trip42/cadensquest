@@ -16,8 +16,8 @@ import { cardDef, cardMovement, energySpent, minimumCost } from './cards/definit
 import { intentDef } from './cards/intents';
 import type { CardDefinition, CardInstance } from './cards/types';
 import {
-  amountOf, type AmountValues, type AreaEffect, type Effect, isArea, isSummon, isTerrain, type SummonEffect,
-  type TerrainEffect, type TileEffect, type TriggerPoint,
+  amountOf, type AmountValues, type AreaEffect, type Effect, isArea, isLater, isSummon, isTerrain, type LaterEffect,
+  type SummonEffect, type TerrainEffect, type TileEffect, type TriggerPoint,
 } from './effects';
 import { GEM_SLOTS, gemDef } from './gems';
 import { ENEMY_IDS, ENTITIES, entityDef, GUARDIAN_IDS } from './entities/definitions';
@@ -278,6 +278,46 @@ function gainPower(state: GameState, entity: Entity, amount: number): void {
   cue(state, { type: 'gain', target: entity.id, side: entity.faction, cell: entityCell(entity), stat: 'power', amount });
 }
 
+/** Power lost, down to 0 — cued as a negative gain. */
+function losePower(state: GameState, entity: Entity, amount: number): void {
+  const lost = Math.min(entity.power, Math.max(0, amount));
+  if (!lost) return;
+  entity.power -= lost;
+  cue(state, { type: 'gain', target: entity.id, side: entity.faction, cell: entityCell(entity), stat: 'power', amount: -lost });
+}
+
+/* ------------------------------ later ----------------------------------- */
+
+/* A Later: its effects wait, with their amounts fixed now from the actor,
+   and land on the actor as the round `rounds` from now begins — as if it
+   played them on itself then. 0 rounds lands at once. */
+function schedule(game: Game, effect: LaterEffect, play: Play): void {
+  const { state } = game;
+  const { actor } = play;
+  const values = amountValues(state, actor, play.x);
+  const rounds = amountOf(effect.rounds, values);
+  const effects = effect.effects.map((inner) => ({ kind: inner.kind, amount: amountOf(inner.amount, values) }));
+  if (rounds <= 0) {
+    applyTo(game, actor, effects, 'later', actor);
+    return;
+  }
+  state.later.push({ id: nextUid('later'), actorId: actor.id, due: state.turn + rounds, effects });
+  state.later.sort((a, b) => a.due - b.due);
+}
+
+/** As a round begins: land whatever is due, on whoever is still standing to
+ *  take it. A creature that has fallen takes its promises with it. */
+function landLater(game: Game): void {
+  const { state } = game;
+  const due = state.later.filter((entry) => entry.due <= state.turn);
+  if (!due.length) return;
+  state.later = state.later.filter((entry) => entry.due > state.turn);
+  for (const entry of due) {
+    const actor = state.entities.find((entity) => entity.id === entry.actorId && !entity.dead);
+    if (actor) applyTo(game, actor, entry.effects, 'later', actor);
+  }
+}
+
 /** Who is playing an effect, at what, and with how much reach. */
 interface Play {
   actor: Entity;
@@ -529,6 +569,7 @@ function applyTo(
       case 'loseBlock': entity.block = Math.max(0, entity.block - amount); break;
       case 'heal': heal(state, entity, amount); break;
       case 'power': gainPower(state, entity, amount); break;
+      case 'losePower': losePower(state, entity, amount); break;
       case 'energy': if (isPlayer) state.energy += amount; break;
       case 'draw': if (isPlayer) drawCards(state, amount); break;
       case 'movement': if (isPlayer) state.movement += amount; break;
@@ -666,6 +707,10 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
     burst(game, effect, play);
     return;
   }
+  if (isLater(effect)) {
+    schedule(game, effect, play);
+    return;
+  }
   const amount = amountOf(effect.amount, amountValues(state, actor, play.x));
 
   switch (effect.kind) {
@@ -700,6 +745,9 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
     case 'power':
       gainPower(state, actor, amount);
       if (!isPlayer) noteNear(state, actor, `${entityDef(actor.defId).name} grows stronger.`);
+      break;
+    case 'losePower':
+      losePower(state, actor, amount);
       break;
     case 'advance':
       if (!isPlayer && play.goal) advance(game, actor, amount, range, play.goal);
@@ -1090,6 +1138,8 @@ export function enterFloor(game: Game, floor: number): void {
   state.terrain = {};
   state.terrainHits = {};
   state.gates = [];
+  // What the player and the allies who came along are owed still comes due.
+  state.later = state.later.filter((entry) => state.entities.some((entity) => entity.id === entry.actorId));
   state.queue = [];
   state.descending = false;
 }
@@ -1221,6 +1271,8 @@ export function beginTurn(game: Game): void {
   state.discardPile.push(...state.hand);
   state.hand = [];
   drawCards(state, stat(state, 'handSize'));
+  // After the refresh, so a delayed block or energy is not wiped by it.
+  landLater(game);
 
   ensureSpawns(game);
   fire(game, 'refresh');
@@ -1363,6 +1415,28 @@ export function takeTalismanReward(game: Game): boolean {
   record(state, { type: 'talisman_collected', talisman: active.reward.talismanId });
   cue(state, { type: 'claim', kind: 'talisman' });
   syncStats(state);
+  state.activeReward = null;
+  return true;
+}
+
+/** The fewest cards a deck may be thinned to: a hand's worth. */
+export const MIN_DECK = 5;
+
+/** Take the chosen card out of the deck for good, wherever it sits. */
+export function removeCardReward(game: Game, cardUid: string): boolean {
+  const { state } = game;
+  const active = state.activeReward;
+  if (!active || active.reward.kind !== 'removal') return false;
+  if (wholeDeck(state).length <= MIN_DECK) return false;
+  const card = findCard(state, cardUid);
+  if (!card) return false;
+  const gone = (pile: CardInstance[]) => pile.filter((item) => item.uid !== cardUid);
+  state.drawPile = gone(state.drawPile);
+  state.hand = gone(state.hand);
+  state.discardPile = gone(state.discardPile);
+  record(state, { type: 'card_removed', card: card.defId, deckSize: wholeDeck(state).length });
+  cue(state, { type: 'claim', kind: 'remove' });
+  note(state, `Removed ${cardDef(card.defId).name} from the deck.`);
   state.activeReward = null;
   return true;
 }

@@ -1168,7 +1168,7 @@ export class MapRenderer implements Stage {
     const label = rewardLabel(reward);
     const tint = reward.kind === 'gem'
       ? gemDef(reward.gemId).colour
-      : reward.kind === 'talisman' ? yellow : green;
+      : reward.kind === 'talisman' ? yellow : reward.kind === 'removal' ? this.palette.red : green;
 
     ctx.font = `8px ${font}`;
     const width = Math.ceil(ctx.measureText(label).width) + 8;

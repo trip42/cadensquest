@@ -46,6 +46,16 @@ export interface TerrainLayer {
   portal?: 'down' | 'out';
 }
 
+/** Effects waiting to land on whoever played them: a Later, with its
+ *  amounts already fixed. */
+export interface LaterEntry {
+  id: string;
+  actorId: string;
+  /** The turn it goes off, as that turn begins. */
+  due: number;
+  effects: TileEffect[];
+}
+
 /** A floor's guardian, standing on its last row. The portal off the floor
  *  opens where it falls. */
 export interface Gate {
@@ -98,6 +108,8 @@ export interface GameState {
    *  cues, and the number of the latest. Nothing in the rules reads them. */
   cues: SeqCue[];
   cueSeq: number;
+  /** Delayed effects still to land, soonest first. */
+  later: LaterEntry[];
   /** The floor the player is on — the index of its zone. Only its rows
    *  exist; the portal at its end leads to the next, and out of the last
    *  one wins the run. */
@@ -213,6 +225,7 @@ export function createGame(seed: number): Game {
     terrainHits: {},
     cues: [],
     cueSeq: 0,
+    later: [],
     floor: 0,
     descending: false,
     queue: [],

@@ -436,18 +436,18 @@
     "cost": "X",
     "targeting": "cell",
     "range": 3,
-    "text": "Mark a tile within 3 and every tile within 1 of it: for X rounds, whoever is on it gains 1 power.",
+    "text": "Mark a tile within 3 and every tile within 1 of it: for X rounds, whoever is on it takes 2 damage.",
     "effects": [
       {
         "kind": "terrain",
         "rounds": {
           "of": "x"
         },
-        "colour": "#970af5",
+        "colour": "#f77622",
         "effects": [
           {
-            "kind": "power",
-            "amount": 1
+            "kind": "damage",
+            "amount": 2
           }
         ],
         "radius": 1
@@ -561,6 +561,118 @@
       {
         "kind": "draw",
         "amount": 1
+      }
+    ]
+  },
+  {
+    "id": "battle_fury",
+    "name": "Battle Fury",
+    "enabled": true,
+    "rarity": "rare",
+    "art": "blade",
+    "cost": 1,
+    "targeting": "self",
+    "range": 0,
+    "text": "Deal 2 more damage for 2 rounds.",
+    "effects": [
+      {
+        "kind": "power",
+        "amount": 2
+      },
+      {
+        "kind": "later",
+        "rounds": 2,
+        "effects": [
+          {
+            "kind": "losePower",
+            "amount": 2
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "frenzy_x",
+    "name": "Frenzy X",
+    "enabled": true,
+    "rarity": "mythic",
+    "art": "blade",
+    "cost": "X",
+    "targeting": "self",
+    "range": 0,
+    "text": "Deal X more damage for 2 rounds.",
+    "effects": [
+      {
+        "kind": "power",
+        "amount": {
+          "of": "x"
+        }
+      },
+      {
+        "kind": "later",
+        "rounds": 2,
+        "effects": [
+          {
+            "kind": "losePower",
+            "amount": {
+              "of": "x"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "blood_pact",
+    "name": "Blood Pact",
+    "enabled": true,
+    "rarity": "rare",
+    "art": "flame",
+    "cost": 0,
+    "targeting": "self",
+    "range": 0,
+    "text": "Deal 3 more damage for the rest of the run and in 2 rounds, take 8 damage.",
+    "effects": [
+      {
+        "kind": "power",
+        "amount": 3
+      },
+      {
+        "kind": "later",
+        "rounds": 2,
+        "effects": [
+          {
+            "kind": "damage",
+            "amount": 8
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "second_wind",
+    "name": "Second Wind",
+    "enabled": true,
+    "rarity": "normal",
+    "art": "wave",
+    "cost": 1,
+    "targeting": "self",
+    "range": 0,
+    "text": "Next round, heal 8 and draw 2.",
+    "effects": [
+      {
+        "kind": "later",
+        "rounds": 1,
+        "effects": [
+          {
+            "kind": "heal",
+            "amount": 8
+          },
+          {
+            "kind": "draw",
+            "amount": 2
+          }
+        ]
       }
     ]
   }

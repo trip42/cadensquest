@@ -29,6 +29,9 @@ export type EffectKind =
   | 'advance'
   /** Permanently add to the damage the actor deals. */
   | 'power'
+  /** Take this much off the actor's power, down to 0 — the other half of
+   *  a power that lasts a while, or with "all of its power", a reset. */
+  | 'losePower'
   /** Turn the targeted enemy to the actor's side, if its health is the
    *  amount or less. Never a guardian, and only while there is room. */
   | 'tame'
@@ -134,11 +137,31 @@ export interface SummonEffect {
   rounds?: Amount;
 }
 
-export type Effect = SimpleEffect | TerrainEffect | SummonEffect | AreaEffect;
+/* Later: effects that land on whoever played them, `rounds` rounds from
+   now, as if they played them on themselves then — like a marked tile
+   under their own feet, wherever they are standing. Amounts, and the
+   rounds, are fixed when the card is played, from the actor then: "gain X
+   power; in 2 rounds, lose X power" gives back exactly what it gave.
+
+   That makes a power that lasts ("+2 power, −2 power in 2 rounds"), a
+   price paid later ("gain 3 power, in 2 rounds take 8 damage"), or a
+   reward that is worth waiting for ("in 1 round, draw 3"). They go off as
+   the round begins, after block, energy and the hand are refreshed, so a
+   delayed block or energy is not wiped. 0 rounds is now. */
+export interface LaterEffect {
+  kind: 'later';
+  /** How many rounds from now. */
+  rounds: Amount;
+  /** What lands on the actor then. Simple effects that can go on a tile. */
+  effects: SimpleEffect[];
+}
+
+export type Effect = SimpleEffect | TerrainEffect | SummonEffect | AreaEffect | LaterEffect;
 
 export const isTerrain = (effect: Effect): effect is TerrainEffect => effect.kind === 'terrain';
 export const isSummon = (effect: Effect): effect is SummonEffect => effect.kind === 'summon';
 export const isArea = (effect: Effect): effect is AreaEffect => effect.kind === 'area';
+export const isLater = (effect: Effect): effect is LaterEffect => effect.kind === 'later';
 
 /** A tile's effect once it has been placed: the amount is a plain number. */
 export interface TileEffect {
@@ -187,6 +210,8 @@ export function previewAmounts(effects: readonly Effect[], start: AmountValues):
     if (isSummon(effect)) return amountOf(effect.amount, values);
     // A burst's numbers are its inner effects', shown on their own.
     if (isArea(effect)) return 0;
+    // A delayed effect changes nothing now; its number is its rounds.
+    if (isLater(effect)) return amountOf(effect.rounds, values);
     const amount = amountOf(effect.amount, values);
     switch (effect.kind) {
       case 'block': values.block += amount; break;
@@ -199,6 +224,7 @@ export function previewAmounts(effects: readonly Effect[], start: AmountValues):
       }
       case 'energy': values.energy += amount; break;
       case 'power': values.power += amount; break;
+      case 'losePower': values.power = Math.max(0, values.power - amount); break;
       case 'draw': values.hand += amount; break;
       default: break;
     }
@@ -218,6 +244,7 @@ const NOW_SHORT: Partial<Record<EffectKind, (n: number) => string>> = {
   draw: (n) => `DRAW ${n}`,
   movement: (n) => `+${n} MOVE`,
   power: (n) => `+${n} POW`,
+  losePower: (n) => `−${n} POW`,
   advance: (n) => `ADV ${n}`,
   tame: (n) => `TAME ≤${n}`,
   mend: (n) => `MEND ${n}`,
@@ -234,6 +261,7 @@ const NOW_LABELS: Partial<Record<EffectKind, (n: number) => string>> = {
   draw: (n) => `draw ${n}`,
   movement: (n) => `+${n} move`,
   power: (n) => `+${n} power`,
+  losePower: (n) => `−${n} power`,
   advance: (n) => `advance ${n}`,
   tame: (n) => `tames at ${n} health or less`,
   mend: (n) => `mends ${n}`,
@@ -263,6 +291,13 @@ export function nowText(effects: readonly Effect[], values: AmountValues, style:
           .filter((inner) => isScaled(inner.amount))
           .map((inner) => `${style === 'short' ? 'AREA' : 'each'} ${labels[inner.kind]?.(amountOf(inner.amount, values))}`);
       }
+      if (isLater(effect)) {
+        const rounds = isScaled(effect.rounds) ? [style === 'short' ? `IN ${amounts[i]}` : `in ${amounts[i]} rounds`] : [];
+        const inner = effect.effects
+          .filter((later) => isScaled(later.amount))
+          .map((later) => `${style === 'short' ? 'LATER' : 'later'} ${labels[later.kind]?.(amountOf(later.amount, values))}`);
+        return [...rounds, ...inner];
+      }
       if (!isTerrain(effect)) return isScaled(effect.amount) ? [labels[effect.kind]?.(amounts[i]!)] : [];
       // A mark: how long, and what its tile will do, fixed from now.
       const rounds = isScaled(effect.rounds) ? [style === 'short' ? `${amounts[i]} RND` : `${amounts[i]} rounds`] : [];
@@ -284,7 +319,9 @@ export const hasScaledAmount = (effects: readonly Effect[]): boolean =>
         ? isScaled(effect.amount) || (effect.rounds !== undefined && isScaled(effect.rounds))
         : isArea(effect)
           ? effect.effects.some((inner) => isScaled(inner.amount))
-          : isScaled(effect.amount));
+          : isLater(effect)
+            ? isScaled(effect.rounds) || effect.effects.some((inner) => isScaled(inner.amount))
+            : isScaled(effect.amount));
 
 
 /* What each verb is, for the content editor and the validator: a plain
@@ -299,6 +336,7 @@ export const EFFECT_INFO: Record<EffectKind, { label: string; help: string; play
   loseBlock: { label: 'Lose block', help: 'Spend this much of your own block.', player: true, enemy: true, tile: true },
   heal: { label: 'Heal', help: 'Restore this much health, up to the maximum.', player: true, enemy: true, tile: true },
   power: { label: 'Power', help: 'Permanently add this much to every hit.', player: true, enemy: true, tile: true },
+  losePower: { label: 'Lose power', help: 'Take this much off your power, down to 0. "All of your power" is a reset. Pair it with Power in a Later to make power that lasts a few rounds.', player: true, enemy: true, tile: true },
   movement: { label: 'Movement', help: 'Gain this many steps this turn.', player: true, enemy: false, tile: true },
   energy: { label: 'Energy', help: 'Gain this much energy this turn.', player: true, enemy: false, tile: true },
   draw: { label: 'Draw', help: 'Draw this many cards.', player: true, enemy: false, tile: true },
@@ -323,6 +361,11 @@ export const AREA_INFO = {
 export const SUMMON_INFO = {
   label: 'Summon',
   help: 'Bring a creature into play on your side, with this much health — on the target tile if it is free, else beside you.',
+};
+
+export const LATER_INFO = {
+  label: 'Later',
+  help: 'After this many rounds, these land on you — as if you played them on yourself then. Amounts are fixed when played.',
 };
 
 export const TERRAIN_INFO = {
@@ -380,6 +423,7 @@ export function describeTileEffect(effect: SimpleEffect | TileEffect): string {
     case 'loseBlock': return `lose ${n} block`;
     case 'heal': return `heal ${n}`;
     case 'power': return `gain ${n} power`;
+    case 'losePower': return `lose ${n} power`;
     case 'energy': return `gain ${n} energy`;
     case 'draw': return `draw ${n}`;
     case 'movement': return `gain ${n} movement`;
@@ -395,6 +439,10 @@ export function describeEffect(effect: Effect): string {
   if (isSummon(effect)) {
     const rounds = effect.rounds === undefined ? '' : ` for ${describeAmount(effect.rounds)} rounds`;
     return `summon a ${effect.entity} with ${describeAmount(effect.amount)} health${rounds}`;
+  }
+  if (isLater(effect)) {
+    const rounds = describeAmount(effect.rounds);
+    return `in ${rounds} round${rounds === '1' ? '' : 's'}: ${effect.effects.map(describeTileEffect).join(', ')}`;
   }
   if (isTerrain(effect)) {
     const rounds = describeAmount(effect.rounds);
@@ -413,6 +461,7 @@ export function describeEffect(effect: Effect): string {
     case 'step': return 'leap';
     case 'advance': return scaled ? `advance up to ${n}` : `advance ${n}`;
     case 'power': return scaled ? `gain power equal to ${n}` : `+${n} damage from now on`;
+    case 'losePower': return scaled ? `lose power equal to ${n}` : `lose ${n} power`;
     case 'tame': return `tame it if its health is ${n} or less`;
     case 'mend': return scaled ? `heal the target equal to ${n}` : `heal the target ${n}`;
     case 'push': return scaled ? `knock the target back equal to ${n}` : `knock the target back ${n}`;

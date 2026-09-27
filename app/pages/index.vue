@@ -120,6 +120,7 @@ const energyCells = computed(() => {
             </span>
             <strong>{{ store.view.hp }}/{{ store.view.maxHp }}</strong>
             <span v-if="store.view.block" :key="store.view.block" class="block">+{{ store.view.block }}</span>
+            <span v-if="store.view.power" :key="`p${store.view.power}`" class="power" :title="`+${store.view.power} damage on every hit`">POW +{{ store.view.power }}</span>
           </span>
           <span class="meter" :title="`Energy ${store.view.energy} of ${store.view.maxEnergy}`">
             <span class="label">EN</span>
@@ -127,6 +128,15 @@ const energyCells = computed(() => {
               <i v-for="(lit, i) in energyCells" :key="i" :class="{ 'is-energy': lit }" />
             </span>
             <strong>{{ store.view.energy }}/{{ store.view.maxEnergy }}</strong>
+          </span>
+          <!-- What is coming to him: a Later's effects, and when. -->
+          <span
+            v-for="(soon, i) in store.view.upcoming"
+            :key="i"
+            class="soon"
+            :title="`In ${soon.rounds} round${soon.rounds === 1 ? '' : 's'}: ${soon.text}`"
+          >
+            IN {{ soon.rounds }}: {{ soon.text }}
           </span>
           <span class="meter">
             <span class="label">MOVE</span>
@@ -279,6 +289,8 @@ const energyCells = computed(() => {
 .meter strong { font-weight: 400; color: var(--px-text); }
 .move { color: var(--px-cyan) !important; }
 .block { padding: 0 4px; background: var(--px-blue); color: var(--px-text); animation: tag-in 0.25s cubic-bezier(0.3, 1.6, 0.5, 1); }
+.power { padding: 0 4px; background: var(--px-yellow); color: var(--px-ink); animation: tag-in 0.25s cubic-bezier(0.3, 1.6, 0.5, 1); }
+.soon { padding: 0 4px; border: 2px solid var(--px-muted); color: var(--px-muted); }
 /* Hurt: the meter jolts and flashes. Healed: it glows green. */
 .hp.is-hurt { animation: jolt 0.36s steps(6) both; }
 .hp.is-hurt .cells { background: var(--px-red); }

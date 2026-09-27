@@ -7,7 +7,8 @@
 import type { EffectData } from '~/game/content';
 import type { Targeting } from '~/game/cards/types';
 
-type SimpleData = Exclude<EffectData, { kind: 'terrain' } | { kind: 'summon' } | { kind: 'area' }>;
+type SimpleData = Exclude<EffectData, { kind: 'terrain' } | { kind: 'summon' } | { kind: 'area' } | { kind: 'later' }>;
+type LaterData = Extract<EffectData, { kind: 'later' }>;
 type AreaData = Extract<EffectData, { kind: 'area' }>;
 
 /** Who a burst catches, and the verb that goes with them. "everyone within
@@ -56,6 +57,7 @@ function tilePhrase(tiles: TerrainData['effects'], owner: string): string {
       case 'loseBlock': return `loses ${n} block`;
       case 'heal': return `heals ${n}`;
       case 'power': return `gains ${n} power`;
+      case 'losePower': return isAllOf(tile.amount as Amount, 'power') ? `loses all ${owner} power` : `loses ${n} power`;
       case 'energy': return `gains ${n} energy`;
       case 'draw': return `draws ${n}`;
       case 'movement': return `gains ${n} movement`;
@@ -101,9 +103,36 @@ function movePhrase(effect: SimpleData, range: number, mentioned: boolean): stri
   return scaled ? `pull ${who} closer by ${n}` : `pull ${who} up to ${n} closer`;
 }
 
+/** "in 2 rounds", "in X rounds", "next round". */
+function whenPhrase(rounds: Amount): string {
+  const n = describeAmount(rounds);
+  return n === '1' ? 'next round' : `in ${n} rounds`;
+}
+
+/** What a Later does, said to the player: "in 2 rounds, lose 2 power". */
+function laterPhrase(effect: LaterData): string {
+  const what = effect.effects.map((inner) => {
+    const n = describeAmount(inner.amount as Amount, 'your');
+    switch (inner.kind) {
+      case 'damage': return `take ${n} damage`;
+      case 'block': return `gain ${n} block`;
+      case 'loseBlock': return `lose ${n} block`;
+      case 'heal': return `heal ${n}`;
+      case 'power': return `gain ${n} power`;
+      case 'losePower': return isAllOf(inner.amount as Amount, 'power') ? 'lose all your power' : `lose ${n} power`;
+      case 'energy': return `gain ${n} energy`;
+      case 'draw': return `draw ${n}`;
+      case 'movement': return `gain ${n} steps`;
+      default: return `${inner.kind} ${n}`;
+    }
+  });
+  return `${whenPhrase(effect.rounds as Amount)}, ${what.join(' and ')}`;
+}
+
 function playerPhrase(
   effect: EffectData, range: number, targeting?: Targeting, afterTame = false, nameOf: NameOf = byId, mentioned = false,
 ): string {
+  if (effect.kind === 'later') return laterPhrase(effect);
   if (effect.kind === 'push' || effect.kind === 'pull') return movePhrase(effect, range, mentioned);
   // After a pull or knockback the creature has moved: name it, not a tile.
   if (effect.kind === 'damage' && mentioned) {
@@ -182,6 +211,7 @@ function enemyPhrase(effect: EffectData, range: number, nameOf: NameOf = byId): 
     return `marks its target's tile${area} ${roundsPhrase(effect)}: whoever is on it ${tilePhrase(effect.effects, 'its')}`;
   }
   if (effect.kind === 'area') return `bursts at its target's tile: ${caughtPhrase(effect, 'its')}`;
+  if (effect.kind === 'later') return `${whenPhrase(effect.rounds as Amount)}, ${tilePhrase(effect.effects, 'its')}`;
   const amount = effect.amount as Amount;
   const n = describeAmount(amount, 'its');
   const scaled = isScaled(amount);
@@ -195,6 +225,7 @@ function enemyPhrase(effect: EffectData, range: number, nameOf: NameOf = byId): 
     case 'loseBlock': return isAllOf(amount, 'block') ? 'drops its guard' : scaled ? `loses block equal to ${n}` : `loses ${n} block`;
     case 'heal': return scaled ? `heals equal to ${n}` : `heals ${n}`;
     case 'power': return scaled ? `grows stronger by ${n}` : `grows ${n} stronger`;
+    case 'losePower': return isAllOf(amount, 'power') ? 'loses all its power' : `loses ${n} power`;
     case 'push': return `knocks its target back ${n}`;
     case 'pull': return `drags its target up to ${n} closer`;
     default: return `${effect.kind} ${n}`;
@@ -209,10 +240,28 @@ function sentence(phrases: string[]): string {
   return `${joined.charAt(0).toUpperCase()}${joined.slice(1)}.`;
 }
 
+/* A card that gives power now and a Later that takes exactly as much back,
+   and nothing else in the Later, is power for a while: say so. */
+function lastingPower(effects: EffectData[]): { gain: number; later: number; amount: string; rounds: string } | null {
+  const gain = effects.findIndex((effect) => effect.kind === 'power');
+  const later = effects.findIndex((effect) => effect.kind === 'later');
+  if (gain < 0 || later < gain) return null;
+  const given = effects[gain] as SimpleData;
+  const back = effects[later] as LaterData;
+  if (back.effects.length !== 1 || back.effects[0]!.kind !== 'losePower') return null;
+  const amount = describeAmount(given.amount as Amount);
+  if (describeAmount(back.effects[0]!.amount as Amount) !== amount) return null;
+  return { gain, later, amount, rounds: describeAmount(back.rounds as Amount) };
+}
+
 export function writeCardText(
   effects: EffectData[], range: number, side: 'player' | 'enemy', targeting?: Targeting, nameOf: NameOf = byId,
 ): string {
-  return sentence(effects.map((effect, i) => {
+  const lasting = side === 'player' ? lastingPower(effects) : null;
+  return sentence(effects.flatMap((effect, i) => {
+    // Power given and taken back later reads as power for a while.
+    if (lasting && i === lasting.gain) return [`deal ${lasting.amount} more damage for ${lasting.rounds} rounds`];
+    if (lasting && i === lasting.later) return [];
     if (side === 'enemy') return enemyPhrase(effect, range, nameOf);
     const earlier = effects.slice(0, i);
     const tamed = earlier.some((item) => item.kind === 'tame');

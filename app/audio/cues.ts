@@ -55,7 +55,8 @@ export function soundsFor(item: Cue, timing: CueTiming = { impact: 0 }): SoundCa
     case 'gain':
       if (item.stat === 'block') return [{ name: 'guard', volume: 0.8 }];
       if (item.stat === 'heal') return [{ name: 'heal', volume: 0.8 }];
-      return [{ name: 'power', volume: 0.8 }];
+      // Power running out: the same sweep, lower and falling flat.
+      return item.amount < 0 ? [{ name: 'power', volume: 0.6, rate: 0.6 }] : [{ name: 'power', volume: 0.8 }];
     case 'tame':
       return [{ name: 'tame' }];
     case 'shove':
@@ -88,6 +89,8 @@ export function soundsFor(item: Cue, timing: CueTiming = { impact: 0 }): SoundCa
       return [{ name: 'reward', vary: 0 }];
     case 'claim':
       if (item.kind === 'skip') return [{ name: 'click' }];
+      // A card torn out of the deck: thrown away, lower and heavier.
+      if (item.kind === 'remove') return [{ name: 'discard', rate: 0.7, vary: 0 }, { name: 'card', delay: 0.05, rate: 0.6, volume: 0.6 }];
       return [{ name: 'pickup', vary: 0, rate: item.kind === 'gem' ? 1.12 : item.kind === 'talisman' ? 0.84 : 1 }];
     case 'end':
       // After the fall has sounded.
@@ -108,6 +111,7 @@ export const EXAMPLE_CUES: Array<{ label: string; cue: Cue }> = [
   { label: 'a burning tile', cue: { type: 'hit', target: 'a', side: 'ally', cell: at, amount: 3, blocked: 0, fatal: false, via: 'tile' } },
   { label: 'gaining block', cue: { type: 'gain', target: 'a', side: 'player', cell: at, stat: 'block', amount: 5 } },
   { label: 'healing', cue: { type: 'gain', target: 'a', side: 'player', cell: at, stat: 'heal', amount: 5 } },
+  { label: 'power running out', cue: { type: 'gain', target: 'a', side: 'player', cell: at, stat: 'power', amount: -2 } },
   { label: 'growing stronger', cue: { type: 'gain', target: 'a', side: 'enemy', cell: at, stat: 'power', amount: 1 } },
   { label: 'an enemy falling', cue: { type: 'fall', target: 'a', side: 'enemy', cell: at, guardian: false, faded: false } },
   { label: 'a guardian falling', cue: { type: 'fall', target: 'a', side: 'enemy', cell: at, guardian: true, faded: false } },
@@ -131,6 +135,7 @@ export const EXAMPLE_CUES: Array<{ label: string; cue: Cue }> = [
   { label: 'taking a card', cue: { type: 'claim', kind: 'card' } },
   { label: 'setting a gem', cue: { type: 'claim', kind: 'gem' } },
   { label: 'taking a talisman', cue: { type: 'claim', kind: 'talisman' } },
+  { label: 'removing a card', cue: { type: 'claim', kind: 'remove' } },
   { label: 'leaving a reward', cue: { type: 'claim', kind: 'skip' } },
   { label: 'winning', cue: { type: 'end', outcome: 'won' } },
   { label: 'game over', cue: { type: 'end', outcome: 'died' } },

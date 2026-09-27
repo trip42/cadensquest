@@ -432,14 +432,15 @@ with the same tagged objects from `game/effects.ts`, and `resolveEffect` in
 actions.ts is the only place that knows what any of them do. A new gem or
 card is data; a new verb or shape is code (checklists at the end).
 
-**Four shapes.** A **simple** effect is `{ kind, amount }` with a verb
+**Five shapes.** A **simple** effect is `{ kind, amount }` with a verb
 from `EFFECT_INFO`: `damage`, `block`, `loseBlock`, `heal`, `power`,
-`movement`, `energy`, `draw`, `step` (Leap), `advance`, `tame`, `mend`,
-`push` (Knockback), `pull`.
+`losePower`, `movement`, `energy`, `draw`, `step` (Leap), `advance`, `tame`,
+`mend`, `push` (Knockback), `pull`.
 **Terrain** is `{ kind: "terrain", rounds, colour, effects: [simple...] }`.
 **Summon** is `{ kind: "summon", entity, amount, rounds? }`. **Area** is
-`{ kind: "area", radius, colour, affects?, effects: [simple...] }`. Code
-tells them apart with `isTerrain` / `isSummon` / `isArea`; content
+`{ kind: "area", radius, colour, affects?, effects: [simple...] }`.
+**Later** is `{ kind: "later", rounds, effects: [simple...] }`. Code tells
+them apart with `isTerrain` / `isSummon` / `isArea` / `isLater`; content
 validates them with a zod discriminated union.
 
 **Who an effect lands on.** Every effect is played by an actor. `damage`
@@ -522,6 +523,30 @@ actor, `pull` drags it in, a tile at a time (`shove`), for either side.
 - **Ranged or not** is judged by distance when the blow lands, so a far
   card played on something adjacent — or just pulled in — swings rather
   than throws.
+
+**Later, and power that lasts.** A Later's effects land on whoever played
+it `rounds` rounds from now, as if it played them on itself then. It goes
+through `applyTo`, like a tile under its own feet, so only tile-capable
+verbs may go inside.
+
+- **Amounts and rounds are fixed when played.** They're stored with the
+  amounts resolved in `state.later`, as `LaterEntry`s. "Gain X power; in 2
+  rounds lose X power" takes back exactly the X it gave, however power
+  changed in between.
+- **When it lands.** `landLater` runs in `beginTurn` **after** block, energy
+  and the hand are refreshed, so a delayed block or energy is not wiped. 0
+  rounds lands at once.
+- **Who it lands on.** An entry is dropped if its maker has fallen, or was
+  left behind on a floor; the player's entries follow him down.
+- **Lose power.** Power is permanent, so `losePower` (never below 0) is the
+  other half of power that lasts. With `{ "of": "power" }` it's a reset. It
+  cues a `gain` with a negative amount, which shows as "−N POWER".
+- **Damage from a Later** arrives `via: 'later'`.
+- **The HUD** shows the player's power (POW +N), and a chip for each
+  pending entry ("IN 2: LOSE 2 POWER"), so a price coming due is never a
+  surprise.
+- **Card text.** `writeCardText` reads power paired with an equal
+  losePower Later as "deal N more damage for R rounds".
 
 **Allies, Tame and Mend.** A third faction, `ally`, fights on the player's
 side; `sameSide` groups player + allies against enemies. Every non-player
@@ -618,7 +643,16 @@ when the player phase is idle — never mid-enemy-stride. While
 board.
 
 Claiming: `chooseCardReward` (goes on **top** of the draw pile — `drawOne`
-pops from the end), `socketGemReward`, `takeTalismanReward`.
+pops from the end), `socketGemReward`, `takeTalismanReward`,
+`removeCardReward`.
+
+**Removal** is a fourth reward kind: take one card out of the deck for good,
+wherever it sits. It never goes below `MIN_DECK` (5), and records
+`card_removed` (tally `cardsRemoved`). Its default weight is 8, against card
+60, gem 25 and talisman 15. **A weights table that turns kinds off must
+turn removal off too:** overrides merge with the defaults, so the guardians'
+`{ talisman: 1 }` would otherwise mostly drop removals. That is why their
+content says `removal: 0`.
 
 ## Renderer
 
