@@ -142,6 +142,8 @@ function markWorth(state: GameState, cell: Cell): number {
       else if (effect.kind === 'block') worth += effect.amount * 0.3;
       else if (effect.kind === 'draw' || effect.kind === 'energy') worth += effect.amount;
     }
+    // Power for as long as it stands there: leaving takes it back.
+    for (const effect of layer.enter ?? []) if (effect.kind === 'power') worth += effect.amount * 3;
   }
   return worth;
 }
@@ -451,6 +453,21 @@ function claim(game: Game, random: () => number): void {
 
 /* ------------------------------ a whole turn ----------------------------- */
 
+/* Cards not spent are kept for next turn, so a hoarding bot draws less and
+   less that is new. What it keeps: `none` throws the lot away, as the game
+   used to, `rare` keeps anything better than a starter, `all` keeps
+   everything (SIM_KEEP, for experiments). Keeping cost the bot 12 points of
+   win rate even as `rare` (it keeps what it had no use for), so it keeps
+   nothing by default and scorecards stay comparable with earlier ones. */
+const KEEP = (process.env.SIM_KEEP ?? 'none') as 'rare' | 'all' | 'none';
+
+function tidyHand(game: Game): void {
+  if (KEEP === 'all') return;
+  for (const card of [...game.state.hand]) {
+    if (KEEP === 'none' || cardDef(card.defId).rarity === 'starter') discardForMovement(game, card.uid);
+  }
+}
+
 /** Play the player's phase out, then run the enemies' — returns when it is
  *  the player's move again, or the run is over. */
 export function playTurn(game: Game, random: () => number, hooks: BotHooks = {}): void {
@@ -486,6 +503,7 @@ export function playTurn(game: Game, random: () => number, hooks: BotHooks = {})
     }
     break;
   }
+  if (state.phase === 'player' && state.turn === turn && !state.activeReward) tidyHand(game);
   hooks.beforeEnemies?.();
   if (state.phase === 'player' && state.turn === turn) endPlayerPhase(game);
   for (let i = 0; i < 6000 && state.phase === 'enemy'; i += 1) tick(game, STEP);

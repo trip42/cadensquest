@@ -170,11 +170,12 @@ const energyCells = computed(() => {
         <HandBar class="hand-area" />
 
         <aside class="controls">
-          <!-- While cards remain there is always something to spend, so the
-               button trades them in. Only an empty hand offers to end. -->
+          <!-- Cards left in hand are kept for next turn, so ending is
+               always offered; trading the whole hand in for steps is the
+               other way to spend it. -->
           <button
             v-if="store.view.hand.length"
-            class="end px-button"
+            class="end px-button is-quiet"
             type="button"
             :disabled="store.view.phase !== 'player' || store.view.busy"
             @click="store.discardAll()"
@@ -182,7 +183,6 @@ const energyCells = computed(() => {
             DISCARD ALL: +{{ store.view.handMovement }} MOVE
           </button>
           <button
-            v-else
             class="end px-button is-yellow"
             type="button"
             :disabled="store.view.phase !== 'player' || store.view.busy"

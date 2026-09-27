@@ -1318,9 +1318,9 @@ export function beginTurn(game: Game): void {
   // stat table; discarding a card buys a step more when it runs short.
   state.movement = stat(state, 'movePerTurn');
 
-  state.discardPile.push(...state.hand);
-  state.hand = [];
-  drawCards(state, stat(state, 'handSize'));
+  // Cards not played or thrown away are kept: the hand is topped up to its
+  // size, not replaced, so a combo can be held until its partner arrives.
+  drawCards(state, Math.max(0, stat(state, 'handSize') - state.hand.length));
   // After the refresh, so a delayed block or energy is not wiped by it.
   landLater(game);
 

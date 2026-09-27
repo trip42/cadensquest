@@ -286,6 +286,30 @@ describe('the turn loop', () => {
     expect(game.state.phase).toBe('enemy');
   });
 
+  it('keeps the cards not spent, and tops the hand up to its size', () => {
+    const game = createGame(555);
+    beginTurn(game);
+    const kept = game.state.hand.slice(0, 2).map((card) => card.uid);
+    for (const card of game.state.hand.slice(2)) discardForMovement(game, card.uid);
+    const discards = game.state.discardPile.length;
+
+    runEnemyPhase(game);
+
+    const hand = game.state.hand.map((card) => card.uid);
+    expect(hand.slice(0, 2)).toEqual(kept);
+    expect(hand).toHaveLength(stat(game.state, 'handSize'));
+    // Nothing was thrown away for being left over.
+    expect(game.state.discardPile.length).toBe(discards);
+  });
+
+  it('draws nothing when the hand is already full', () => {
+    const game = createGame(555);
+    beginTurn(game);
+    const before = game.state.hand.map((card) => card.uid);
+    runEnemyPhase(game);
+    expect(game.state.hand.map((card) => card.uid)).toEqual(before);
+  });
+
   it('runs enemy turns and comes back round to the player', () => {
     const game = createGame(555);
     beginTurn(game);

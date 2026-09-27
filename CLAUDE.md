@@ -270,7 +270,8 @@ a floor that no longer exists.
 
 1. **refresh** (`beginTurn`) — a new round: terrain marks and summon
    lifetimes count down (`ageTerrain`, `ageSummons`); block clears, energy
-   and movement reset, the hand is drawn; the player is hit by any marked
+   and movement reset, the hand is topped up to `handSize` (cards left over
+   are kept, not discarded); the player is hit by any marked
    tile he starts on; every enemy **and ally** draws a card from its own
    deck and telegraphs it. Synchronous; not a state you wait in.
 2. **player** — play cards, discard cards for movement, walk.
@@ -289,15 +290,19 @@ off the queue once the previous one finishes — which is why a non-looping
 clip's *duration* is load-bearing: `isBusy` waits on it and it paces the
 enemy phase.
 
-**The one button at bottom right has two modes**, and which one shows is
-decided purely by whether the hand is empty. With cards in it, there is
-always something left to spend, so it reads *DISCARD ALL: +n MOVE* and
-trades the whole hand in (`discardAllForMovement`, worth exactly the same
-as discarding each card by hand — a test pins that). Only an empty hand
-offers *END PHASE*.
+**The hand is kept between turns.** Whatever is not played or thrown away
+for steps stays in hand, and the refresh only draws back up to `handSize`,
+so a combo can be held until its partner turns up. Each card is a choice
+of three: play it, keep it, or trade it for a step. So END PHASE is always
+offered at bottom right, and while cards remain a second button, *DISCARD
+ALL: +n MOVE*, trades the whole hand in (`discardAllForMovement`, worth
+exactly the same as discarding each card by hand — a test pins that).
+(It used to be one button whose mode depended on an empty hand, when the
+hand was thrown away every turn.)
 
 **The player phase ends itself** once there is nothing left to spend: an
-empty hand and no banked movement. It waits for animations (`isBusy`) and
+empty hand and no banked movement. With cards kept in hand it never ends by
+itself — keeping them is a choice, made by pressing END PHASE. It waits for animations (`isBusy`) and
 for any won reward to be claimed first, since claiming one is still
 something to do. `tick` handles it, so the END PHASE button is for leaving
 early rather than for finishing.
