@@ -67,6 +67,10 @@ export interface LaterEntry {
 export interface Gate {
   row: number;
   guardianId: string;
+  /** A guardian keeps its post until it wakes: when the player comes within
+   *  `GUARDIAN_WAKE_ROWS` of the end of the floor, or something hits or
+   *  shoves it. Awake, it closes in like anything else. */
+  awake: boolean;
 }
 
 /** One effect of an enemy's card, waiting its turn in the enemy phase. */

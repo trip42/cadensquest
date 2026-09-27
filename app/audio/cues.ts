@@ -83,6 +83,8 @@ export function soundsFor(item: Cue, timing: CueTiming = { impact: 0 }): SoundCa
       return [{ name: 'portal' }];
     case 'descend':
       return [{ name: 'descend' }];
+    case 'guardian':
+      return [{ name: 'doom', vary: 0 }];
     case 'turn':
       return [{ name: 'turn', vary: 0 }];
     case 'reward':
@@ -130,6 +132,7 @@ export const EXAMPLE_CUES: Array<{ label: string; cue: Cue }> = [
   { label: 'a footstep', cue: { type: 'step', target: 'a', side: 'player', cell: at } },
   { label: 'a portal opening', cue: { type: 'portal', cell: at, way: 'down' } },
   { label: 'going down a floor', cue: { type: 'descend', floor: 1 } },
+  { label: 'a guardian waking', cue: { type: 'guardian', target: 'a', cell: at, name: 'Warden' } },
   { label: 'your turn', cue: { type: 'turn', turn: 2 } },
   { label: 'a reward coming up', cue: { type: 'reward', kind: 'gem' } },
   { label: 'taking a card', cue: { type: 'claim', kind: 'card' } },

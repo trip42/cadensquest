@@ -244,9 +244,6 @@ function crossCheck(content: Content): ContentIssue[] {
       if (enemy.enabled && !card.enabled) {
         error('enemies', enemy.id, `its deck uses "${cardId}", which is disabled`, `deck[${i}]`);
       }
-      if (enemy.guardian && card.effects.some((effect) => effect.kind === 'advance')) {
-        error('enemies', enemy.id, `guardians hold their post, but "${cardId}" advances`, `deck[${i}]`);
-      }
     });
     // Setting fire under the player counts as an attack too.
     const attacks = enemy.deck.some((cardId) => enemyCards.get(cardId)?.effects.some((effect) =>

@@ -35,6 +35,7 @@ import {
 } from '~/game/actions';
 import { cardDef, cardMovement, energySpent } from '~/game/cards/definitions';
 import { describeMark, describeTileEffect, nowText } from '~/game/effects';
+import { cuesSince } from '~/game/cues';
 import { intentDef } from '~/game/cards/intents';
 import { applyTrial, type Trial, trialText } from '~/game/sandbox';
 import type { CardDefinition, CardInstance } from '~/game/cards/types';
@@ -173,6 +174,17 @@ export const useGameStore = defineStore('game', () => {
   let renderer: MapRenderer | null = null;
   let signature = '';
 
+  /* A guardian waking, for the page's banner: read off the cue feed, since
+     it is a moment, not a state. `seq` keys the banner so each one shows. */
+  const announce = ref<{ name: string; seq: number } | null>(null);
+  let heard = 0;
+  function listen(current: Game): void {
+    for (const item of cuesSince(current.state, heard)) {
+      heard = item.seq;
+      if (item.type === 'guardian') announce.value = { name: item.name, seq: item.seq };
+    }
+  }
+
   const view = shallowRef<GameView | null>(null);
   const enemyTip = shallowRef<EnemyTipView | null>(null);
   const tileTip = shallowRef<TileTipView | null>(null);
@@ -303,6 +315,7 @@ export const useGameStore = defineStore('game', () => {
     // Before the early return below: events matter even when nothing the
     // HUD shows has changed.
     flushEvents(game);
+    listen(game);
     const next = sign(game);
     if (!force && next === signature) return;
     signature = next;
@@ -369,6 +382,8 @@ export const useGameStore = defineStore('game', () => {
     runId = crypto.randomUUID();
     run.value += 1;
     game = createGame(seed);
+    heard = 0;
+    announce.value = null;
     beginTurn(game);
     if (trial && !applyTrial(game, trial)) console.warn(`[try] could not arrange ${trialText(trial)}`);
     selectedUid.value = null;
@@ -639,7 +654,7 @@ export const useGameStore = defineStore('game', () => {
   };
 
   return {
-    view, selected, selectedUid, hoverCell, enemyTip, tileTip, run,
+    view, selected, selectedUid, hoverCell, enemyTip, tileTip, run, announce,
     start, attach, detach, frame,
     select, commitCell, hover, pickAt, discard, discardAll, endPhase,
     chooseCard, socketGem, removeCard, takeTalisman, skip,

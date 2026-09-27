@@ -306,6 +306,13 @@ export class Juice {
       case 'descend':
         this.fade('#ffffff', now, 0.9, 1);
         break;
+      case 'guardian':
+        // The first stab of the sting: a red ring, a shudder and a dark wash.
+        this.ring(item.cell, palette.red, now, 1.1, 0.2, 1.8, 4);
+        this.ring(item.cell, palette.red, now + 0.26, 0.9, 0.2, 1.4, 3);
+        this.fade(palette.ink, now, 0.9, 0.3);
+        this.shake(0.45);
+        break;
       case 'end':
         if (item.outcome === 'died') this.fade(palette.red, now, 0.8, 0.35);
         else this.fade('#ffffff', now, 1, 0.8);

@@ -44,12 +44,6 @@ describe('validation', () => {
     expect(errors(content)[0]).toMatchObject({ file: 'run', message: expect.stringContaining('disabled') });
   });
 
-  it('refuses a guardian that would leave its post', () => {
-    const content = draft();
-    content['enemy-cards'].find((card) => card.id === 'warden_maul')!.effects.unshift({ kind: 'advance', amount: 2 });
-    expect(errors(content)[0]).toMatchObject({ id: 'warden', message: expect.stringContaining('advances') });
-  });
-
   it('refuses a duplicate id', () => {
     const content = draft();
     content.gems.push({ ...content.gems[0]! });

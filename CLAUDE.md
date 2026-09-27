@@ -329,8 +329,15 @@ Three rules keep fights from being skippable:
   the trail of its last row (`gateRowOf`) — always a canonical, full-width
   row, and the last row that exists. There is no barrier: nothing lies past
   it, and the way down is a portal that opens only where the guardian falls
-  (see **Floors**). Guardians keep their post (no card in their decks
-  advances — a test pins that), always carry a talisman,
+  (see **Floors**). A guardian **keeps its post until it wakes**: its
+  `advance` does nothing while `Gate.awake` is false. It wakes when the
+  player comes within `GUARDIAN_WAKE_ROWS` (5) rows of the end of the floor
+  (`watchGates`, on each of his steps and each refresh), or when something
+  hits or shoves it (`wakeGuardian`). Waking cues `guardian`: a "dun, dun,
+  DUNNN" (`doom`), a red ring, a shake, and a red banner naming it (the store
+  reads it off the cue feed as `announce`). Then it closes in like any
+  enemy, so its portal opens wherever it falls. Every guardian's deck has an
+  advance (a test pins that). Guardians always carry a talisman,
   and use the dark column of the enemies sheet. `ENEMY_IDS` excludes them;
   `GUARDIAN_IDS` lists them.
 
@@ -370,8 +377,7 @@ replay unchanged.
 **Validation** (`content/validate.ts`) is one function used by the game,
 the tests and the save endpoint: zod for shape (`content/schema.ts`), then
 cross-checks — unique ids, decks and the starting deck name things that
-exist and are enabled, guardians never `advance`, zones match the code's
-zones, and warnings for verbs that do nothing for their side. Errors stop
+exist and are enabled, zones match the code's zones, and warnings for verbs that do nothing for their side. Errors stop
 the game loading and the editor saving; warnings don't. `npm test` asserts
 the committed content has **no errors and no warnings**.
 
@@ -529,7 +535,7 @@ actor, `pull` drags it in, a tile at a time (`shove`), for either side.
   each tile it had left. The wall, the map's edge or a creature it hits all
   count, and a creature it hits takes the same, whichever side it is on.
   The damage arrives as `via: 'slam'`.
-- **Guardians hold their ground.**
+- **Guardians move like anything else**, and being shoved wakes them.
 - **Where it lands is decided at once.** `row`/`col` move now and the
   `motion` only carries the picture, so the rest of the card sees it where
   it landed. `play.target` follows it: Grapple Hook pulls, then hits.
@@ -823,7 +829,7 @@ something happens:
 - a fall, and a gain of block, health or power
 - a tame, a summon, a shove (knockback or pull), a mark, a burst
 - a card played, a discard, each step
-- a portal opening, a descent, a turn
+- a portal opening, a guardian waking, a descent, a turn
 - a reward coming up and being claimed, and the end of the run
 
 As with telemetry, the rules never know who is listening.

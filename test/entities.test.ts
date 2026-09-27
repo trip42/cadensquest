@@ -83,11 +83,9 @@ describe('entity definitions', () => {
     }
   });
 
-  it('keeps guardians rooted: no guardian card advances', () => {
+  it('gives every guardian a way to close in, once it wakes', () => {
     for (const id of GUARDIAN_IDS) {
-      for (const cardId of entityDef(id).deck) {
-        expect(intentDef(cardId).effects.some((e) => e.kind === 'advance'), cardId).toBe(false);
-      }
+      expect(entityDef(id).deck.some((cardId) => intentDef(cardId).effects.some((e) => e.kind === 'advance')), id).toBe(true);
     }
   });
 

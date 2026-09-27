@@ -66,6 +66,7 @@ describe('every sound', () => {
     expect(rising('zap', 0.1, 0.01)).toBe(true);
     expect(rising('fall', 0.7, 0.05)).toBe(true);
     expect(rising('descend', 0.6, 0.05)).toBe(true);
+    expect(rising('doom', 0.9, 0.3)).toBe(true);
   });
 });
 
@@ -78,7 +79,7 @@ describe('the sound of each cue', () => {
     // then fails this test until it makes a sound.
     const KINDS: Record<CueType, true> = {
       hit: true, gain: true, fall: true, tame: true, shove: true, summon: true, mark: true, burst: true, play: true,
-      discard: true, step: true, portal: true, descend: true, turn: true, reward: true, claim: true, end: true,
+      discard: true, step: true, portal: true, descend: true, guardian: true, turn: true, reward: true, claim: true, end: true,
     };
     expect(new Set(every.map((item) => item.type))).toEqual(new Set(Object.keys(KINDS)));
     for (const item of every) {

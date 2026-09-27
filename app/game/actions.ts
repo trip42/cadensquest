@@ -193,6 +193,8 @@ interface Blow {
 function dealDamage(game: Game, target: Entity, amount: number, blow: Blow): void {
   const { state } = game;
   const { source } = blow;
+  // Hitting a sleeping guardian wakes it.
+  wakeGuardian(game, target);
   if (source && target.id === state.playerId) state.lastHitBy = source.defId;
   const absorbed = Math.min(target.block, amount);
   target.block -= absorbed;
@@ -798,7 +800,8 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
       losePower(state, actor, amount);
       break;
     case 'advance':
-      if (!isPlayer && play.goal) advance(game, actor, amount, range, play.goal);
+      // A guardian keeps its post until it wakes.
+      if (!isPlayer && play.goal && !asleep(state, actor)) advance(game, actor, amount, range, play.goal);
       break;
     case 'tame': {
       const victim = target && entityAt(state, target.row, target.col);
@@ -868,6 +871,40 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
   }
 }
 
+/* ------------------------------ guardians ------------------------------ */
+
+/** How many rows from the end of a floor the player can come before its
+ *  guardian wakes and leaves its post. */
+export const GUARDIAN_WAKE_ROWS = 5;
+
+/** Is this a floor's guardian that has not woken yet? */
+const asleep = (state: GameState, entity: Entity): boolean =>
+  state.gates.some((gate) => gate.guardianId === entity.id && !gate.awake);
+
+/** Wake a floor's guardian, if this is one still asleep: from now on it
+ *  closes in. Announced, because the fight has changed. */
+function wakeGuardian(game: Game, entity: Entity): void {
+  const { state } = game;
+  const gate = state.gates.find((item) => item.guardianId === entity.id && !item.awake);
+  if (!gate) return;
+  gate.awake = true;
+  if (entity.dead) return;
+  const name = entityDef(entity.defId).name;
+  cue(state, { type: 'guardian', target: entity.id, cell: entityCell(entity), name });
+  note(state, `The ${name} wakes!`);
+}
+
+/** Close to the end of the floor: its guardian wakes. */
+function watchGates(game: Game): void {
+  const { state } = game;
+  const self = player(state);
+  for (const gate of state.gates) {
+    if (gate.awake || self.row < gate.row - GUARDIAN_WAKE_ROWS) continue;
+    const guardian = state.entities.find((entity) => entity.id === gate.guardianId);
+    if (guardian) wakeGuardian(game, guardian);
+  }
+}
+
 /* ------------------------------ knockback ------------------------------ */
 
 /** How long knockback takes to cross one tile, in seconds. Quick: a shove,
@@ -894,10 +931,8 @@ function shove(game: Game, actor: Entity, victim: Entity, tiles: number, pull: b
   const { state } = game;
   const name = entityDef(victim.defId).name;
   if (tiles <= 0) return null;
-  if (entityDef(victim.defId).guardian) {
-    noteNear(state, actor, `${name} holds its ground.`);
-    return null;
-  }
+  // Guardians can be moved like anything else, and it wakes them.
+  wakeGuardian(game, victim);
 
   const origin = entityCell(actor);
   const from = entityCell(victim);
@@ -1249,7 +1284,7 @@ function placeGuardians(game: Game, chunkIndex: number): void {
     guardian.facing = -1;
     guardian.reward = rollDrop(state.rng, entityDef(guardian.defId).reward);
     state.entities.push(guardian);
-    state.gates.push({ row, guardianId: guardian.id });
+    state.gates.push({ row, guardianId: guardian.id, awake: false });
   });
 }
 
@@ -1328,6 +1363,7 @@ export function beginTurn(game: Game): void {
   fire(game, 'refresh');
   // Starting the turn on a marked tile sets it off.
   triggerTile(game, self);
+  watchGates(game);
 
   // Enemies and allies telegraph what they will do, so the player can plan
   // around it.
@@ -1579,6 +1615,7 @@ export function tick(game: Game, dt: number): void {
         // the death animation be — setting it back to idle once left the body
         // on the map for good, since the fallen are cleared when it finishes.
         triggerTile(game, entity);
+        if (entity.id === state.playerId) watchGates(game);
         if (entity.dead) entity.path = [];
         else if (entity.path.length) startStep(entity);
         else setAnimation(entity, 'idle');

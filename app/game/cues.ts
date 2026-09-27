@@ -52,6 +52,8 @@ export type Cue =
   /** A step finished: someone arrived on a tile. */
   | { type: 'step'; target: string; side: Faction; cell: Cell }
   | { type: 'portal'; cell: Cell; way: 'down' | 'out' }
+  /** A floor's guardian wakes and leaves its post. */
+  | { type: 'guardian'; target: string; cell: Cell; name: string }
   /** Arrived on a new floor. */
   | { type: 'descend'; floor: number }
   /** The player's phase begins. */

@@ -128,15 +128,14 @@ describe('knockback', () => {
     expect(terrainAt(game.state, run[3]!)).toHaveLength(1);
   });
 
-  it('leaves guardians where they stand', () => {
+  it('moves guardians like anything else', () => {
     const game = quiet();
     const run = line(game, 4, 'row');
     place(game, run[0]!);
     const guardian = stand(game, run[1]!, GUARDIAN_IDS[0]!);
     define('shove', [{ kind: 'push', amount: 2 }]);
     play(game, 'shove', run[1]!);
-    expect(entityCell(guardian)).toEqual(run[1]);
-    expect(guardian.hp).toBe(30);
+    expect(entityCell(guardian)).toEqual(run[3]);
   });
 
   it('can be played by an enemy, on the player', () => {

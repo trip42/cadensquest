@@ -222,8 +222,12 @@
     "name": "Maul",
     "enabled": true,
     "range": 2,
-    "text": "Mauls for 6 at range 2.",
+    "text": "Once awake, closes up to 2, then mauls for 6 at range 2.",
     "effects": [
+      {
+        "kind": "advance",
+        "amount": 2
+      },
       {
         "kind": "damage",
         "amount": 6
@@ -261,8 +265,12 @@
     "name": "Firestorm",
     "enabled": true,
     "range": 3,
-    "text": "Burns for 8 at range 3.",
+    "text": "Once awake, closes up to 2, then burns for 8 at range 3.",
     "effects": [
+      {
+        "kind": "advance",
+        "amount": 2
+      },
       {
         "kind": "damage",
         "amount": 8

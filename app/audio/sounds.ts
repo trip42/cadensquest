@@ -275,6 +275,24 @@ export const SOUNDS = {
     seed: 17,
   },
 
+  /** A guardian wakes: dun, dun, DUNNN — two short low stabs and a long
+   *  note a third below, each with a thump under it. Falling. */
+  doom: {
+    layers: [
+      { wave: 'square', freq: 147, attack: 0.005, hold: 0.1, decay: 0.12, duty: 0.4, lowpass: 1400, gain: 0.5 },
+      { wave: 'triangle', freq: 73, attack: 0.005, hold: 0.1, decay: 0.12, gain: 0.5 },
+      { wave: 'square', freq: 139, at: 0.26, attack: 0.005, hold: 0.1, decay: 0.12, duty: 0.4, lowpass: 1400, gain: 0.5 },
+      { wave: 'triangle', freq: 69, at: 0.26, attack: 0.005, hold: 0.1, decay: 0.12, gain: 0.5 },
+      { wave: 'square', freq: 110, at: 0.52, attack: 0.005, hold: 0.45, decay: 0.8, duty: 0.4, vibrato: { depth: 0.015, rate: 5 }, lowpass: [1400, 500], gain: 0.55 },
+      { wave: 'triangle', freq: 55, at: 0.52, attack: 0.005, hold: 0.45, decay: 0.8, gain: 0.6 },
+      { wave: 'noise', freq: 60000, attack: 0.002, decay: 0.08, lowpass: 400, gain: 0.35 },
+      { wave: 'noise', freq: 60000, at: 0.26, attack: 0.002, decay: 0.08, lowpass: 400, gain: 0.35 },
+      { wave: 'noise', freq: 60000, at: 0.52, attack: 0.002, decay: 0.2, lowpass: 400, gain: 0.45 },
+    ],
+    gain: 0.75,
+    seed: 21,
+  },
+
   /* ------------------------------ the run ------------------------------ */
 
   /** Your turn: two bright notes, up a fourth. */

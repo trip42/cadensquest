@@ -62,6 +62,20 @@ watch(
   },
 );
 
+/* A guardian waking gets a banner of its own, in red, where the floor's
+   name goes. */
+const woke = ref<{ name: string; seq: number } | null>(null);
+let wokeTimer: ReturnType<typeof setTimeout> | undefined;
+watch(
+  () => store.announce?.seq,
+  (seq) => {
+    if (!seq || !store.announce) return;
+    woke.value = { ...store.announce };
+    clearTimeout(wokeTimer);
+    wokeTimer = setTimeout(() => (woke.value = null), 2600);
+  },
+);
+
 const banner = ref<{ floor: number; floors: number; zone: string; run: number } | null>(null);
 let bannerTimer: ReturnType<typeof setTimeout> | undefined;
 watch(
@@ -88,6 +102,7 @@ const lowHp = computed(() => {
 onBeforeUnmount(() => {
   clearTimeout(hpTimer);
   clearTimeout(bannerTimer);
+  clearTimeout(wokeTimer);
 });
 
 const energyCells = computed(() => {
@@ -210,6 +225,12 @@ const energyCells = computed(() => {
       <div v-if="banner" :key="`${banner.run}-${banner.floor}`" class="floor-banner panel" aria-live="polite">
         <span class="banner-floor">FLOOR {{ banner.floor }} / {{ banner.floors }}</span>
         <span class="banner-zone">{{ banner.zone }}</span>
+      </div>
+    </Transition>
+    <Transition name="banner">
+      <div v-if="woke && !banner" :key="woke.seq" class="floor-banner panel is-guardian" aria-live="assertive">
+        <span class="banner-floor">THE GUARDIAN WAKES</span>
+        <span class="banner-zone">{{ woke.name }}</span>
       </div>
     </Transition>
 
@@ -404,6 +425,8 @@ const energyCells = computed(() => {
 }
 .banner-floor { color: var(--px-muted); font-size: 12px; }
 .banner-zone { color: var(--px-yellow); font-size: 24px; text-shadow: 3px 3px 0 var(--px-ink); }
+.is-guardian .banner-floor { color: var(--px-text); }
+.is-guardian .banner-zone { color: var(--px-red); font-size: 48px; }
 .banner-enter-active { transition: opacity 0.3s ease, transform 0.35s cubic-bezier(0.3, 1.4, 0.5, 1); }
 .banner-leave-active { transition: opacity 0.5s ease; }
 .banner-enter-from { opacity: 0; transform: translate(-50%, -12px); }
