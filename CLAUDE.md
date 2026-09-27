@@ -411,6 +411,13 @@ That is what makes a talisman pure metadata: `{ stat: 'handSize', add: 1 }`
 changes the hand without a branch anywhere. When you add a value someone
 might want to modify, put it in `BASE_STATS` rather than inlining it.
 
+`highGround` (base 0, so off) is extra damage per layer a blow's attacker
+stands above its target — the map has height, and this is the one rule
+that reads it. The player's value comes through `stat`, so a talisman can
+raise it; enemies use the base. The simulator found +1 or +2 made runs
+easier and spikier, not better, so it stays off until something is built
+around it (see docs/FUN.md).
+
 `syncStats` runs after the talismans change; it is what hands over the extra
 health when `maxHp` goes up instead of leaving a dent.
 

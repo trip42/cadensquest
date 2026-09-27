@@ -32,6 +32,9 @@ export const BASE_STATS = {
   /** Damage for each tile of knockback left when a wall or a creature
    *  stops the one knocked back — to it, and to whatever it hit. */
   slamDamage: 2,
+  /** Extra damage a blow deals for each layer the attacker stands above its
+   *  target. 0 is off: height is scenery. Enemies use the base value. */
+  highGround: 0,
 } as const;
 
 export type StatKey = keyof typeof BASE_STATS;
@@ -81,6 +84,7 @@ export const STAT_NAMES: Record<StatKey, string> = {
   blockBonus: 'block from cards',
   maxAllies: 'allies you can keep',
   slamDamage: 'knockback slam damage',
+  highGround: 'damage per layer of high ground',
 };
 
 export const STAT_KEYS = Object.keys(BASE_STATS) as StatKey[];

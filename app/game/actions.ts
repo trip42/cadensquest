@@ -246,6 +246,17 @@ function dealDamage(game: Game, target: Entity, amount: number, blow: Blow): voi
   }
 }
 
+/** High ground: a blow from above hits harder, `highGround` for each layer
+ *  the attacker stands over its target. The player's stat can be raised by
+ *  talismans; everyone else uses the base value. Off (0) unless set. */
+function highGroundBonus(game: Game, actor: Entity, victim: Entity): number {
+  const { state, world } = game;
+  const above = world.heightAt(actor.row, actor.col) - world.heightAt(victim.row, victim.col);
+  if (above <= 0) return 0;
+  const perLayer = actor.id === state.playerId ? stat(state, 'highGround') : resolveStat('highGround', []);
+  return above * perLayer;
+}
+
 /* Gains, cued only when something was actually gained — a heal at full
    health shows nothing. */
 function gainBlock(state: GameState, entity: Entity, amount: number): void {
@@ -668,7 +679,7 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
       }
       faceToward(actor, entityCell(victim));
       if (!isPlayer) setAnimation(actor, 'attack');
-      const bonus = actor.power + (isPlayer ? stat(state, 'damageBonus') : 0);
+      const bonus = actor.power + (isPlayer ? stat(state, 'damageBonus') : 0) + highGroundBonus(game, actor, victim);
       // Ranged only if it has somewhere to fly: a far-reaching card played on
       // something adjacent — or just pulled in — lands like a swing.
       const ranged = range > 1 && cellDistance(entityCell(actor), entityCell(victim)) > 1;
