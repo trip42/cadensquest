@@ -1367,6 +1367,14 @@ minutes); `npm run sim -- sim/final.sim.ts` runs one. Reports land in
     from its own distance field (`reachable` leaves out where it starts);
     and camping on its own healing mark instead of taking the portal.
   - **A stall-breaker** drops caution after 4 turns without progress.
+  - **`SIM_LOOKAHEAD=2`** scores its four best first plays by the best
+    follow-up this turn too, so a setup card is seen for what it leads to.
+    It is read as the bot plays; the default is 1, so older scorecards
+    stay comparable. It raises the committed game's real choices from
+    about 27% to 38%, and costs about 2.6× the time.
+  - **The combo study** (`sim/combo*.sim.ts`) sets it for itself. The new
+    COMBOS.md content is disabled in `content/`; it enables items per
+    variant (`enable`). FUN.md, section 9, has what it found.
   - **It throws its leftover hand away** before ending a turn
     (`tidyHand`; `SIM_KEEP=none`, the default). The game keeps unspent
     cards now, but a bot that kept them, even only its rares, lost about 12
