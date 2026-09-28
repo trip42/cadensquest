@@ -12,7 +12,7 @@
     "effects": [
       {
         "kind": "damage",
-        "amount": 6
+        "amount": 5
       }
     ]
   },
@@ -29,7 +29,15 @@
     "effects": [
       {
         "kind": "damage",
-        "amount": 4
+        "amount": 3
+      },
+      {
+        "kind": "damage",
+        "amount": 3
+      },
+      {
+        "kind": "damage",
+        "amount": 3
       }
     ]
   },
@@ -69,35 +77,22 @@
   },
   {
     "id": "jab",
-    "name": "Jab",
+    "name": "Parry Rip",
     "enabled": true,
     "rarity": "normal",
     "art": "slash",
     "cost": 1,
     "targeting": "enemy",
     "range": 1,
-    "text": "Deal 4 damage to an adjacent enemy.",
+    "text": "Gain 4 block then Deal 8 damage to an adjacent enemy.",
     "effects": [
       {
         "kind": "damage",
-        "amount": 4
-      }
-    ]
-  },
-  {
-    "id": "shrug",
-    "name": "Shrug",
-    "enabled": true,
-    "rarity": "normal",
-    "art": "shield",
-    "cost": 0,
-    "targeting": "self",
-    "range": 0,
-    "text": "Gain 3 block.",
-    "effects": [
+        "amount": 8
+      },
       {
         "kind": "block",
-        "amount": 3
+        "amount": 4
       }
     ]
   },
@@ -125,13 +120,21 @@
     "rarity": "rare",
     "art": "slash",
     "cost": 2,
-    "targeting": "enemy",
+    "targeting": "self",
     "range": 1,
-    "text": "Deal 11 damage to an adjacent enemy.",
+    "text": "Deal 11 damage to all adjacent enemies.",
     "effects": [
       {
-        "kind": "damage",
-        "amount": 11
+        "kind": "area",
+        "radius": 2,
+        "colour": "#feae34",
+        "affects": "foes",
+        "effects": [
+          {
+            "kind": "damage",
+            "amount": 11
+          }
+        ]
       }
     ]
   },
@@ -161,11 +164,11 @@
     "cost": 1,
     "targeting": "enemy",
     "range": 3,
-    "text": "Deal 3 damage and draw a card.",
+    "text": "Deal 6 damage and draw a card.",
     "effects": [
       {
         "kind": "damage",
-        "amount": 3
+        "amount": 6
       },
       {
         "kind": "draw",
@@ -705,6 +708,83 @@
           }
         ],
         "radius": 1
+      }
+    ]
+  },
+  {
+    "id": "yo_yo",
+    "name": "Yo-Yo",
+    "enabled": true,
+    "rarity": "mythic",
+    "art": "hook",
+    "cost": 2,
+    "targeting": "enemy",
+    "range": 1,
+    "text": "Pull an enemy in range 4, hit for 8, knockback 4",
+    "effects": [
+      {
+        "kind": "pull",
+        "amount": 4
+      },
+      {
+        "kind": "damage",
+        "amount": 8
+      },
+      {
+        "kind": "push",
+        "amount": 4
+      }
+    ]
+  },
+  {
+    "id": "power_strike",
+    "name": "Power Strike",
+    "enabled": true,
+    "rarity": "mythic",
+    "art": "slash",
+    "cost": 2,
+    "targeting": "enemy",
+    "range": 1,
+    "text": "Attack for your current power 3 times.",
+    "effects": [
+      {
+        "kind": "damage",
+        "amount": {
+          "of": "power"
+        }
+      },
+      {
+        "kind": "damage",
+        "amount": {
+          "of": "power"
+        }
+      },
+      {
+        "kind": "damage",
+        "amount": {
+          "of": "power"
+        }
+      }
+    ]
+  },
+  {
+    "id": "leash",
+    "name": "Leash",
+    "enabled": true,
+    "rarity": "mythic",
+    "art": "slash",
+    "cost": 2,
+    "targeting": "enemy",
+    "range": 5,
+    "text": "Tame an enemy <15 health then pull it adjacent to you",
+    "effects": [
+      {
+        "kind": "tame",
+        "amount": 15
+      },
+      {
+        "kind": "pull",
+        "amount": 5
       }
     ]
   }
