@@ -1223,5 +1223,123 @@
         "rounds": 2
       }
     ]
+  },
+  {
+    "id": "charge",
+    "name": "Charge",
+    "enabled": false,
+    "rarity": "rare",
+    "art": "boot",
+    "cost": 1,
+    "targeting": "enemy",
+    "range": 1,
+    "text": "Deal 3 damage to an adjacent enemy, plus 2 for each tile you walked this turn.",
+    "effects": [
+      {
+        "kind": "damage",
+        "amount": {
+          "of": "moved",
+          "times": 2,
+          "plus": 3
+        }
+      }
+    ]
+  },
+  {
+    "id": "afterimage",
+    "name": "Afterimage",
+    "enabled": false,
+    "rarity": "normal",
+    "art": "boot",
+    "cost": 1,
+    "targeting": "self",
+    "range": 0,
+    "text": "Gain 1 block for each tile you walked this turn.",
+    "effects": [
+      {
+        "kind": "block",
+        "amount": {
+          "of": "moved"
+        }
+      }
+    ]
+  },
+  {
+    "id": "oil_flask",
+    "name": "Oil Flask",
+    "enabled": false,
+    "rarity": "normal",
+    "art": "wave",
+    "cost": 0,
+    "targeting": "cell",
+    "range": 3,
+    "text": "Douse a tile within 3 and every tile within 1 of it in oil for {1} rounds. Fire lit on oil spreads across it.",
+    "effects": [
+      {
+        "kind": "terrain",
+        "rounds": 4,
+        "colour": "#3e2731",
+        "effects": [],
+        "radius": 1,
+        "element": "oil"
+      }
+    ]
+  },
+  {
+    "id": "echo",
+    "name": "Echo",
+    "enabled": false,
+    "rarity": "mythic",
+    "art": "arc",
+    "cost": 1,
+    "targeting": "self",
+    "range": 0,
+    "text": "The next card you play this turn happens twice.",
+    "effects": [
+      {
+        "kind": "echo",
+        "amount": 1
+      }
+    ]
+  },
+  {
+    "id": "entrench",
+    "name": "Entrench",
+    "enabled": false,
+    "rarity": "rare",
+    "art": "shield",
+    "cost": 1,
+    "targeting": "self",
+    "range": 0,
+    "text": "Gain {1} block. For 2 rounds, your block doesn't clear.",
+    "effects": [
+      {
+        "kind": "block",
+        "amount": 5
+      },
+      {
+        "kind": "boon",
+        "stat": "keepBlock",
+        "add": 1,
+        "rounds": 2
+      }
+    ]
+  },
+  {
+    "id": "sic_em",
+    "name": "Sic 'Em",
+    "enabled": false,
+    "rarity": "rare",
+    "art": "eye",
+    "cost": 0,
+    "targeting": "ally",
+    "range": 4,
+    "text": "An ally within 4 plays its card now, then draws another.",
+    "effects": [
+      {
+        "kind": "command",
+        "amount": 0
+      }
+    ]
   }
 ]

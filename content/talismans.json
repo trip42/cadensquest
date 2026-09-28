@@ -177,5 +177,32 @@
         "add": 2
       }
     ]
+  },
+  {
+    "id": "pyre",
+    "name": "Pyre",
+    "enabled": false,
+    "text": "When an enemy falls, its tile and every tile within 1 catch fire: 2 damage for 2 rounds.",
+    "icon": "flame",
+    "triggers": [
+      {
+        "on": "enemyDefeated",
+        "effects": [
+          {
+            "kind": "terrain",
+            "rounds": 2,
+            "colour": "#e43b44",
+            "effects": [
+              {
+                "kind": "damage",
+                "amount": 2
+              }
+            ],
+            "radius": 1,
+            "element": "fire"
+          }
+        ]
+      }
+    ]
   }
 ]
