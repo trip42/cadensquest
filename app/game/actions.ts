@@ -562,6 +562,7 @@ function markTile(game: Game, effect: TerrainEffect, play: Play): void {
   if (spots.length) cue(state, { type: 'mark', cells: spots, colour: effect.colour });
   for (const spot of spots) {
     const layer: TerrainLayer = { id: nextUid('mark'), effects, colour: effect.colour, rounds, ownerId: actor.id };
+    if (effect.element) layer.element = effect.element;
     if (enter || exit) Object.assign(layer, { enter, exit, inside: [] });
     const key = terrainKey(spot);
     (state.terrain[key] ??= []).push(layer);

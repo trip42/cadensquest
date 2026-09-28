@@ -567,6 +567,12 @@ once-a-round guard, so pair a gain with an exit that takes it back:
 Rallying Ground is +1 power on entering and Lose 1 power on leaving, which
 the card text reads as "whoever stands on it deals 1 more damage".
 
+**Fire.** A mark may say what it is made of: `"element": "fire"`, copied
+onto its `TerrainLayer`. Fire, Wildfire and the Whelp's Scorch are fire.
+Fire has no side: anything that heats, lengthens or counts fire works on
+every burning tile, whoever lit it — the Whelp's under you as much as yours
+under them — and a death by fire is still credited to whoever lit it.
+
 **Knockback and pull.** `push` knocks the targeted creature back from the
 actor, `pull` drags it in, a tile at a time (`shove`), for either side.
 

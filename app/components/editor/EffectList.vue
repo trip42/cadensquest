@@ -10,7 +10,9 @@
    terrain within terrain. */
 import { computed } from 'vue';
 import type { ContentIssue, EffectData } from '~/game/content';
-import { AREA_INFO, EFFECT_INFO, EFFECT_KINDS, type EffectKind, LATER_INFO, SUMMON_INFO, TERRAIN_INFO } from '~/game/effects';
+import {
+  AREA_INFO, EFFECT_INFO, EFFECT_KINDS, type EffectKind, ELEMENTS, LATER_INFO, SUMMON_INFO, TERRAIN_INFO,
+} from '~/game/effects';
 import { useEditorStore } from '~/stores/editor';
 
 const props = defineProps<{
@@ -42,6 +44,12 @@ function setRadius(effect: { radius?: number }, raw: string): void {
   const value = Math.max(0, Math.min(3, Math.round(Number(raw) || 0)));
   if (value) effect.radius = value;
   else delete effect.radius;
+}
+
+/** A mark's element is optional: left out, it is just a mark. */
+function setElement(effect: { element?: string }, value: string): void {
+  if (value) effect.element = value;
+  else delete effect.element;
 }
 
 /** A burst's `affects` is optional: left out, it hits everyone. */
@@ -128,6 +136,11 @@ function move(index: number, by: number): void {
           <input v-model="effect.colour" type="color" aria-label="Tile colour">
           <span class="op">over radius</span>
           <input :value="effect.radius ?? 0" type="number" min="0" max="3" class="num small" aria-label="Radius" @input="setRadius(effect, ($event.target as HTMLInputElement).value)">
+          <span class="op">made of</span>
+          <select :value="effect.element ?? ''" aria-label="Element" title="Fire is heated, lengthened and flared by the fire cards and stats, whoever lit it." @change="setElement(effect, ($event.target as HTMLSelectElement).value)">
+            <option value="">nothing special</option>
+            <option v-for="element in ELEMENTS" :key="element" :value="element">{{ element }}</option>
+          </select>
         </span>
       </template>
       <template v-else-if="effect.kind === 'area'">

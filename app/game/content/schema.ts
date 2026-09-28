@@ -10,7 +10,8 @@
 import { z } from 'zod';
 import { RARITIES, TARGETINGS } from '../cards/types';
 import {
-  AMOUNT_SOURCE_KEYS, AREA_AFFECTS, type AmountSource, type AreaAffects, EFFECT_KINDS, type EffectKind, TRIGGER_POINTS,
+  AMOUNT_SOURCE_KEYS, AREA_AFFECTS, type AmountSource, type AreaAffects, EFFECT_KINDS, type EffectKind, type Element, ELEMENTS,
+  TRIGGER_POINTS,
 } from '../effects';
 import { REWARD_KINDS } from '../rewards';
 import { STAT_KEYS } from '../stats';
@@ -54,6 +55,8 @@ export const terrainEffectSchema = z.strictObject({
   exit: z.array(simpleEffectSchema).optional(),
   /** Mark every tile within this many steps of the target too. */
   radius: count(0, 3).optional(),
+  /** What it is made of: "fire" for the fire cards and stats to find. */
+  element: z.enum(ELEMENTS as [Element, ...Element[]]).optional(),
 });
 
 /** A burst on the target tile: everyone within `radius` steps gets

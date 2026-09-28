@@ -103,7 +103,15 @@ export interface TerrainEffect {
   /** Mark every tile within this many steps of the target too, not just
    *  the target — a whole burning area. 0 or left out: the one tile. */
   radius?: number;
+  /** What the mark is made of, for the cards and stats that care: "fire"
+   *  is heated, lengthened and flared by them. Left out, it is just a mark. */
+  element?: Element;
 }
+
+/* What a mark can be made of. Fire has no side: whatever boosts, lengthens
+   or counts fire works on every burning tile, whoever lit it. */
+export type Element = 'fire';
+export const ELEMENTS: Element[] = ['fire'];
 
 /** Every simple effect a mark carries: while on it, on entering, on leaving. */
 export const markEffects = (effect: TerrainEffect): SimpleEffect[] =>

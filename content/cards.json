@@ -296,7 +296,8 @@
             "kind": "damage",
             "amount": 3
           }
-        ]
+        ],
+        "element": "fire"
       }
     ]
   },
@@ -453,7 +454,8 @@
             "amount": 2
           }
         ],
-        "radius": 1
+        "radius": 1,
+        "element": "fire"
       }
     ]
   },
