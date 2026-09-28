@@ -4,6 +4,8 @@
 import { computed } from 'vue';
 import { RARITIES } from '~/game/cards/types';
 import type { Content, ContentIssue, EnemyData } from '~/game/content';
+import type { Effect } from '~/game/effects';
+import { printedText } from '~/game/text';
 import { REWARD_KINDS } from '~/game/rewards';
 import { SHEET_FILES } from '~/render/sprites';
 import { problemsAt } from '~/utils/editorProblems';
@@ -12,7 +14,7 @@ const props = defineProps<{ item: EnemyData; issues: ContentIssue[]; content: Co
 const at = (field: string) => problemsAt(props.issues, field);
 
 const deckOptions = computed(() =>
-  props.content['enemy-cards'].map((card) => ({ id: card.id, name: card.name, enabled: card.enabled, detail: card.text })),
+  props.content['enemy-cards'].map((card) => ({ id: card.id, name: card.name, enabled: card.enabled, detail: printedText(card.text, card.effects as Effect[], 'its') })),
 );
 
 const hasReward = computed(() => props.item.reward !== undefined);

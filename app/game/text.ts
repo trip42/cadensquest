@@ -1,0 +1,192 @@
+/* Numbers in rules text that follow the rules.
+
+   A card's text may write {1} for the number of its first effect, and
+   {2.1} for the first effect inside its second — inside a mark, a burst or
+   a Later. So Strike can say "Deal {1} damage" and never disagree with
+   what it deals.
+
+   Printed — on rewards, in the shop, in the editor — a token reads as the
+   card's own number: "5", or "5X", or "your block". In hand it reads as
+   what playing the card now would come to, bonuses included: with 3 power,
+   Strike says "Deal 8 damage", and the 8 is marked as raised.
+
+   Only numbers are substituted, never words: the author writes the verb
+   ("Heal {1}", "knock it back {2}"), because verbs have no units that read
+   well on their own. And nothing is evaluated — a token names an effect
+   and nothing else, for the same reason amounts are data rather than
+   formulas: content may one day come from a server.
+
+   What each token's number is:
+     a simple effect   its amount
+     a mark            its rounds; inside, its tile effects in order —
+                       `effects`, then `enter`, then `exit`
+     a Later           its rounds; inside, what lands then
+     a burst           its radius; inside, what each creature caught gets
+     a summon          its health
+
+   This file knows only effects, so the validator — which the editor's save
+   endpoint runs on the server too — can use it without the rules. What a
+   card in hand or an enemy's intent says right now is `handText` and
+   `intentText` in actions.ts, which know the game. */
+
+import {
+  type Amount, amountOf, type AmountValues, describeAmount, type Effect, isArea, isLater, isScaled, isSummon, isTerrain,
+  markEffects, stepValues,
+} from './effects';
+
+/** A run of rules text: plain words, or a number that was worked out. */
+export interface TextPart {
+  text: string;
+  /** A live number against the printed one: raised or lowered by bonuses. */
+  change?: 'up' | 'down';
+}
+
+/** What the actor adds on top of a card's own numbers. Power is not here:
+ *  it comes from the actor's values, which change as the card resolves. */
+export interface Bonuses {
+  /** Added to each blow and each burst's damage: `damageBonus`. */
+  damage: number;
+  /** Added to block the actor gains: `blockBonus`. */
+  block: number;
+}
+
+/** An enemy's only bonus is its power, which its values already carry. */
+export const NO_BONUSES: Bonuses = { damage: 0, block: 0 };
+
+/** A well-formed token: {1}, {2.1}. */
+const TOKEN = /\{(\d+)(?:\.(\d+))?\}/g;
+/** Anything in braces, well formed or not — for the validator. */
+const BRACED = /\{[^{}]*\}/g;
+
+/** What a token points at: an amount, and which verb it belongs to. */
+interface Numbered {
+  amount: Amount;
+  kind: string;
+}
+
+/** Every number a list of effects offers, by token: "1", "2.1". */
+function numbered(effects: readonly Effect[]): Map<string, Numbered> {
+  const found = new Map<string, Numbered>();
+  effects.forEach((effect, i) => {
+    const key = String(i + 1);
+    const inside = (list: readonly { kind: string; amount: Amount }[]) =>
+      list.forEach((inner, j) => found.set(`${key}.${j + 1}`, { amount: inner.amount, kind: inner.kind }));
+    if (isTerrain(effect)) {
+      found.set(key, { amount: effect.rounds, kind: 'rounds' });
+      inside(markEffects(effect));
+    } else if (isLater(effect)) {
+      found.set(key, { amount: effect.rounds, kind: 'rounds' });
+      inside(effect.effects);
+    } else if (isArea(effect)) {
+      found.set(key, { amount: effect.radius, kind: 'radius' });
+      inside(effect.effects);
+    } else if (isSummon(effect)) {
+      found.set(key, { amount: effect.amount, kind: 'health' });
+    } else {
+      found.set(key, { amount: effect.amount, kind: effect.kind });
+    }
+  });
+  return found;
+}
+
+/* What each number comes to if the card were played now, walking the
+   effects in order as resolving them would: power gained early on the card
+   counts for a blow later on it. The bonuses are the ones `resolveEffect`
+   adds — a blow and a burst add power and `damageBonus`, gained block adds
+   `blockBonus` — and none on a tile or in a Later, which land as they are.
+   High ground is left out: it depends on the target, not yet chosen. */
+function liveNumbers(effects: readonly Effect[], start: AmountValues, bonuses: Bonuses): Map<string, number> {
+  const values = { ...start };
+  const found = new Map<string, number>();
+  effects.forEach((effect, i) => {
+    const key = String(i + 1);
+    const inside = (list: readonly { kind: string; amount: Amount }[], hit = 0) =>
+      list.forEach((inner, j) => {
+        const n = amountOf(inner.amount, values);
+        found.set(`${key}.${j + 1}`, inner.kind === 'damage' ? n + hit : n);
+      });
+    if (isTerrain(effect)) {
+      found.set(key, amountOf(effect.rounds, values));
+      inside(markEffects(effect));
+    } else if (isLater(effect)) {
+      found.set(key, amountOf(effect.rounds, values));
+      inside(effect.effects);
+    } else if (isArea(effect)) {
+      found.set(key, effect.radius);
+      inside(effect.effects, values.power + bonuses.damage);
+    } else if (isSummon(effect)) {
+      found.set(key, amountOf(effect.amount, values));
+    } else {
+      const n = amountOf(effect.amount, values);
+      const total = effect.kind === 'damage' ? n + values.power + bonuses.damage
+        : effect.kind === 'block' ? n + bonuses.block
+          : n;
+      found.set(key, total);
+      stepValues(values, effect.kind, effect.kind === 'block' ? total : n);
+    }
+  });
+  return found;
+}
+
+function render(text: string, effects: readonly Effect[], owner: string, live?: Map<string, number>): TextPart[] {
+  const parts: TextPart[] = [];
+  const found = numbered(effects);
+  let at = 0;
+  for (const match of text.matchAll(TOKEN)) {
+    const key = match[2] ? `${match[1]}.${match[2]}` : match[1]!;
+    const entry = found.get(key);
+    // A token pointing at nothing is left as written; the validator says so.
+    if (!entry) continue;
+    if (match.index > at) parts.push({ text: text.slice(at, match.index) });
+    const now = live?.get(key);
+    if (now === undefined) {
+      parts.push({ text: isScaled(entry.amount) ? describeAmount(entry.amount, owner) : String(entry.amount) });
+    } else {
+      const printed = isScaled(entry.amount) ? null : entry.amount;
+      const change = printed === null || now === printed ? undefined : now > printed ? 'up' : 'down';
+      parts.push(change ? { text: String(now), change } : { text: String(now) });
+    }
+    at = match.index + match[0].length;
+  }
+  if (at < text.length) parts.push({ text: text.slice(at) });
+  return parts;
+}
+
+/** Parts back into a sentence, for a tooltip or a title. */
+export const joinText = (parts: readonly TextPart[]): string => parts.map((part) => part.text).join('');
+
+/** Text as printed: each token the card's own number. `owner` is whose
+ *  values a scaled amount means — "your" for a card, "its" for an enemy's. */
+export const printedText = (text: string, effects: readonly Effect[], owner = 'your'): string =>
+  joinText(render(text, effects, owner));
+
+/** Text as it would come out now, from these values and bonuses. */
+export const liveText = (
+  text: string, effects: readonly Effect[], values: AmountValues, bonuses: Bonuses, owner = 'your',
+): TextPart[] => render(text, effects, owner, liveNumbers(effects, values, bonuses));
+
+/** Does this text show, by token, a number of this verb? */
+export function mentions(text: string, effects: readonly Effect[], kind: string): boolean {
+  const found = numbered(effects);
+  return [...text.matchAll(TOKEN)].some((match) => found.get(match[2] ? `${match[1]}.${match[2]}` : match[1]!)?.kind === kind);
+}
+
+/** What is wrong with the tokens in this text, one line each. */
+export function tokenProblems(text: string, effects: readonly Effect[]): string[] {
+  const found = numbered(effects);
+  return [...text.matchAll(BRACED)].flatMap(([token]) => {
+    const match = /^\{(\d+)(?:\.(\d+))?\}$/.exec(token);
+    if (!match) return [`"${token}" is not a number token: write {1} for effect 1's number, or {2.1} for the first effect inside effect 2`];
+    const outer = Number(match[1]);
+    if (outer < 1 || outer > effects.length) {
+      return [`"${token}" points at effect ${outer}, but there ${effects.length === 1 ? 'is only 1' : `are only ${effects.length}`}`];
+    }
+    if (match[2] && !found.has(`${match[1]}.${match[2]}`)) {
+      const inner = [...found.keys()].filter((key) => key.startsWith(`${outer}.`)).length;
+      return [inner
+        ? `"${token}" points inside effect ${outer}, which has only ${inner} effect${inner === 1 ? '' : 's'} inside it`
+        : `"${token}" points inside effect ${outer}, which has nothing inside it`];
+    }
+    return [];
+  });
+}

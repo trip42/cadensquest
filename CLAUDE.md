@@ -106,6 +106,7 @@ app/game/            the simulation — no Vue, no DOM (see the rule above)
   telemetry.ts         GameEvent, record(), the run tally
   cues.ts              what just happened, for the screen and speakers: cue()
   sandbox.ts           trials: a run with one thing arranged (?try=)
+  text.ts              numbers in rules text: {1}, {2.1} (see "Content")
   content/             schema.ts (zod), validate.ts, install.ts
   map/
     tiles.ts           tile letters, zones (terrain + palette), ZONE_ROWS
@@ -393,6 +394,34 @@ pretty-printed in schema order so git diffs are line by line. Ids are
 editable only until first saved. "Try it" installs the draft — saved or
 not — and starts `/?try=kind:id` (`sandbox.ts`). The route is removed from
 production builds (`pages:extend` hook) and the endpoint 404s there.
+
+**Numbers in text.** A card's or enemy card's text may write `{1}` for its
+first effect's number and `{2.1}` for the first effect inside its second (a
+mark's tile effects — `effects`, then `enter`, then `exit` — a burst's, or
+a Later's). A mark's or a Later's own number is its rounds, a burst's its
+radius, a summon's its health. Only the number is filled in; the author
+writes the verb ("Heal {1}", "knock it back {2}"), and nothing is ever
+evaluated. `game/text.ts` does it:
+
+- **Printed** everywhere but the hand — rewards, shop, editor: the card's
+  own number, "5X" for X, "your block" for other scaled amounts.
+- **Live in hand** (`handText` in actions.ts, via the store's `CardView.text`):
+  what playing it now comes to. Damage adds power and `damageBonus`, block
+  adds `blockBonus`, X is what it would spend, and power gained earlier on
+  the card counts — the same bonuses `resolveEffect` adds. A number above
+  the printed one is green, below it red. High ground is left out; it
+  depends on the target.
+- **Enemy tooltips** read intents live with the enemy's power
+  (`intentText`), and drop the "(+N power)" note once the text shows its
+  damage as a token.
+
+**If you change a bonus in `resolveEffect` or `burst`, change
+`liveNumbers` in text.ts to match.** `test/text.test.ts` plays every card
+at an enemy with power and Whetstone and checks the damage dealt equals the
+damage shown, so a drift fails there. A broken token is a validation error;
+gem and talisman text is shown as written, so braces there are one too.
+`text.ts` knows only effects, not the game, because the save endpoint runs
+the validator on the server.
 
 ## Enemy decks
 

@@ -46,6 +46,7 @@ import { record } from './telemetry';
 import { nextInt, pick, shuffle } from './rng';
 import { priceOf, rollStock, SHOP_COLOUR, shopRowOf } from './shop';
 import { talismanDef, talismanEffects } from './talismans';
+import { liveText, NO_BONUSES, type TextPart } from './text';
 import {
   arrivalOn,
   allies,
@@ -358,6 +359,29 @@ export function amountValues(state: GameState, actor: Entity, x = 0): AmountValu
     hand: isPlayer ? state.hand.length : 0,
   };
 }
+
+/** The player's values as a card's effects will read them: after paying
+ *  for it and taking it out of the hand, with X what it would spend. */
+export function playValues(state: GameState, def: CardDefinition): AmountValues {
+  const values = amountValues(state, player(state));
+  const spent = energySpent(def, state.energy);
+  return { ...values, energy: values.energy - spent, hand: values.hand - 1, x: spent };
+}
+
+/** A card in hand: its rules text with every number as playing it now
+ *  would make it — power and the stat bonuses included, as `resolveEffect`
+ *  adds them. */
+export const handText = (state: GameState, def: CardDefinition): TextPart[] =>
+  liveText(def.text, def.effects, playValues(state, def), {
+    damage: stat(state, 'damageBonus'),
+    block: stat(state, 'blockBonus'),
+  });
+
+/** An enemy's or ally's telegraphed card, as it would come out now. Its
+ *  block falls as it starts to act, so "its block" reads from 0, as
+ *  resolving the card will. */
+export const intentText = (state: GameState, actor: Entity, def: CardDefinition): TextPart[] =>
+  liveText(def.text, def.effects, { ...amountValues(state, actor), block: 0 }, NO_BONUSES, 'its');
 
 /* ------------------------------ sides ----------------------------------- */
 

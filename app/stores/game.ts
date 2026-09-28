@@ -12,6 +12,9 @@ import { sfx } from '~/audio/player';
 import { computed, ref, shallowRef } from 'vue';
 import {
   amountValues,
+  handText,
+  intentText as intentParts,
+  playValues,
   areaPreview,
   terrainAt,
   beginTurn,
@@ -37,8 +40,9 @@ import {
   takeTalismanReward,
   tick,
 } from '~/game/actions';
-import { cardDef, cardMovement, energySpent } from '~/game/cards/definitions';
+import { cardDef, cardMovement } from '~/game/cards/definitions';
 import { describeMark, describeTileEffect, nowText } from '~/game/effects';
+import { joinText, mentions, type TextPart } from '~/game/text';
 import { cuesSince } from '~/game/cues';
 import { intentDef } from '~/game/cards/intents';
 import { applyTrial, type Trial, trialText } from '~/game/sandbox';
@@ -80,6 +84,9 @@ export interface CardView {
    *  full for the tooltip, short for the band across the art. */
   now?: string | null;
   nowShort?: string | null;
+  /** Hand only: its rules text with each {1}-style number as playing it
+   *  now would make it. Everywhere else the card prints its own. */
+  text?: TextPart[];
 }
 
 export type HandCardView = CardView;
@@ -244,6 +251,7 @@ export const useGameStore = defineStore('game', () => {
         playable: canPlay(current, card.uid),
         now: nowOf(state, card, 'full'),
         nowShort: nowOf(state, card, 'short'),
+        text: handText(state, cardDef(card.defId)),
       })),
       handMovement: handMovementValue(state),
       log: state.log.slice(-6).reverse(),
@@ -280,9 +288,7 @@ export const useGameStore = defineStore('game', () => {
   function nowOf(state: GameState, card: CardInstance, style: 'full' | 'short'): string | null {
     const def = cardDef(card.defId);
     const effects = [...def.effects, ...gemsOf(card).flatMap((id) => gemDef(id).effects)];
-    const values = amountValues(state, player(state));
-    const spent = energySpent(def, state.energy);
-    return nowText(effects, { ...values, energy: values.energy - spent, hand: values.hand - 1, x: spent }, style);
+    return nowText(effects, playValues(state, def), style);
   }
 
   /** A card as every screen shows it. */
@@ -512,13 +518,15 @@ export const useGameStore = defineStore('game', () => {
 
     const def = entityDef(foe.defId);
     const intent = foe.intent ? intentDef(foe.intent.cardId) : null;
-    // The card says what it does; power it has built up hits on top of that.
-    const empowered = intent?.effects.some((effect) => effect.kind === 'damage') && foe.power > 0;
+    // The card says what it does; power it has built up hits on top of that
+    // — which its text already counts if it shows its damage as {1}.
+    const empowered = intent?.effects.some((effect) => effect.kind === 'damage') && foe.power > 0
+      && !mentions(intent.text, intent.effects, 'damage');
     // Its block falls as it starts to act, so work "based on" amounts out
     // from there, as resolving the card will.
     const now = intent ? nowText(intent.effects, { ...amountValues(game.state, foe), block: 0 }) : null;
     const intentText = intent
-      ? [intent.text, empowered ? `(+${foe.power} power)` : '', now ? `(now: ${now})` : ''].filter(Boolean).join(' ')
+      ? [joinText(intentParts(game.state, foe, intent)), empowered ? `(+${foe.power} power)` : '', now ? `(now: ${now})` : ''].filter(Boolean).join(' ')
       : null;
     const next: EnemyTipView = {
       id: foe.id,

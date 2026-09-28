@@ -11,8 +11,9 @@
    but are almost certainly a mistake. */
 
 import type { ZodError } from 'zod';
-import { AMOUNT_SOURCES, type AmountSource, EFFECT_INFO, type EffectKind } from '../effects';
+import { AMOUNT_SOURCES, type AmountSource, EFFECT_INFO, type Effect, type EffectKind } from '../effects';
 import { ZONES } from '../map/tiles';
+import { tokenProblems } from '../text';
 import { type AmountData, CONTENT_FILES, type Content, type ContentFile, type EffectData, FILE_SCHEMAS } from './schema';
 
 export interface ContentIssue {
@@ -206,6 +207,7 @@ function crossCheck(content: Content): ContentIssue[] {
       warn('cards', card.id, 'a targeted card needs a range of at least 1', 'range');
     }
     if (!card.text.trim()) warn('cards', card.id, 'has no rules text', 'text');
+    for (const problem of tokenProblems(card.text, card.effects as Effect[])) error('cards', card.id, problem, 'text');
   }
 
   // Enemy cards.
@@ -229,10 +231,20 @@ function crossCheck(content: Content): ContentIssue[] {
       }
     }
     if (!card.text.trim()) warn('enemy-cards', card.id, 'has no text for the enemy tooltip', 'text');
+    for (const problem of tokenProblems(card.text, card.effects as Effect[])) error('enemy-cards', card.id, problem, 'text');
     // A tamed creature shows the same text, so "toward you" would be wrong
     // half the time. Say "closer", "its target".
     if (/\byour?\b/i.test(card.text)) {
       warn('enemy-cards', card.id, 'says "you", but allies play enemy cards too — word it without "you" ("closer", "its target")', 'text');
+    }
+  }
+
+  // Numbers in text follow the effects on cards only. A gem's or a
+  // talisman's text is shown as written, so a token there would show as
+  // braces.
+  for (const file of ['gems', 'talismans'] as const) {
+    for (const item of content[file]) {
+      if (/[{}]/.test(item.text)) error(file, item.id, 'number tokens like {1} work in card and enemy card text only — write the number', 'text');
     }
   }
 

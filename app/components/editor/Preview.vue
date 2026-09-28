@@ -13,6 +13,7 @@ import {
   TRIGGER_INFO, type TriggerPoint,
 } from '~/game/effects';
 import type { GemDefinition } from '~/game/gems';
+import { printedText } from '~/game/text';
 import { ZONES } from '~/game/map/tiles';
 import { describeModifier, type StatModifier } from '~/game/stats';
 import { glyph } from '~/render/glyphs';
@@ -220,7 +221,7 @@ watch(() => [card.value?.name, card.value?.text, cardNow.value], measure);
     <!-- An enemy card, and who plays it. -->
     <template v-else-if="move">
       <div class="stage">
-        <GameCard :def="asEnemyCard(move)" />
+        <GameCard :def="asEnemyCard(move)" :text="[{ text: printedText(move.text, move.effects as Effect[], 'its') }]" />
       </div>
       <template v-if="bursts.length">
         <div class="panel note">
@@ -277,14 +278,14 @@ watch(() => [card.value?.name, card.value?.text, cardNow.value], measure);
         <p class="tip-name">{{ foe.name }} <span class="hp">{{ foe.maxHp }}/{{ foe.maxHp }}</span></p>
         <p v-if="foe.guardian" class="line"><span class="px-tag is-red">GUARDIAN</span> Holds the way out of its zone.</p>
         <p v-if="foeFirstMove" class="line">
-          <span class="px-tag">NEXT</span> {{ foeFirstMove.name }}: {{ foeFirstMove.text }}
+          <span class="px-tag">NEXT</span> {{ foeFirstMove.name }}: {{ printedText(foeFirstMove.text, foeFirstMove.effects as Effect[], 'its') }}
         </p>
       </div>
       <div class="panel note">
         <p class="note-title">Deck — one card a turn, reshuffled when empty</p>
         <p v-for="entry in foeDeck" :key="entry.id">
           {{ entry.count }} × {{ enemyCard(entry.id)?.name ?? entry.id }}
-          <span class="muted">{{ enemyCard(entry.id)?.text }}</span>
+          <span v-if="enemyCard(entry.id)" class="muted">{{ printedText(enemyCard(entry.id)!.text, enemyCard(entry.id)!.effects as Effect[], 'its') }}</span>
         </p>
       </div>
       <div class="panel note">

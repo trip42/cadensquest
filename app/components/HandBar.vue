@@ -137,6 +137,7 @@ function onPointerUp(event: PointerEvent): void {
           :movement="card.movement"
           :now="card.now"
           :now-short="card.nowShort"
+          :text="card.text"
           @pointerdown="onPointerDown($event, card.uid, card.def.targeting === 'cell' || card.def.targeting === 'enemy')"
           @pointermove="onPointerMove"
           @pointerup="onPointerUp"

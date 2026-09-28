@@ -209,6 +209,26 @@ export function amountOf(amount: Amount, values: AmountValues): number {
   return Math.max(0, Math.floor(raw));
 }
 
+/** How one simple effect changes the actor's values, for walking a card's
+ *  effects in order without playing it. */
+export function stepValues(values: AmountValues, kind: EffectKind, amount: number): void {
+  switch (kind) {
+    case 'block': values.block += amount; break;
+    case 'loseBlock': values.block = Math.max(0, values.block - amount); break;
+    case 'heal': {
+      const healed = Math.min(amount, values.missingHealth);
+      values.health += healed;
+      values.missingHealth -= healed;
+      break;
+    }
+    case 'energy': values.energy += amount; break;
+    case 'power': values.power += amount; break;
+    case 'losePower': values.power = Math.max(0, values.power - amount); break;
+    case 'draw': values.hand += amount; break;
+    default: break;
+  }
+}
+
 /** What each effect of a card will come to if played now. Effects happen in
  *  order and can change what later ones read — Guard then "damage equal to
  *  your block" counts the new block — so this walks them in order on a copy
@@ -225,21 +245,7 @@ export function previewAmounts(effects: readonly Effect[], start: AmountValues):
     // A delayed effect changes nothing now; its number is its rounds.
     if (isLater(effect)) return amountOf(effect.rounds, values);
     const amount = amountOf(effect.amount, values);
-    switch (effect.kind) {
-      case 'block': values.block += amount; break;
-      case 'loseBlock': values.block = Math.max(0, values.block - amount); break;
-      case 'heal': {
-        const healed = Math.min(amount, values.missingHealth);
-        values.health += healed;
-        values.missingHealth -= healed;
-        break;
-      }
-      case 'energy': values.energy += amount; break;
-      case 'power': values.power += amount; break;
-      case 'losePower': values.power = Math.max(0, values.power - amount); break;
-      case 'draw': values.hand += amount; break;
-      default: break;
-    }
+    stepValues(values, effect.kind, amount);
     return amount;
   });
 }

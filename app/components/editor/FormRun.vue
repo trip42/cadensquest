@@ -2,12 +2,14 @@
 /* What every run starts with. */
 import { computed } from 'vue';
 import type { Content, ContentIssue } from '~/game/content';
+import type { Effect } from '~/game/effects';
+import { printedText } from '~/game/text';
 import { problemsAt } from '~/utils/editorProblems';
 
 const props = defineProps<{ content: Content; issues: ContentIssue[] }>();
 
 const options = computed(() =>
-  props.content.cards.map((card) => ({ id: card.id, name: card.name, enabled: card.enabled, detail: card.text })),
+  props.content.cards.map((card) => ({ id: card.id, name: card.name, enabled: card.enabled, detail: printedText(card.text, card.effects as Effect[]) })),
 );
 </script>
 

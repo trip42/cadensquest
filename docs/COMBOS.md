@@ -113,7 +113,7 @@ and adding a shape.
 | | Mechanic | Rule | Where | Size |
 |---|---|---|---|---|
 | M9 | **A Later inside a burst** | An area's effects may include a Later. Each creature caught schedules it on itself, so "+2 power, lose 2 in 2 rounds" works on allies. A Later today lands only on whoever played it | schema, `burst`, card text | M |
-| M10 | **Power on the card** (open question) | The "Now" band adds power to damage once power is above 0, so Strike reads "9 DMG" with 4 power. This reverses CLAUDE.md's rule that bonuses are left out of card numbers. It's worth reversing, because a power build you can't see in your hand doesn't feel like one | `nowText`, the store | S |
+| M10 | **Power on the card** (done another way) | Card text can now write `{1}` for an effect's number, and in hand it shows power and bonuses included, in green when raised (CLAUDE.md, "Numbers in text"). What's left is for content to use it | — | done |
 
 ### For later engines
 
@@ -322,7 +322,8 @@ for exactly this reason. Before judging any card here:
    - Brimstone, Tinderbox, Salamander Scale, Beast Whistle and Iron Knuckles
 4. The findings into FUN.md.
 
-**Phase 2: the bridges.** M9 and M10, then Battle Cry and Kindled Fury.
+**Phase 2: the bridges.** M9, then Battle Cry and Kindled Fury. (M10 is
+done: card text shows live numbers.)
 
 **Phase 3: the later engines.** M11–M16, and the cards that need them.
 
@@ -333,8 +334,6 @@ rolled back without losing the mechanic under it.
 
 ## Open questions
 
-- **M10:** show power in the card's numbers? It makes a power hand readable,
-  but it undoes a deliberate choice.
 - **How far `fires` counts.** 3 tiles is a guess. Too far, and Heat Shield
   counts fires the player has walked away from.
 - **Fire with no side may make Whelp floors too hot** once a permanent

@@ -12,6 +12,7 @@
 import { computed, onBeforeUnmount, ref } from 'vue';
 import type { CardDefinition } from '~/game/cards/types';
 import { GEM_SLOTS, type GemDefinition } from '~/game/gems';
+import { printedText, type TextPart } from '~/game/text';
 import { glyph } from '~/render/glyphs';
 
 const props = withDefaults(defineProps<{
@@ -24,12 +25,20 @@ const props = withDefaults(defineProps<{
    *  the tooltip, and short for the band across the art. */
   now?: string | null;
   nowShort?: string | null;
+  /** Its rules text with numbers as they would come out now — in hand.
+   *  Left out, the card's own numbers are printed. */
+  text?: TextPart[] | null;
 }>(), {
   gems: () => [],
   movement: null,
   now: null,
   nowShort: null,
+  text: null,
 });
+
+/* The rules text, with every {1}-style token filled in: live when the hand
+   hands it over, the card's own numbers everywhere else. */
+const parts = computed((): TextPart[] => props.text ?? [{ text: printedText(props.def.text, props.def.effects) }]);
 
 /* ------------------------------ the tooltip ---------------------------- */
 
@@ -120,7 +129,7 @@ onBeforeUnmount(hide);
         </span>
       </span>
 
-      <span class="text"><span class="text-body">{{ def.text }}</span></span>
+      <span class="text"><span class="text-body"><template v-for="(part, i) in parts" :key="i"><span v-if="part.change" :class="`num is-${part.change}`">{{ part.text }}</span><template v-else>{{ part.text }}</template></template></span></span>
     </span>
 
     <!-- Fixed, so it escapes the gem grid's scroll container, and inert so
@@ -137,7 +146,7 @@ onBeforeUnmount(hide);
           <span class="tip-rarity" :class="`is-${def.rarity}`">{{ def.rarity }}</span>
         </span>
 
-        <span class="tip-text">{{ def.text }}</span>
+        <span class="tip-text"><template v-for="(part, i) in parts" :key="i"><span v-if="part.change" :class="`tip-num is-${part.change}`">{{ part.text }}</span><template v-else>{{ part.text }}</template></template></span>
         <span v-if="now" class="tip-now">Right now: {{ now }}</span>
 
         <span class="tip-meta">
@@ -323,6 +332,11 @@ onBeforeUnmount(hide);
   line-height: 15px;
 }
 
+/* A number the hand has worked out that differs from the printed one:
+   green when bonuses raise it, red when something lowers it. */
+.num.is-up { color: var(--px-green); }
+.num.is-down { color: var(--px-red); }
+
 /* ------------------------------ tooltip -------------------------------- */
 
 /* Teleported to <body>, so these cannot be scoped to the component's own
@@ -360,6 +374,8 @@ onBeforeUnmount(hide);
 
 :global(.tip-text) { color: var(--px-text); }
 :global(.tip-now) { color: var(--px-cyan); }
+:global(.tip-num.is-up) { color: var(--px-green); }
+:global(.tip-num.is-down) { color: var(--px-red); }
 :global(.tip-meta) {
   display: flex; flex-direction: column; gap: 2px;
   padding-top: 6px; border-top: 2px solid var(--px-ink);
