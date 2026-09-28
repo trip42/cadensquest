@@ -11,7 +11,7 @@ import { createGame, type Game, makeCard, makeEntity, player, resetUids, syncSta
 import { joinText, liveText, printedParts, printedText, tokenProblems } from '~/game/text';
 import { readContentFiles } from './setup';
 
-const VALUES: AmountValues = { block: 0, health: 30, missingHealth: 10, energy: 0, hand: 3, power: 0, x: 0, fires: 0, allies: 0 };
+const VALUES: AmountValues = { block: 0, health: 30, missingHealth: 10, energy: 0, hand: 3, power: 0, x: 0, fires: 0, allies: 0, moved: 0 };
 const live = (text: string, effects: Effect[], values: Partial<AmountValues> = {}, damage = 0, block = 0) =>
   liveText(text, effects, { ...VALUES, ...values }, { damage, block });
 

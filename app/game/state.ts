@@ -118,6 +118,8 @@ export interface GameState {
   energy: number;
   /** Earned by discarding cards; there is no allowance each turn. */
   movement: number;
+  /** Tiles walked this turn — momentum, for cards that read it. */
+  moved: number;
 
   hand: CardInstance[];
   drawPile: CardInstance[];
@@ -262,6 +264,7 @@ export function createGame(seed: number): Game {
     entities: [self],
     energy: 0,
     movement: 0,
+    moved: 0,
     hand: [],
     drawPile: shuffle(rng, STARTING_DECK.map(makeCard)),
     discardPile: [],

@@ -13,7 +13,7 @@ import { TALISMANS } from '~/game/talismans';
 import { writeCardText } from '~/utils/contentText';
 import { readContentFiles } from './setup';
 
-const VALUES: AmountValues = { block: 8, health: 30, missingHealth: 10, energy: 2, hand: 4, power: 0, x: 0, fires: 0, allies: 0 };
+const VALUES: AmountValues = { block: 8, health: 30, missingHealth: 10, energy: 2, hand: 4, power: 0, x: 0, fires: 0, allies: 0, moved: 0 };
 
 // Tests here add cards and talismans to the registries; put the real
 // content back after each.

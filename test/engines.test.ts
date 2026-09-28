@@ -1,13 +1,14 @@
 /* The later engines of COMBOS.md: oil, Echo, triggers that aim where an
    enemy fell, momentum, Entrench and Command. */
 import { afterEach, describe, expect, it } from 'vitest';
-import { beginTurn, endPlayerPhase, playCard, tick } from '~/game/actions';
+import { amountValues, beginTurn, endPlayerPhase, movePlayerTo, playCard, tick } from '~/game/actions';
 import { CARDS } from '~/game/cards/definitions';
 import type { CardDefinition } from '~/game/cards/types';
 import { loadContent } from '~/game/content';
 import type { Effect } from '~/game/effects';
-import type { Cell } from '~/game/map/navigation';
-import { createGame, type Game, makeCard, player, resetUids } from '~/game/state';
+import { entityCell } from '~/game/entities/types';
+import { type Cell, reachable } from '~/game/map/navigation';
+import { createGame, entityAt, type Game, makeCard, player, resetUids } from '~/game/state';
 import { readContentFiles } from './setup';
 
 afterEach(() => loadContent(readContentFiles()));
@@ -53,3 +54,22 @@ describe('Entrench: keepBlock', () => {
   });
 });
 
+
+describe('momentum: tiles walked this turn', () => {
+  it('counts steps walked, not leaps, and starts again each turn', () => {
+    const game = quiet();
+    const self = player(game.state);
+    const here = entityCell(self);
+    const far = [...reachable(game.world, here, 2).values()].find((entry) => entry.cost === 2)!.cell;
+    game.state.movement = 5;
+    expect(movePlayerTo(game, far)).toBe(true);
+    for (let i = 0; i < 600; i += 1) tick(game, 1 / 60);
+    expect(amountValues(game.state, self).moved).toBe(2);
+    const land = [...reachable(game.world, far, 2).values()].find((entry) => entry.cost === 2 && !entityAt(game.state, entry.cell.row, entry.cell.col))!.cell;
+    play(game, define('leap_t', [{ kind: 'step', amount: 0 }], { targeting: 'cell', range: 3 }), land);
+    for (let i = 0; i < 600; i += 1) tick(game, 1 / 60);
+    expect(game.state.moved).toBe(2);
+    nextTurn(game);
+    expect(game.state.moved).toBe(0);
+  });
+});

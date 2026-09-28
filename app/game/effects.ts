@@ -61,7 +61,7 @@ export type EffectKind =
    Deliberately a small data shape rather than a formula string: content
    may one day come from a server, and a string that is evaluated is code.
    This can be validated field by field, and cannot do anything else. */
-export type AmountSource = 'block' | 'health' | 'missingHealth' | 'energy' | 'hand' | 'power' | 'x' | 'fires' | 'allies';
+export type AmountSource = 'block' | 'health' | 'missingHealth' | 'energy' | 'hand' | 'power' | 'x' | 'fires' | 'allies' | 'moved';
 
 /** How far `fires` looks: burning tiles within this many steps of the
  *  actor count. A dial — too far, and it counts fires long left behind. */
@@ -255,6 +255,8 @@ export const AMOUNT_SOURCES: Record<AmountSource, { label: string; phrase: strin
   fires: { label: `Fires within ${FIRES_WITHIN}`, phrase: `burning tiles within ${FIRES_WITHIN}`, enemy: true },
   /* The player's living allies, tamed or summoned. */
   allies: { label: 'Allies', phrase: 'allies', enemy: false },
+  /* Tiles the player has walked this turn — not leapt, not shoved. */
+  moved: { label: 'Tiles walked this turn', phrase: 'tiles walked this turn', enemy: false },
 };
 
 export const AMOUNT_SOURCE_KEYS = Object.keys(AMOUNT_SOURCES) as AmountSource[];

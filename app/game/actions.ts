@@ -438,6 +438,7 @@ export function amountValues(state: GameState, actor: Entity, x = 0): AmountValu
     hand: isPlayer ? state.hand.length : 0,
     fires: firesNear(state, entityCell(actor)),
     allies: isPlayer ? allies(state).length : 0,
+    moved: isPlayer ? state.moved : 0,
   };
 }
 
@@ -1383,6 +1384,7 @@ export function movePlayerTo(game: Game, cell: Cell): boolean {
   if (cost > state.movement) return false;
 
   state.movement -= cost;
+  state.moved += steps;
   self.path = path;
   startStep(self);
   const toll = cost - steps;
@@ -1592,6 +1594,7 @@ export function beginTurn(game: Game): void {
   // Base speed each turn. Cards, gems and talismans raise it through the
   // stat table; discarding a card buys a step more when it runs short.
   state.movement = stat(state, 'movePerTurn');
+  state.moved = 0;
 
   // Cards not played or thrown away are kept: the hand is topped up to its
   // size, not replaced, so a combo can be held until its partner arrives.
