@@ -21,6 +21,8 @@ const props = defineProps<{
   side: 'player' | 'enemy';
   /** These are a marked tile's effects. */
   onTile?: boolean;
+  /** A burst's effects: tile verbs, and a Later each one caught takes. */
+  inBurst?: boolean;
   /** Issues for the item, to flag the rows they point at. */
   issues?: ContentIssue[];
   /** Where these effects sit inside the item, for matching issues. */
@@ -147,7 +149,7 @@ function move(index: number, by: number): void {
         <option v-if="!onTile" value="terrain">{{ TERRAIN_INFO.label }}</option>
         <option v-if="!onTile" value="summon">{{ SUMMON_INFO.label }}</option>
         <option v-if="!onTile" value="area">{{ AREA_INFO.label }}</option>
-        <option v-if="!onTile" value="later">{{ LATER_INFO.label }}</option>
+        <option v-if="!onTile || inBurst" value="later">{{ LATER_INFO.label }}</option>
         <option v-if="!onTile" value="trail">{{ TRAIL_INFO.label }}</option>
         <option v-if="!onTile" value="boon">{{ BOON_INFO.label }}{{ usable('boon') ? '' : ' (no effect here)' }}</option>
       </select>
@@ -273,7 +275,7 @@ function move(index: number, by: number): void {
       </div>
       <div v-if="effect.kind === 'area'" class="tile-effects">
         <span class="tile-label">Each creature caught:</span>
-        <EditorEffectList :effects="effect.effects" :side="side" on-tile :issues="issues" :path="`${at(index)}.effects`" />
+        <EditorEffectList :effects="effect.effects" :side="side" on-tile in-burst :issues="issues" :path="`${at(index)}.effects`" />
       </div>
 
       <span v-for="problem in rowProblems(index)" :key="problem" class="field-problem effect-problem">{{ problem }}</span>

@@ -51,7 +51,29 @@ function caughtPhrase(effect: AreaData, owner: string): string {
     : effect.affects === 'friends'
       ? `each of ${owner} side${reach || ' there'}`
       : effect.radius === 0 ? 'whoever is there' : `everyone${reach}`;
-  return `${who} ${tilePhrase(effect.effects, owner)}`;
+  return `${who} ${burstPhrase(effect.effects, owner)}`;
+}
+
+/* What each creature a burst catches gets. Power given and a Later taking
+   exactly as much back reads as what it is: "deals 2 more damage for 2
+   rounds". */
+function burstPhrase(effects: AreaData['effects'], owner: string): string {
+  const taken = new Set<number>();
+  const parts = effects.map((inner, i) => {
+    if (taken.has(i)) return '';
+    if (inner.kind === 'later') return `${whenPhrase(inner.rounds as Amount)}, ${tilePhrase(inner.effects, owner)}`;
+    if (inner.kind === 'power') {
+      const back = effects.findIndex((later, j) => j > i && later.kind === 'later' && later.effects.length === 1
+        && later.effects[0]!.kind === 'losePower' && JSON.stringify(later.effects[0]!.amount) === JSON.stringify(inner.amount));
+      if (back >= 0) {
+        taken.add(back);
+        const rounds = describeAmount((effects[back] as LaterData).rounds as Amount);
+        return `deals ${describeAmount(inner.amount as Amount, owner)} more damage for ${rounds} round${rounds === '1' ? '' : 's'}`;
+      }
+    }
+    return tilePhrase([inner as SimpleData], owner);
+  });
+  return parts.filter(Boolean).join(' and ');
 }
 type SummonData = Extract<EffectData, { kind: 'summon' }>;
 

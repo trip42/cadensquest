@@ -9,7 +9,7 @@ import type {
   CardData, Content, ContentFile, EnemyCardData, EnemyData, GemData, TalismanData, ZoneData,
 } from '~/game/content';
 import {
-  amountOf, type AmountValues, describeEffect, describeMark, describeTileEffect, type Effect, isArea, isSummon, isTerrain, nowText,
+  amountOf, type AmountValues, describeEffect, describeMark, describeTileEffect, type Effect, isArea, isLater, isSummon, isTerrain, nowText,
   TRIGGER_INFO, type TriggerPoint,
 } from '~/game/effects';
 import type { GemDefinition } from '~/game/gems';
@@ -80,10 +80,12 @@ const bursts = computed(() => {
   const values = card.value ? cardSample.value : { ...SAMPLE, block: 0, energy: 0, hand: 0 };
   return effects.map((effect) => {
     const who = effect.affects === 'foes' ? 'every foe' : effect.affects === 'friends' ? 'your side' : 'everyone — friends too';
-    const inner = effect.effects.map((tile) => ({ kind: tile.kind, amount: amountOf(tile.amount, values) }));
+    const inner = effect.effects.map((tile) => (isLater(tile)
+      ? describeEffect(tile)
+      : describeTileEffect({ kind: tile.kind, amount: amountOf(tile.amount, values) })));
     return {
       colour: effect.colour,
-      text: `Radius ${effect.radius}, ${who}: ${inner.map(describeTileEffect).join(', ')}`,
+      text: `Radius ${effect.radius}, ${who}: ${inner.join(', ')}`,
       radius: effect.radius,
     };
   });

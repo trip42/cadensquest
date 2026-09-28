@@ -59,14 +59,23 @@ export const terrainEffectSchema = z.strictObject({
   element: z.enum(ELEMENTS as [Element, ...Element[]]).optional(),
 });
 
+/** Effects that land on whoever played it, `rounds` rounds from now, with
+ *  amounts fixed when played. */
+export const laterEffectSchema = z.strictObject({
+  kind: z.literal('later'),
+  rounds: amountSchema,
+  effects: z.array(simpleEffectSchema).min(1, 'needs at least one effect'),
+});
+
 /** A burst on the target tile: everyone within `radius` steps gets
- *  `effects` at once — narrowed to one side by `affects`, if given. */
+ *  `effects` at once — narrowed to one side by `affects`, if given. A Later
+ *  among them is scheduled on each one caught. */
 export const areaEffectSchema = z.strictObject({
   kind: z.literal('area'),
   radius: count(0, 3),
   colour: colourSchema,
   affects: z.enum(AREA_AFFECTS as [AreaAffects, ...AreaAffects[]]).optional(),
-  effects: z.array(simpleEffectSchema).min(1, 'a burst needs at least one effect'),
+  effects: z.array(z.discriminatedUnion('kind', [simpleEffectSchema, laterEffectSchema])).min(1, 'a burst needs at least one effect'),
 });
 
 /** Bring a creature into play on the player's side — or, on an enemy card,
@@ -77,14 +86,6 @@ export const summonEffectSchema = z.strictObject({
   entity: idSchema,
   amount: amountSchema,
   rounds: amountSchema.optional(),
-});
-
-/** Effects that land on whoever played it, `rounds` rounds from now, with
- *  amounts fixed when played. */
-export const laterEffectSchema = z.strictObject({
-  kind: z.literal('later'),
-  rounds: amountSchema,
-  effects: z.array(simpleEffectSchema).min(1, 'needs at least one effect'),
 });
 
 /** One of the player's stats raised for `rounds` rounds, counting this one:

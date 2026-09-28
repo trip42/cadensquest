@@ -207,3 +207,34 @@ describe('a removal', () => {
     }
   });
 });
+
+describe('a Later inside a burst', () => {
+  const CRY: Effect = {
+    kind: 'area', radius: 2, colour: '#feae34', affects: 'friends',
+    effects: [{ kind: 'power', amount: 2 }, { kind: 'later', rounds: 2, effects: [{ kind: 'losePower', amount: 2 }] }],
+  };
+
+  it('is scheduled on each one caught, so every ally has power that lasts', () => {
+    const game = quiet();
+    const self = player(game.state);
+    const friend = makeEntity('wolf', self.row + 1, self.col);
+    friend.faction = 'ally';
+    const foe = makeEntity('wolf', self.row, self.col + 1);
+    game.state.entities.push(friend, foe);
+    play(game, define('cry_t', [CRY]));
+    expect([self.power, friend.power, foe.power]).toEqual([2, 2, 0]);
+    expect(game.state.later.map((entry) => entry.actorId).sort()).toEqual([friend.id, self.id].sort());
+    endPlayerPhase(game);
+    for (let i = 0; i < 3000 && game.state.turn < 3; i += 1) {
+      tick(game, 1 / 60);
+      if (game.state.phase === 'player' && game.state.turn < 3) endPlayerPhase(game);
+    }
+    expect(self.power).toBe(0);
+    if (!friend.dead) expect(friend.power).toBe(0);
+  });
+
+  it('reads as power for a while', () => {
+    expect(writeCardText([CRY], 0, 'player', 'self'))
+      .toBe('Burst around you: each of your side within 2 deals 2 more damage for 2 rounds.');
+  });
+});

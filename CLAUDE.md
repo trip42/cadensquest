@@ -709,7 +709,9 @@ decided before anything lands. Each gets the listed effects as if it played
 them on itself (shared with marked tiles through `applyTo`), but amounts come
 from the caster and **damage adds the caster's bonuses** (power, and the
 player's damageBonus) — a burst is its own attack, where a mark is not. Only
-tile-capable verbs may go inside. **Terrain takes an optional `radius`** too,
+tile-capable verbs may go inside — and a **Later**, which each creature
+caught schedules on itself, its amounts fixed from the caster (so "+2 power,
+lose 2 in 2 rounds" gives every ally a power that lasts). **Terrain takes an optional `radius`** too,
 marking every walkable tile in the diamond, each as its own layer. Aiming:
 while an area card is up, the store asks `areaPreview` and the renderer
 (`setAim`) shades the covered tiles and puts a blinking red ring under any

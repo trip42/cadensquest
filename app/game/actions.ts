@@ -19,7 +19,7 @@ import {
   amountOf, type AmountValues, type AreaEffect, type BoonEffect, type Effect, FIRES_WITHIN, isArea, isBoon, isLater, isSummon,
   isTerrain, isTrail, readsPower, type TrailEffect,
   type LaterEffect,
-  type SummonEffect, type TerrainEffect, type TileEffect, type TriggerPoint,
+  type SimpleEffect, type SummonEffect, type TerrainEffect, type TileEffect, type TriggerPoint,
 } from './effects';
 import { GEM_SLOTS, gemDef } from './gems';
 import { ENEMY_IDS, ENTITIES, entityDef, GUARDIAN_IDS } from './entities/definitions';
@@ -306,11 +306,15 @@ function losePower(state: GameState, entity: Entity, amount: number): void {
    and land on the actor as the round `rounds` from now begins — as if it
    played them on itself then. 0 rounds lands at once. */
 function schedule(game: Game, effect: LaterEffect, play: Play): void {
-  const { state } = game;
   const { actor } = play;
-  const values = amountValues(state, actor, play.x);
-  const rounds = amountOf(effect.rounds, values);
+  const values = amountValues(game.state, actor, play.x);
   const effects = effect.effects.map((inner) => ({ kind: inner.kind, amount: amountOf(inner.amount, values) }));
+  scheduleOn(game, actor, amountOf(effect.rounds, values), effects);
+}
+
+/** Fixed effects to land on `actor` in `rounds` rounds — at once for 0. */
+function scheduleOn(game: Game, actor: Entity, rounds: number, effects: TileEffect[]): void {
+  const { state } = game;
   if (rounds <= 0) {
     applyTo(game, actor, effects, 'later', actor);
     return;
@@ -816,8 +820,12 @@ function burst(game: Game, effect: AreaEffect, play: Play): void {
   const values = amountValues(state, actor, play.x);
   // A burst is the caster's own attack: its damage adds the caster's power —
   // unless it was worked out from power — and the player's damageBonus.
+  // A Later inside is fixed now, from the caster, as it lands on each one
+  // caught: its effects are theirs to take in due course, as if their own.
   const bonus = isPlayer ? stat(state, 'damageBonus') : 0;
-  const effects = effect.effects.map((inner) => {
+  const fix = (inner: SimpleEffect): TileEffect => ({ kind: inner.kind, amount: amountOf(inner.amount, values) });
+  const effects = effect.effects.map((inner): TileEffect | { later: true; rounds: number; effects: TileEffect[] } => {
+    if (isLater(inner)) return { later: true, rounds: amountOf(inner.rounds, values), effects: inner.effects.map(fix) };
     const amount = amountOf(inner.amount, values);
     return { kind: inner.kind, amount: inner.kind === 'damage' ? amount + bonus + (readsPower(inner.amount) ? 0 : actor.power) : amount };
   });
@@ -828,7 +836,12 @@ function burst(game: Game, effect: AreaEffect, play: Play): void {
     !entity.dead && cellDistance(entityCell(entity), center) <= effect.radius && caughtBy(actor, entity, effect.affects));
   // Cued before anything lands, so the flash goes off under the hits.
   cue(state, { type: 'burst', center, cells, colour: effect.colour });
-  for (const entity of caught) applyTo(game, entity, effects, 'burst', actor);
+  for (const entity of caught) {
+    for (const item of effects) {
+      if ('later' in item) scheduleOn(game, entity, item.rounds, item.effects);
+      else applyTo(game, entity, [item], 'burst', actor);
+    }
+  }
   noteNear(state, actor, `${entityDef(actor.defId).name}'s burst catches ${caught.length}.`);
 }
 

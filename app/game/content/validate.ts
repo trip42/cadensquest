@@ -118,7 +118,12 @@ function crossCheck(content: Content): ContentIssue[] {
             ...(effect.rounds === undefined ? [] : [{ amount: effect.rounds, field: `${at}[${i}].rounds` }]),
           ]
           : effect.kind === 'area'
-            ? effect.effects.map((inner, t) => ({ amount: inner.amount, field: `${at}[${i}].effects[${t}].amount` }))
+            ? effect.effects.flatMap((inner, t) => (inner.kind === 'later'
+              ? [
+                { amount: inner.rounds, field: `${at}[${i}].effects[${t}].rounds` },
+                ...inner.effects.map((later, l) => ({ amount: later.amount, field: `${at}[${i}].effects[${t}].effects[${l}].amount` })),
+              ]
+              : [{ amount: inner.amount, field: `${at}[${i}].effects[${t}].amount` }]))
             : effect.kind === 'later'
               ? [
                 { amount: effect.rounds, field: `${at}[${i}].rounds` },
@@ -146,9 +151,20 @@ function crossCheck(content: Content): ContentIssue[] {
       const where = effect.kind === 'area' ? 'in a burst' : effect.kind === 'later' ? 'in a Later' : 'on a tile';
       const lists = effect.kind === 'terrain' ? (['effects', 'enter', 'exit'] as const) : (['effects'] as const);
       for (const list of lists) {
-        ((effect as Extract<EffectData, { kind: 'terrain' }>)[list] ?? []).forEach((tile, t) => {
-          if (!EFFECT_INFO[tile.kind].tile) {
-            error(file, id, `${EFFECT_INFO[tile.kind].label} cannot go ${where}`, `${here}.${list}[${t}].kind`);
+        const items = (effect as { [key: string]: unknown })[list] as Array<{ kind: string; effects?: Array<{ kind: EffectKind }> }> | undefined;
+        (items ?? []).forEach((tile, t) => {
+          // A burst may carry a Later, which lands on each one caught; what
+          // is inside it must be able to land on a creature, too.
+          if (tile.kind === 'later') {
+            tile.effects?.forEach((later, l) => {
+              if (!EFFECT_INFO[later.kind].tile) {
+                error(file, id, `${EFFECT_INFO[later.kind].label} cannot go in a Later`, `${here}.${list}[${t}].effects[${l}].kind`);
+              }
+            });
+            return;
+          }
+          if (!EFFECT_INFO[tile.kind as EffectKind].tile) {
+            error(file, id, `${EFFECT_INFO[tile.kind as EffectKind].label} cannot go ${where}`, `${here}.${list}[${t}].kind`);
           }
         });
       }

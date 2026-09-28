@@ -124,6 +124,10 @@ export interface TerrainEffect {
 export type Element = 'fire';
 export const ELEMENTS: Element[] = ['fire'];
 
+/** Every simple effect a burst carries, those inside a Later included. */
+export const burstEffects = (effect: AreaEffect): SimpleEffect[] =>
+  effect.effects.flatMap((inner) => (isLater(inner) ? inner.effects : [inner]));
+
 /** Every simple effect a mark carries: while on it, on entering, on leaving. */
 export const markEffects = (effect: TerrainEffect): SimpleEffect[] =>
   [...effect.effects, ...(effect.enter ?? []), ...(effect.exit ?? [])];
@@ -148,8 +152,10 @@ export interface AreaEffect {
   /** Who it hits: everyone (the default), only the caster's foes, or only
    *  the caster's side. */
   affects?: AreaAffects;
-  /** What happens to each creature caught. Simple effects only. */
-  effects: SimpleEffect[];
+  /** What happens to each creature caught: simple effects, or a Later that
+   *  each one caught schedules on itself — "+2 power now, and in 2 rounds
+   *  lose 2" gives every ally a power that lasts. */
+  effects: Array<SimpleEffect | LaterEffect>;
 }
 
 /* Summon: bring a creature into play on the side of whoever plays it — an
@@ -373,7 +379,7 @@ export function nowText(effects: readonly Effect[], values: AmountValues, style:
         return [...health, ...rounds];
       }
       if (isArea(effect)) {
-        return effect.effects
+        return burstEffects(effect)
           .filter((inner) => isScaled(inner.amount))
           .map((inner) => `${style === 'short' ? 'AREA' : 'each'} ${labels[inner.kind]?.(amountOf(inner.amount, values))}`);
       }
@@ -418,7 +424,7 @@ export const hasScaledAmount = (effects: readonly Effect[]): boolean =>
       : isSummon(effect)
         ? isScaled(effect.amount) || (effect.rounds !== undefined && isScaled(effect.rounds))
         : isArea(effect)
-          ? effect.effects.some((inner) => isScaled(inner.amount))
+          ? effect.effects.some((inner) => (isLater(inner) ? hasScaledAmount([inner]) : isScaled(inner.amount)))
           : isLater(effect)
             ? isScaled(effect.rounds) || effect.effects.some((inner) => isScaled(inner.amount))
             : isBoon(effect)
@@ -573,7 +579,8 @@ export function describeEffect(effect: Effect): string {
   }
   if (isArea(effect)) {
     const who = effect.affects === 'foes' ? 'every foe' : effect.affects === 'friends' ? 'every friend' : 'everyone';
-    return `burst (radius ${effect.radius}): ${who} caught will ${effect.effects.map(describeTileEffect).join(', ')}`;
+    const what = effect.effects.map((inner) => (isLater(inner) ? describeEffect(inner) : describeTileEffect(inner)));
+    return `burst (radius ${effect.radius}): ${who} caught will ${what.join(', ')}`;
   }
   if (isSummon(effect)) {
     const rounds = effect.rounds === undefined ? '' : ` for ${describeAmount(effect.rounds)} rounds`;

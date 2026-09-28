@@ -32,7 +32,8 @@
    `intentText` in actions.ts, which know the game. */
 
 import {
-  type Amount, amountOf, type AmountValues, describeAmount, type Effect, isArea, isBoon, isLater, isScaled, isSummon, isTerrain, isTrail,
+  type Amount, amountOf, type AmountValues, describeAmount, type Effect, isArea, isBoon, isLater, isScaled, isSummon, isTerrain,
+  isTrail, type LaterEffect, type SimpleEffect,
   markEffects, readsPower, stepValues,
 } from './effects';
 import type { StatKey } from './stats';
@@ -98,6 +99,10 @@ interface Numbered {
   kind: string;
 }
 
+/** Inside a burst, a Later's number is its rounds. */
+const roundsOfLater = (inner: SimpleEffect | LaterEffect): { kind: string; amount: Amount } =>
+  (isLater(inner) ? { kind: 'rounds', amount: inner.rounds } : inner);
+
 /** Every number a list of effects offers, by token: "1", "2.1". */
 function numbered(effects: readonly Effect[]): Map<string, Numbered> {
   const found = new Map<string, Numbered>();
@@ -113,7 +118,7 @@ function numbered(effects: readonly Effect[]): Map<string, Numbered> {
       inside(effect.effects);
     } else if (isArea(effect)) {
       found.set(key, { amount: effect.radius, kind: 'radius' });
-      inside(effect.effects);
+      inside(effect.effects.map(roundsOfLater));
     } else if (isSummon(effect)) {
       found.set(key, { amount: effect.amount, kind: 'health' });
     } else if (isBoon(effect)) {
@@ -155,7 +160,7 @@ function liveNumbers(effects: readonly Effect[], start: AmountValues, bonuses: B
       inside(effect.effects);
     } else if (isArea(effect)) {
       found.set(key, effect.radius);
-      inside(effect.effects, { power: values.power, bonus: bonuses.damage });
+      inside(effect.effects.map(roundsOfLater), { power: values.power, bonus: bonuses.damage });
     } else if (isSummon(effect)) {
       found.set(key, amountOf(effect.amount, values));
     } else if (isBoon(effect)) {
