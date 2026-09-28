@@ -793,7 +793,7 @@
   {
     "id": "kindle",
     "name": "Kindle",
-    "enabled": false,
+    "enabled": true,
     "rarity": "normal",
     "art": "flame",
     "cost": 1,
@@ -822,7 +822,7 @@
   {
     "id": "stoke",
     "name": "Stoke",
-    "enabled": false,
+    "enabled": true,
     "rarity": "normal",
     "art": "flame",
     "cost": 1,
@@ -845,7 +845,7 @@
   {
     "id": "inferno",
     "name": "Inferno",
-    "enabled": false,
+    "enabled": true,
     "rarity": "mythic",
     "art": "flame",
     "cost": 2,
@@ -864,7 +864,7 @@
   {
     "id": "reignite",
     "name": "Reignite",
-    "enabled": false,
+    "enabled": true,
     "rarity": "rare",
     "art": "flame",
     "cost": "X",
@@ -883,7 +883,7 @@
   {
     "id": "flashpoint",
     "name": "Flashpoint",
-    "enabled": false,
+    "enabled": true,
     "rarity": "rare",
     "art": "flame",
     "cost": 0,
@@ -900,7 +900,7 @@
   {
     "id": "flame_trail",
     "name": "Flame Trail",
-    "enabled": false,
+    "enabled": true,
     "rarity": "rare",
     "art": "flame",
     "cost": 1,
@@ -929,7 +929,7 @@
   {
     "id": "heat_shield",
     "name": "Heat Shield",
-    "enabled": false,
+    "enabled": true,
     "rarity": "normal",
     "art": "shield",
     "cost": 1,
@@ -949,7 +949,7 @@
   {
     "id": "brand",
     "name": "Brand",
-    "enabled": false,
+    "enabled": true,
     "rarity": "rare",
     "art": "push",
     "cost": 1,
@@ -978,7 +978,7 @@
   {
     "id": "focus",
     "name": "Focus",
-    "enabled": false,
+    "enabled": true,
     "rarity": "normal",
     "art": "blade",
     "cost": 0,
@@ -1009,7 +1009,7 @@
   {
     "id": "twin_fangs",
     "name": "Twin Fangs",
-    "enabled": false,
+    "enabled": true,
     "rarity": "normal",
     "art": "slash",
     "cost": 1,
@@ -1030,7 +1030,7 @@
   {
     "id": "unleash",
     "name": "Unleash",
-    "enabled": false,
+    "enabled": true,
     "rarity": "rare",
     "art": "blade",
     "cost": 1,
@@ -1056,7 +1056,7 @@
   {
     "id": "decoys",
     "name": "Decoys",
-    "enabled": false,
+    "enabled": true,
     "rarity": "normal",
     "art": "eye",
     "cost": 1,
@@ -1081,7 +1081,7 @@
   {
     "id": "salamander",
     "name": "Salamander",
-    "enabled": false,
+    "enabled": true,
     "rarity": "rare",
     "art": "flame",
     "cost": 2,
@@ -1100,7 +1100,7 @@
   {
     "id": "pack_tactics",
     "name": "Pack Tactics",
-    "enabled": false,
+    "enabled": true,
     "rarity": "rare",
     "art": "slash",
     "cost": 1,
@@ -1121,7 +1121,7 @@
   {
     "id": "juggernaut",
     "name": "Juggernaut",
-    "enabled": false,
+    "enabled": true,
     "rarity": "rare",
     "art": "push",
     "cost": 1,
@@ -1144,7 +1144,7 @@
   {
     "id": "haste",
     "name": "Haste",
-    "enabled": false,
+    "enabled": true,
     "rarity": "normal",
     "art": "boot",
     "cost": 0,
@@ -1171,7 +1171,7 @@
   {
     "id": "battle_cry",
     "name": "Battle Cry",
-    "enabled": false,
+    "enabled": true,
     "rarity": "rare",
     "art": "arc",
     "cost": 1,
@@ -1206,7 +1206,7 @@
   {
     "id": "kindled_fury",
     "name": "Kindled Fury",
-    "enabled": false,
+    "enabled": true,
     "rarity": "mythic",
     "art": "flame",
     "cost": 1,
@@ -1227,7 +1227,7 @@
   {
     "id": "charge",
     "name": "Charge",
-    "enabled": false,
+    "enabled": true,
     "rarity": "rare",
     "art": "boot",
     "cost": 1,
@@ -1248,7 +1248,7 @@
   {
     "id": "afterimage",
     "name": "Afterimage",
-    "enabled": false,
+    "enabled": true,
     "rarity": "normal",
     "art": "boot",
     "cost": 1,
@@ -1267,7 +1267,7 @@
   {
     "id": "oil_flask",
     "name": "Oil Flask",
-    "enabled": false,
+    "enabled": true,
     "rarity": "normal",
     "art": "wave",
     "cost": 0,
@@ -1288,7 +1288,7 @@
   {
     "id": "echo",
     "name": "Echo",
-    "enabled": false,
+    "enabled": true,
     "rarity": "mythic",
     "art": "arc",
     "cost": 1,
@@ -1305,7 +1305,7 @@
   {
     "id": "entrench",
     "name": "Entrench",
-    "enabled": false,
+    "enabled": true,
     "rarity": "rare",
     "art": "shield",
     "cost": 1,
@@ -1328,7 +1328,7 @@
   {
     "id": "sic_em",
     "name": "Sic 'Em",
-    "enabled": false,
+    "enabled": true,
     "rarity": "rare",
     "art": "eye",
     "cost": 0,
