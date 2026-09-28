@@ -145,6 +145,8 @@ export class Juice {
   /** When each creature's latest blow lands — so it falls when the blow
    *  that killed it lands, not before. */
   private readonly lands = new Map<string, number>();
+  /** When the latest fall landed, for the coins that follow it. */
+  private lastFall = 0;
 
   private later: Array<{ at: number; run: () => void }> = [];
   texts: FloatText[] = [];
@@ -198,8 +200,11 @@ export class Juice {
     if (item.type === 'fall') {
       const at = this.lands.get(item.target);
       this.lands.delete(item.target);
-      return at !== undefined && at > now ? at - now : 0;
+      this.lastFall = at !== undefined && at > now ? at : now;
+      return this.lastFall - now;
     }
+    // Coins drop with the fall just before them.
+    if (item.type === 'coins') return Math.max(0, this.lastFall - now);
     return 0;
   }
 
@@ -305,6 +310,12 @@ export class Juice {
         break;
       case 'descend':
         this.fade('#ffffff', now, 0.9, 1);
+        break;
+      case 'coins':
+        this.schedule(at + 0.1, () => {
+          this.text(item.cell, 30, `+${item.amount} COINS`, palette.yellow, 12, at + 0.1);
+          this.motes(item.cell, 14, palette.yellow, this.calm ? 3 : 8, at + 0.1);
+        });
         break;
       case 'guardian':
         // The first stab of the sting: a red ring, a shudder and a dark wash.

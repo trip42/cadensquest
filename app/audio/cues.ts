@@ -85,6 +85,13 @@ export function soundsFor(item: Cue, timing: CueTiming = { impact: 0 }): SoundCa
       return [{ name: 'descend' }];
     case 'guardian':
       return [{ name: 'doom', vary: 0 }];
+    case 'coins':
+      // With the fall, and a little louder for a fat purse.
+      return [{ name: 'coin', delay: impact + 0.12, volume: item.amount >= 20 ? 0.8 : 0.55 }];
+    case 'shop':
+      return item.open ? [{ name: 'bell', vary: 0 }] : [{ name: 'click' }];
+    case 'buy':
+      return [{ name: 'coin', rate: 0.8 }, { name: 'pickup', delay: 0.08, vary: 0 }];
     case 'turn':
       return [{ name: 'turn', vary: 0 }];
     case 'reward':
@@ -133,6 +140,10 @@ export const EXAMPLE_CUES: Array<{ label: string; cue: Cue }> = [
   { label: 'a portal opening', cue: { type: 'portal', cell: at, way: 'down' } },
   { label: 'going down a floor', cue: { type: 'descend', floor: 1 } },
   { label: 'a guardian waking', cue: { type: 'guardian', target: 'a', cell: at, name: 'Warden' } },
+  { label: 'coins dropping', cue: { type: 'coins', amount: 8, cell: at } },
+  { label: 'walking into a shop', cue: { type: 'shop', open: true } },
+  { label: 'leaving a shop', cue: { type: 'shop', open: false } },
+  { label: 'buying something', cue: { type: 'buy', kind: 'card' } },
   { label: 'your turn', cue: { type: 'turn', turn: 2 } },
   { label: 'a reward coming up', cue: { type: 'reward', kind: 'gem' } },
   { label: 'taking a card', cue: { type: 'claim', kind: 'card' } },

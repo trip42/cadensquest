@@ -677,6 +677,42 @@ turn removal off too:** overrides merge with the defaults, so the guardians'
 `{ talisman: 1 }` would otherwise mostly drop removals. That is why their
 content says `removal: 0`.
 
+## Coins and shops
+
+`game/shop.ts`. Every enemy carries `coins` (content, optional, 0 if left
+out); they go into `state.coins` as it falls — none from a summoned one —
+with a `coins` cue ("+N COINS" in yellow as it falls, and a clink) and
+`coins` on its `enemy_killed` event. Coins stay with the player down the
+floors, like the deck.
+
+**One shop per floor**, placed by `placeShop` when its chunk is first
+reached: on the trail `SHOP_ROWS_FROM_END` (10) rows before the end, so
+shopping never wakes the guardian. It is a terrain layer with `shop: true`
+(gold, never ages out; the tile tip says "A shop") plus `state.shop` (where,
+its stock, `visited`). Spawns skip its tile; the draw is still made, so every
+other enemy lands where it did before.
+
+**Stock** (`rollStock`) is three cards, a gem, a talisman and a removal,
+rolled from `hashSeed(seed, floor)` — its own stream, so adding shops moved
+nothing else in any seed. Prices are the dial, `SHOP_PRICES`; a removal
+costs more for each one bought this run (`removalsBought`).
+
+**Trading.** Stepping onto the shop in the player's own phase opens it
+(`state.shopOpen`, from `tick` as the step completes; being shoved onto it
+opens nothing). ENTER SHOP on the HUD reopens it while standing there.
+While it is open play holds, exactly as for a reward (`holding()` guards
+play, moves, discards, ending the phase, and rewards coming up).
+`buyShopItem`: a card goes on top of the draw pile, a talisman works at
+once, and a gem or a removal queues as a reward that comes up after
+`leaveShop`. Each buy records `shop_bought` (tally `coinsSpent`, `bought`).
+`ShopModal` shows everything on one screen on purpose: the fun is in
+weighing unlike things against each other.
+
+The bot heads for the shop while it can afford something there and buys
+the dearest thing by a rough order of worth (`shop` in `sim/bot.ts`). At
+the committed prices it earns about 190 coins a run and spends about 120,
+mostly on removals.
+
 ## Renderer
 
 Works entirely in **design units**; `resize()` is the only function that has

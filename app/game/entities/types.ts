@@ -104,6 +104,8 @@ export interface EntityDefinition {
   /** How generous this one is. Anything left out falls back to
    *  DEFAULT_REWARD_CONFIG, so an enemy only states what it changes. */
   reward?: RewardOverrides;
+  /** Coins it drops when it falls. None if left out. */
+  coins?: number;
   /** Holds the crossing into the next zone. While it stands, nothing past
    *  its row can be entered. Placed by the zone, never spawned at random. */
   guardian?: boolean;

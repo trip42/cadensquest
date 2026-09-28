@@ -25,7 +25,9 @@ export type GameEvent =
   /** A card taken out of the deck for good, by a removal reward. */
   | { type: 'card_removed'; card: string; deckSize: number }
   /** `by` is who landed the blow: the player, an ally's kind, or a tile. */
-  | { type: 'enemy_killed'; enemy: string; guardian: boolean; row: number; by?: string; summoned?: true }
+  | { type: 'enemy_killed'; enemy: string; guardian: boolean; row: number; by?: string; summoned?: true; coins?: number }
+  /** Something bought in a shop: a card, gem or talisman by id, or a removal. */
+  | { type: 'shop_bought'; kind: string; item: string; price: number; floor: number }
   | { type: 'summoned'; entity: string; side: 'ally' | 'enemy'; health: number }
   | { type: 'summon_faded'; entity: string; side: 'ally' | 'enemy' }
   | { type: 'enemy_tamed'; enemy: string; health: number; row: number }
@@ -49,6 +51,10 @@ export interface RunTally {
   tamed: Record<string, number>;
   rewardsSkipped: Record<string, number>;
   cardsRemoved: Record<string, number>;
+  coinsEarned: number;
+  coinsSpent: number;
+  /** What was bought, by item (a removal as `removal`). */
+  bought: Record<string, number>;
 }
 
 export const emptyTally = (startRow: number): RunTally => ({
@@ -63,6 +69,9 @@ export const emptyTally = (startRow: number): RunTally => ({
   tamed: {},
   rewardsSkipped: {},
   cardsRemoved: {},
+  coinsEarned: 0,
+  coinsSpent: 0,
+  bought: {},
 });
 
 const bump = (table: Record<string, number>, key: string): void => {
@@ -106,6 +115,11 @@ export function record(into: Recorder, event: GameEvent): void {
       break;
     case 'enemy_killed':
       bump(tally.kills, event.enemy);
+      tally.coinsEarned += event.coins ?? 0;
+      break;
+    case 'shop_bought':
+      bump(tally.bought, event.item);
+      tally.coinsSpent += event.price;
       break;
     case 'enemy_tamed':
       bump(tally.tamed, event.enemy);

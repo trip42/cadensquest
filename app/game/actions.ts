@@ -44,7 +44,8 @@ import { rollDrop } from './rewards';
 import { resolveStat } from './stats';
 import { record } from './telemetry';
 import { nextInt, pick, shuffle } from './rng';
-import { talismanEffects } from './talismans';
+import { priceOf, rollStock, SHOP_COLOUR, shopRowOf } from './shop';
+import { talismanDef, talismanEffects } from './talismans';
 import {
   arrivalOn,
   allies,
@@ -134,7 +135,7 @@ export function movementRange(game: Game): Map<string, { cell: Cell; cost: numbe
 
 export function canPlay(game: Game, uid: string): boolean {
   const card = handCard(game.state, uid);
-  if (!card || game.state.phase !== 'player' || game.state.activeReward) return false;
+  if (!card || game.state.phase !== 'player' || holding(game.state)) return false;
   return minimumCost(cardDef(card.defId)) <= game.state.energy;
 }
 
@@ -236,9 +237,16 @@ function dealDamage(game: Game, target: Entity, amount: number, blow: Blow): voi
         row: target.row,
         by: source?.defId,
         ...(target.summonedBy ? { summoned: true } : {}),
+        ...(!target.summonedBy && entityDef(target.defId).coins ? { coins: entityDef(target.defId).coins } : {}),
       });
       // What it was carrying was decided when it spawned.
       if (target.reward) state.pendingRewards.push(target.reward);
+      // Its coins, straight into the purse. A summoned one carries none.
+      const coins = target.summonedBy ? 0 : entityDef(target.defId).coins ?? 0;
+      if (coins > 0) {
+        state.coins += coins;
+        cue(state, { type: 'coins', amount: coins, cell: entityCell(target) });
+      }
       // A floor's guardian falling opens the way off the floor, where it fell.
       if (state.gates.some((gate) => gate.guardianId === target.id)) openPortal(game, entityCell(target));
       fire(game, 'enemyDefeated');
@@ -725,7 +733,7 @@ function ageTerrain(game: Game): void {
   const { state } = game;
   for (const [key, layers] of Object.entries(state.terrain)) {
     // Portals never run out; every other mark loses a round.
-    const left = layers.filter((layer) => layer.portal || (layer.rounds -= 1) > 0);
+    const left = layers.filter((layer) => layer.portal || layer.shop || (layer.rounds -= 1) > 0);
     for (const layer of layers) if (!left.includes(layer)) emptyMark(game, layer);
     if (left.length) state.terrain[key] = left;
     else delete state.terrain[key];
@@ -1033,7 +1041,7 @@ function advance(game: Game, enemy: Entity, steps: number, reach: number, goal: 
    what it does and how far it carries you. */
 export function discardForMovement(game: Game, uid: string): boolean {
   const { state } = game;
-  if (state.phase !== 'player' || isBusy(state) || state.activeReward) return false;
+  if (state.phase !== 'player' || isBusy(state) || holding(state)) return false;
 
   const card = handCard(state, uid);
   if (!card) return false;
@@ -1053,7 +1061,7 @@ export function discardForMovement(game: Game, uid: string): boolean {
 /** Trade the whole hand in at once. Returns the movement gained. */
 export function discardAllForMovement(game: Game): number {
   const { state } = game;
-  if (state.phase !== 'player' || isBusy(state) || state.activeReward) return 0;
+  if (state.phase !== 'player' || isBusy(state) || holding(state)) return 0;
   if (!state.hand.length) return 0;
 
   const bonus = stat(state, 'movementBonus');
@@ -1138,7 +1146,7 @@ function startStep(entity: Entity): void {
 /** Walk the player to a cell, if it is in range and reachable. */
 export function movePlayerTo(game: Game, cell: Cell): boolean {
   const { state, world } = game;
-  if (state.phase !== 'player' || isBusy(state) || state.activeReward) return false;
+  if (state.phase !== 'player' || isBusy(state) || holding(state)) return false;
 
   const self = player(state);
   const options = playerMoveOptions(game);
@@ -1223,6 +1231,8 @@ export function enterFloor(game: Game, floor: number): void {
   state.terrain = {};
   state.terrainHits = {};
   state.gates = [];
+  state.shop = null;
+  state.shopOpen = false;
   // What the player and the allies who came along are owed still comes due.
   state.later = state.later.filter((entry) => state.entities.some((entity) => entity.id === entry.actorId));
   state.queue = [];
@@ -1304,6 +1314,7 @@ export function ensureSpawns(game: Game): void {
 
     const chunk = world.chunk(index);
     placeGuardians(game, index);
+    placeShop(game, index);
 
     const candidates: Cell[] = [];
     for (let local = 0; local < CHUNK_ROWS; local += 1) {
@@ -1320,7 +1331,9 @@ export function ensureSpawns(game: Game): void {
 
     for (let n = 0; n < chunk.zone.density; n += 1) {
       const spot = candidates[nextInt(state.rng, candidates.length)]!;
-      if (entityAt(state, spot.row, spot.col)) continue;
+      // Not on the shop: the way in stays clear. (The draw is still made, so
+      // every other spawn lands where it did before there were shops.)
+      if (entityAt(state, spot.row, spot.col) || shopUnder(state, spot)) continue;
       const enemy = makeEntity(pick(state.rng, roster), spot.row, spot.col);
       enemy.facing = -1;
       enemy.reward = rollDrop(state.rng, entityDef(enemy.defId).reward);
@@ -1380,7 +1393,7 @@ export function beginTurn(game: Game): void {
 /** Phase 2 ends here; phase 3 is queued up and played out by `tick`. */
 export function endPlayerPhase(game: Game): void {
   const { state } = game;
-  if (state.phase !== 'player' || state.activeReward) return;
+  if (state.phase !== 'player' || holding(state)) return;
   fire(game, 'playerPhaseEnd');
   state.phase = 'enemy';
   // Their turn begins: any enemy standing on a marked tile is hit by it —
@@ -1433,6 +1446,111 @@ function resolveEnemy(game: Game, next: QueuedAction): void {
 }
 
 /** Returns true once the run is over, either way. */
+/* ------------------------------ shops ----------------------------------- */
+
+/** Play holds while a reward is being chosen or the shop is open. */
+const holding = (state: GameState): boolean => !!state.activeReward || state.shopOpen;
+
+/** Is this tile the floor's shop? */
+const shopUnder = (state: GameState, cell: Cell): boolean =>
+  !!state.shop && state.shop.row === cell.row && state.shop.col === cell.col;
+
+/* A floor's shop stands on the trail `SHOP_ROWS_FROM_END` rows before its
+   end, placed when that row's chunk is first reached. Its stock is rolled
+   from the seed on its own stream, so nothing else about the floor moves. */
+function placeShop(game: Game, chunkIndex: number): void {
+  const { state, world } = game;
+  const row = shopRowOf(state.floor);
+  if (Math.floor(row / CHUNK_ROWS) !== chunkIndex || !world.contains(row) || state.shop) return;
+  const cols = Array.from({ length: world.width }, (_, col) => col).filter((col) => world.walkable(row, col));
+  if (!cols.length) return;
+  const onTrail = cols.filter((col) => surfaceKind(world.stackAt(row, col)) === 'trail');
+  const choices = onTrail.length ? onTrail : cols;
+  const col = choices[Math.floor(choices.length / 2)]!;
+  state.shop = { floor: state.floor, row, col, items: rollStock(state.seed, state.floor), visited: false };
+  (state.terrain[terrainKey({ row, col })] ??= []).push({
+    id: nextUid('shop'), effects: [], colour: SHOP_COLOUR, rounds: 0, ownerId: state.playerId, shop: true,
+  });
+}
+
+/** Step into the shop: play holds until he leaves. Only in his own phase —
+ *  being shoved onto it in the enemies' opens nothing. */
+function openShop(game: Game): void {
+  const { state } = game;
+  if (!state.shop || state.phase !== 'player' || state.activeReward || state.shopOpen) return;
+  state.shopOpen = true;
+  state.shop.visited = true;
+  cue(state, { type: 'shop', open: true });
+  note(state, 'A shop.');
+}
+
+/** Go back into the shop he is standing on. */
+export function enterShop(game: Game): boolean {
+  const { state } = game;
+  const self = player(state);
+  if (isBusy(state) || !shopUnder(state, entityCell(self))) return false;
+  openShop(game);
+  return state.shopOpen;
+}
+
+/** What the item at this place in the shop costs now. */
+export function shopPrice(state: GameState, index: number): number | null {
+  const item = state.shop?.items[index];
+  return item ? priceOf(item, state.removalsBought) : null;
+}
+
+/* Buy one thing. A card goes on top of the draw pile and a talisman works
+   at once; a gem or a removal needs a card chosen, so it queues as a
+   reward and comes up once he leaves the shop. */
+export function buyShopItem(game: Game, index: number): boolean {
+  const { state } = game;
+  const shop = state.shop;
+  const item = shop?.items[index];
+  if (!state.shopOpen || !shop || !item || item.sold) return false;
+  const price = priceOf(item, state.removalsBought);
+  if (state.coins < price) return false;
+
+  state.coins -= price;
+  item.sold = true;
+  switch (item.kind) {
+    case 'card': {
+      const card = makeCard(item.id!);
+      state.drawPile.push(card);
+      const def = cardDef(card.defId);
+      record(state, { type: 'card_collected', card: def.id, rarity: def.rarity, deckSize: wholeDeck(state).length });
+      note(state, `Bought ${def.name}.`);
+      break;
+    }
+    case 'talisman':
+      state.talismans.push(item.id!);
+      record(state, { type: 'talisman_collected', talisman: item.id! });
+      syncStats(state);
+      note(state, `Bought ${talismanDef(item.id!).name}.`);
+      break;
+    case 'gem':
+      state.pendingRewards.push({ kind: 'gem', gemId: item.id! });
+      note(state, `Bought ${gemDef(item.id!).name}.`);
+      break;
+    case 'removal':
+      state.removalsBought += 1;
+      state.pendingRewards.push({ kind: 'removal' });
+      note(state, 'Paid to lighten the load.');
+      break;
+  }
+  record(state, { type: 'shop_bought', kind: item.kind, item: item.id ?? 'removal', price, floor: state.floor });
+  cue(state, { type: 'buy', kind: item.kind });
+  return true;
+}
+
+/** Walk out. Anything bought that needs a card chosen comes up next. */
+export function leaveShop(game: Game): boolean {
+  const { state } = game;
+  if (!state.shopOpen) return false;
+  state.shopOpen = false;
+  cue(state, { type: 'shop', open: false });
+  return true;
+}
+
 /* ------------------------------ rewards --------------------------------- */
 
 /** Bring the next won reward up for choosing. Card rewards mint their
@@ -1615,7 +1733,13 @@ export function tick(game: Game, dt: number): void {
         // the death animation be — setting it back to idle once left the body
         // on the map for good, since the fallen are cleared when it finishes.
         triggerTile(game, entity);
-        if (entity.id === state.playerId) watchGates(game);
+        if (entity.id === state.playerId) {
+          watchGates(game);
+          if (!entity.dead && entity.motion === null && shopUnder(state, entityCell(entity))) {
+            entity.path = [];
+            openShop(game);
+          }
+        }
         if (entity.dead) entity.path = [];
         else if (entity.path.length) startStep(entity);
         else setAnimation(entity, 'idle');
@@ -1653,7 +1777,7 @@ export function tick(game: Game, dt: number): void {
     return;
   }
 
-  if (state.phase !== 'player' || state.activeReward) return;
+  if (state.phase !== 'player' || holding(state)) return;
 
   // Rewards wait for a quiet moment in the player's own phase, so nothing
   // interrupts an enemy mid-stride. They come first: claiming one is

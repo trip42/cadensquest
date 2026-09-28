@@ -44,12 +44,28 @@ function setOffset(value: string): void {
   if (value === '' || Number(value) === 0) delete props.item.sprite.offsetY;
   else props.item.sprite.offsetY = Number(value);
 }
+
+/** Coins are optional: none is the same as leaving the field out. */
+function setCoins(raw: string): void {
+  const value = Math.max(0, Math.min(999, Math.round(Number(raw) || 0)));
+  if (value) props.item.coins = value;
+  else delete props.item.coins;
+}
 </script>
 
 <template>
   <div class="form-grid">
     <EditorField label="Health" :problems="at('maxHp')">
       <input v-model.number="item.maxHp" type="number" min="1" max="999">
+    </EditorField>
+    <EditorField label="Coins" hint="Dropped when it falls, to spend in shops." :problems="at('coins')">
+      <input
+        :value="item.coins ?? 0"
+        type="number"
+        min="0"
+        max="999"
+        @input="setCoins(($event.target as HTMLInputElement).value)"
+      >
     </EditorField>
     <EditorField label="Guardian" hint="Holds a zone's last row; the way on stays shut until it falls." :problems="at('guardian')">
       <span class="inline">

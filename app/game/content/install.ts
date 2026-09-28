@@ -63,6 +63,7 @@ export function installContent(content: Content): void {
       animations: STATIC_ANIMATIONS,
       deck: enemy.deck,
       reward: enemy.reward,
+      coins: enemy.coins,
       guardian: enemy.guardian,
       enabled: enemy.enabled,
     };

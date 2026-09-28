@@ -293,6 +293,24 @@ export const SOUNDS = {
     seed: 21,
   },
 
+  /** Coins: a quick bright clink, two notes up a fourth. */
+  coin: {
+    layers: [
+      { wave: 'square', freq: 1319, steps: [[0.05, 1.335]], duty: 0.25, attack: 0.001, hold: 0.03, decay: 0.22, curve: 1.6, lowpass: 7000, gain: 0.45 },
+      { wave: 'sine', freq: 2637, steps: [[0.05, 1.335]], attack: 0.001, decay: 0.2, curve: 2, gain: 0.25 },
+    ],
+    gain: 0.4,
+  },
+  /** A shop door: a bell, two soft partials ringing out. */
+  bell: {
+    layers: [
+      { wave: 'sine', freq: 1568, attack: 0.002, decay: 0.9, curve: 1.4, vibrato: { depth: 0.004, rate: 7 }, gain: 0.5 },
+      { wave: 'sine', freq: 3920, attack: 0.002, decay: 0.5, curve: 2, gain: 0.2 },
+      { wave: 'sine', freq: 1568, at: 0.14, attack: 0.002, decay: 0.8, curve: 1.4, gain: 0.35 },
+    ],
+    gain: 0.45,
+  },
+
   /* ------------------------------ the run ------------------------------ */
 
   /** Your turn: two bright notes, up a fourth. */

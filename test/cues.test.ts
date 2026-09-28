@@ -74,8 +74,9 @@ describe('cues', () => {
     wolf.block = 3;
     define('whack', [{ kind: 'damage', amount: 10 }]);
     const cues = during(game, () => play(game, 'whack', entityCell(wolf)));
-    expect(types(cues)).toEqual(['play', 'hit', 'fall']);
+    expect(types(cues)).toEqual(['play', 'hit', 'fall', 'coins']);
     expect(cues[0]).toMatchObject({ card: 'whack', attack: true, ranged: false });
+    expect(cues[3]).toMatchObject({ amount: 10, cell: entityCell(wolf) });
     expect(cues[1]).toMatchObject({
       target: wolf.id, side: 'enemy', amount: 7, blocked: 3, fatal: true, via: 'blow',
       by: player(game.state).id, from: entityCell(player(game.state)),

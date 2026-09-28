@@ -37,7 +37,7 @@ const store = useGameStore();
     </p>
     <p v-if="!store.enemyTip.ally" class="drop">
       <span class="px-tag" :style="{ background: store.enemyTip.rewardTint }">DROPS</span>
-      {{ store.enemyTip.reward }}
+      {{ store.enemyTip.reward }}<template v-if="store.enemyTip.coins"> AND {{ store.enemyTip.coins }} COINS</template>
     </p>
     <div v-if="store.enemyTip.ground.length" class="standing">
       <span class="px-tag is-ground">STANDING ON</span>

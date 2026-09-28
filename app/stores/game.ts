@@ -18,6 +18,10 @@ import {
   canPlay,
   chooseCardReward,
   discardAllForMovement,
+  buyShopItem,
+  leaveShop,
+  enterShop as enterShopHere,
+  shopPrice,
   discardForMovement,
   endPlayerPhase,
   handMovementValue,
@@ -96,6 +100,18 @@ export interface RewardView {
   talisman?: TalismanDefinition;
 }
 
+/** One thing for sale, as the shop screen shows it. */
+export interface ShopItemView {
+  index: number;
+  kind: 'card' | 'gem' | 'talisman' | 'removal';
+  price: number;
+  sold: boolean;
+  affordable: boolean;
+  card?: CardView;
+  gem?: GemDefinition;
+  talisman?: TalismanDefinition;
+}
+
 export interface EnemyTipView {
   id: string;
   name: string;
@@ -105,6 +121,8 @@ export interface EnemyTipView {
   intentText: string | null;
   reward: string;
   rewardTint: string;
+  /** Coins it drops when it falls. */
+  coins: number;
   /** Holds a zone's last row; the way on is shut until it falls. */
   guardian: boolean;
   /** The marks on the tile it stands on, if any. */
@@ -167,6 +185,11 @@ export interface GameView {
   talismans: TalismanDefinition[];
   /** The reward being chosen, if play is paused for one. */
   reward: RewardView | null;
+  coins: number;
+  /** Standing on the shop with it shut: offer to go back in. */
+  atShop: boolean;
+  /** The shop's stock, while he stands in it trading. */
+  shop: ShopItemView[] | null;
 }
 
 export const useGameStore = defineStore('game', () => {
@@ -227,8 +250,29 @@ export const useGameStore = defineStore('game', () => {
       busy: isBusy(state),
       talismans: state.talismans.map(talismanDef),
       reward: describeReward(current),
+      coins: state.coins,
+      atShop: !state.shopOpen && !!state.shop && state.shop.row === self.row && state.shop.col === self.col,
+      shop: describeShop(current),
     };
   };
+
+  function describeShop(current: Game): ShopItemView[] | null {
+    const { state } = current;
+    if (!state.shopOpen || !state.shop) return null;
+    return state.shop.items.map((item, index) => {
+      const price = shopPrice(state, index) ?? 0;
+      return {
+        index,
+        kind: item.kind,
+        price,
+        sold: item.sold,
+        affordable: !item.sold && state.coins >= price,
+        card: item.kind === 'card' ? describeCard({ uid: `shop${index}`, defId: item.id!, gems: [] }) : undefined,
+        gem: item.kind === 'gem' ? gemDef(item.id!) : undefined,
+        talisman: item.kind === 'talisman' ? talismanDef(item.id!) : undefined,
+      };
+    });
+  }
 
   /** What a card's "based on" amounts come to if it were played now. By
    *  then it has left the hand and its cost is paid, and its gems resolve
@@ -287,6 +331,8 @@ export const useGameStore = defineStore('game', () => {
       state.talismans.join(','),
       state.activeReward ? state.activeReward.reward.kind : '',
       state.pendingRewards.length,
+      state.coins, state.shopOpen ? 1 : 0, state.removalsBought,
+      (state.shop?.items ?? []).map((item) => (item.sold ? 1 : 0)).join(''),
     ].join('|');
   };
 
@@ -423,6 +469,8 @@ export const useGameStore = defineStore('game', () => {
         ? 'Step on to leave, and win the run'
         : layer.portal === 'down'
           ? `Step on to go down to ${ZONES[state.floor + 1]?.name ?? 'the next floor'}`
+          : layer.shop
+          ? 'Step on to trade coins for cards, gems, a talisman or a removal'
           : `${describeMark(layer.effects, layer.enter, layer.exit)} · ${layer.rounds} round${layer.rounds === 1 ? '' : 's'}`,
     }));
   }
@@ -439,8 +487,10 @@ export const useGameStore = defineStore('game', () => {
       return;
     }
     // A portal takes only the player, so "whoever is here" would be wrong.
-    const portal = game && cell ? terrainAt(game.state, cell).find((layer) => layer.portal)?.portal : undefined;
-    const title = portal === 'out' ? 'The way out' : portal === 'down' ? 'The way down' : 'Whoever is here';
+    const marks = game && cell ? terrainAt(game.state, cell) : [];
+    const portal = marks.find((layer) => layer.portal)?.portal;
+    const title = portal === 'out' ? 'The way out' : portal === 'down' ? 'The way down'
+      : marks.some((layer) => layer.shop) ? 'A shop' : 'Whoever is here';
     const next: TileTipView = { title, lines, x: Math.round(point.x), y: Math.round(point.y) };
     const old = tileTip.value;
     if (!old || old.title !== next.title || old.x !== next.x || old.y !== next.y || JSON.stringify(old.lines) !== JSON.stringify(next.lines)) {
@@ -478,6 +528,7 @@ export const useGameStore = defineStore('game', () => {
       intent: foe.intent?.label ?? null,
       intentText,
       reward: foe.reward ? rewardLabel(foe.reward) : 'NOTHING',
+      coins: foe.summonedBy ? 0 : def.coins ?? 0,
       guardian: !!def.guardian,
       ground: groundOf({ row: foe.row, col: foe.col }),
       ally: foe.faction === 'ally',
@@ -624,6 +675,21 @@ export const useGameStore = defineStore('game', () => {
     if (game && takeTalismanReward(game)) sync(true);
   }
 
+  /* ------------------------------ shop ------------------------------- */
+
+  function buy(index: number): void {
+    if (game && buyShopItem(game, index)) sync(true);
+    else sfx.play('deny');
+  }
+
+  function enterShop(): void {
+    if (game && enterShopHere(game)) sync(true);
+  }
+
+  function leave(): void {
+    if (game && leaveShop(game)) sync(true);
+  }
+
   function endPhase(): void {
     if (!game) return;
     selectedUid.value = null;
@@ -657,7 +723,7 @@ export const useGameStore = defineStore('game', () => {
     view, selected, selectedUid, hoverCell, enemyTip, tileTip, run, announce,
     start, attach, detach, frame,
     select, commitCell, hover, pickAt, discard, discardAll, endPhase,
-    chooseCard, socketGem, removeCard, takeTalisman, skip,
+    chooseCard, socketGem, removeCard, takeTalisman, skip, buy, leave, enterShop,
     soundOn, toggleSound, howLeft,
     rawGame, entityDef,
   };

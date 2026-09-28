@@ -158,6 +158,10 @@ const energyCells = computed(() => {
             <strong class="move">{{ store.view.movement }}</strong>
           </span>
           <span class="meter">
+            <span class="label">COINS</span>
+            <strong :key="store.view.coins" class="coins">{{ store.view.coins }}</strong>
+          </span>
+          <span class="meter">
             <span class="label">FLOOR</span>
             <strong>{{ store.view.floor }}/{{ store.view.floors }}</strong>
           </span>
@@ -196,6 +200,15 @@ const energyCells = computed(() => {
             @click="store.discardAll()"
           >
             DISCARD ALL: +{{ store.view.handMovement }} MOVE
+          </button>
+          <button
+            v-if="store.view.atShop"
+            class="end px-button is-green"
+            type="button"
+            :disabled="store.view.phase !== 'player' || store.view.busy"
+            @click="store.enterShop()"
+          >
+            ENTER SHOP
           </button>
           <button
             class="end px-button is-yellow"
@@ -238,6 +251,7 @@ const energyCells = computed(() => {
     <EnemyTip />
     <TileTip />
     <RewardModal />
+    <ShopModal />
 
     <div v-if="store.view && (store.view.phase === 'victory' || store.view.phase === 'defeat')" class="ending">
       <p class="headline" :class="`is-${store.view.phase}`">
@@ -423,6 +437,8 @@ const energyCells = computed(() => {
   z-index: 20;
   font-family: var(--px-font);
 }
+/* Keyed on the count, so it pops again with every coin gained or spent. */
+.coins { display: inline-block; color: var(--px-yellow); animation: tag-in 0.25s cubic-bezier(0.3, 1.6, 0.5, 1); }
 .banner-floor { color: var(--px-muted); font-size: 12px; }
 .banner-zone { color: var(--px-yellow); font-size: 24px; text-shadow: 3px 3px 0 var(--px-ink); }
 .is-guardian .banner-floor { color: var(--px-text); }
@@ -433,7 +449,7 @@ const energyCells = computed(() => {
 .banner-leave-to { opacity: 0; }
 
 @media (prefers-reduced-motion: reduce) {
-  .phase, .block, .hp.is-hurt { animation: none; }
+  .phase, .block, .coins, .hp.is-hurt { animation: none; }
   .danger { animation: none; opacity: 0.5; }
   .banner-enter-from { transform: translateX(-50%); }
 }

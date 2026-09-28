@@ -143,6 +143,8 @@ export const enemySchema = z.strictObject({
   }),
   deck: z.array(idSchema).min(1, 'needs at least one card'),
   reward: rewardSchema.optional(),
+  /** Coins it drops when it falls, to spend in shops. */
+  coins: count(0, 999).optional(),
 });
 
 export const gemSchema = z.strictObject({

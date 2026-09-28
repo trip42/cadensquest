@@ -26,7 +26,8 @@
         "normal": 85,
         "rare": 15
       }
-    }
+    },
+    "coins": 8
   },
   {
     "id": "dragon",
@@ -61,7 +62,8 @@
         "rare": 45,
         "mythic": 35
       }
-    }
+    },
+    "coins": 20
   },
   {
     "id": "bug",
@@ -83,7 +85,8 @@
       "bug_skitter",
       "bug_bite",
       "bug_bite"
-    ]
+    ],
+    "coins": 5
   },
   {
     "id": "spider",
@@ -105,7 +108,8 @@
       "spider_spit",
       "spider_scuttle",
       "spider_brood"
-    ]
+    ],
+    "coins": 6
   },
   {
     "id": "chicken",
@@ -140,7 +144,8 @@
         "rare": 5,
         "mythic": 0
       }
-    }
+    },
+    "coins": 4
   },
   {
     "id": "wolf",
@@ -169,7 +174,8 @@
         "gem": 30,
         "talisman": 10
       }
-    }
+    },
+    "coins": 10
   },
   {
     "id": "warden",
@@ -200,7 +206,8 @@
         "talisman": 1,
         "removal": 0
       }
-    }
+    },
+    "coins": 40
   },
   {
     "id": "wyrm",
@@ -231,7 +238,8 @@
         "talisman": 1,
         "removal": 0
       }
-    }
+    },
+    "coins": 50
   },
   {
     "id": "whelp",
@@ -252,6 +260,7 @@
       "whelp_scorch",
       "whelp_scorch",
       "whelp_hop"
-    ]
+    ],
+    "coins": 5
   }
 ]

@@ -52,6 +52,10 @@ export type Cue =
   /** A step finished: someone arrived on a tile. */
   | { type: 'step'; target: string; side: Faction; cell: Cell }
   | { type: 'portal'; cell: Cell; way: 'down' | 'out' }
+  /** Coins dropped by a fallen enemy, and a shop opened or a buy made. */
+  | { type: 'coins'; amount: number; cell: Cell }
+  | { type: 'shop'; open: boolean }
+  | { type: 'buy'; kind: 'card' | 'gem' | 'talisman' | 'removal' }
   /** A floor's guardian wakes and leaves its post. */
   | { type: 'guardian'; target: string; cell: Cell; name: string }
   /** Arrived on a new floor. */

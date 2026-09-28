@@ -41,6 +41,10 @@ export interface RunRecord {
   allies: number;
   deck: number;
   talismans: string[];
+  /** Coins picked up and spent, and what was bought (by item). */
+  coinsEarned: number;
+  coinsSpent: number;
+  bought: Record<string, number>;
 }
 
 /* The cue feed keeps only the recent cues, and one enemy phase can push
@@ -84,7 +88,7 @@ export function playRun(seed: number, talismans: string[] = []): RunRecord {
     seed, outcome: 'stuck', floor: 0, turns: 0, turnsOnFloor: [0], healthOnArrival: [1], lowest: 1, phaseLoss: [],
     decisions: 0, choices: 0, obvious: 0, empty: 0, engaged: 0, quiet: 0, crowd: 0,
     kills: { blow: 0, tile: 0, burst: 0, slam: 0, later: 0, other: 0 }, played: {}, discarded: {}, picked: {}, skipped: 0,
-    shoves: 0, allies: 0, deck: 0, talismans: [],
+    shoves: 0, allies: 0, deck: 0, talismans: [], coinsEarned: 0, coinsSpent: 0, bought: {},
   };
 
   // Kills are credited to however the killing blow arrived.
@@ -141,6 +145,9 @@ export function playRun(seed: number, talismans: string[] = []): RunRecord {
   record.skipped = Object.values(state.tally.rewardsSkipped).reduce((a, b) => a + b, 0);
   record.deck = state.drawPile.length + state.hand.length + state.discardPile.length;
   record.talismans = state.talismans.filter((id) => !talismans.includes(id));
+  record.coinsEarned = state.tally.coinsEarned;
+  record.coinsSpent = state.tally.coinsSpent;
+  record.bought = { ...state.tally.bought };
   return record;
 }
 

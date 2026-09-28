@@ -81,9 +81,10 @@ describe('run events', () => {
     settle(game);
 
     expect(of(game, 'enemy_killed')).toEqual([
-      { type: 'enemy_killed', enemy: 'bug', guardian: false, row: foe.row, by: 'caden' },
+      { type: 'enemy_killed', enemy: 'bug', guardian: false, row: foe.row, by: 'caden', coins: 5 },
     ]);
     expect(game.state.tally.kills).toEqual({ bug: 1 });
+    expect(game.state.tally.coinsEarned).toBe(5);
 
     // Now let a wolf finish him.
     const wolf = adjacentFoe(game, 'wolf');

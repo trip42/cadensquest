@@ -3,6 +3,7 @@
    Everything needed to resume a run lives here, and everything here is
    serialisable — the map is not stored, only the seed it grew from. */
 
+import type { Shop } from "./shop";
 import { cardDef, STARTING_DECK } from "./cards/definitions";
 import type { CardInstance } from "./cards/types";
 import type { SeqCue } from "./cues";
@@ -50,6 +51,9 @@ export interface TerrainLayer {
    *  `out` of the last one, ending the run. Portals never run out, and take
    *  only the player. */
   portal?: 'down' | 'out';
+  /** A floor's shop: step on to trade. Never runs out; takes only the
+   *  player, and only in his own phase. */
+  shop?: true;
 }
 
 /** Effects waiting to land on whoever played them: a Later, with its
@@ -104,6 +108,16 @@ export interface GameState {
   pendingRewards: Reward[];
   /** The one being chosen now, if any. */
   activeReward: ActiveReward | null;
+
+  /** Dropped by enemies as they fall, spent in shops. */
+  coins: number;
+  /** This floor's shop, once its chunk has been reached. */
+  shop: Shop | null;
+  /** The player is standing in the shop, trading: play holds, as for a
+   *  reward. */
+  shopOpen: boolean;
+  /** Removals bought this run: each one costs more. */
+  removalsBought: number;
 
   /** Chunks that have already had their enemies placed. */
   spawnedChunks: number[];
@@ -229,6 +243,10 @@ export function createGame(seed: number): Game {
     talismans: [],
     pendingRewards: [],
     activeReward: null,
+    coins: 0,
+    shop: null,
+    shopOpen: false,
+    removalsBought: 0,
     spawnedChunks: [],
     gates: [],
     terrain: {},

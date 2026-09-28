@@ -13,7 +13,7 @@
    far to walk, what to take from a reward. Nothing in the rules is bent. */
 
 import {
-  amountValues, canPlay, chooseCardReward, discardForMovement, endPlayerPhase, gemTargets, isBusy, isValidTarget,
+  amountValues, buyShopItem, canPlay, chooseCardReward, discardForMovement, endPlayerPhase, gemTargets, isBusy, isValidTarget, leaveShop, shopPrice,
   movePlayerTo, playCard, playerMoveOptions, removeCardReward, skipReward, socketGemReward, takeTalismanReward, terrainAt, tick,
 } from '../app/game/actions';
 import { cardDef, cardMovement } from '../app/game/cards/definitions';
@@ -102,6 +102,11 @@ function goalOf(game: Game): Cell {
       const [row, col] = key.split(',').map(Number);
       return { row: row!, col: col! };
     }
+  }
+  // The shop, on the way, if there is anything there it can pay for.
+  const shop = state.shop;
+  if (shop && !shop.visited && shop.items.some((item, i) => !item.sold && state.coins >= (shopPrice(state, i) ?? Infinity))) {
+    return { row: shop.row, col: shop.col };
   }
   const gate = state.gates[0];
   const guardian = gate && state.entities.find((entity) => entity.id === gate.guardianId && !entity.dead);
@@ -415,6 +420,29 @@ function finalMove(game: Game): void {
 
 /* ------------------------------ rewards ---------------------------------- */
 
+/* Shopping: the dearest thing it can afford, by a rough order of worth —
+   a talisman, a removal while there are Strikes to spare, a card by its
+   rarity, a gem — until nothing more is affordable. Then out. */
+function shop(game: Game): void {
+  const { state } = game;
+  const strikes = gemTargets(state).filter((card) => card.defId === 'strike').length;
+  const worth = (i: number): number => {
+    const item = state.shop!.items[i]!;
+    if (item.kind === 'talisman') return 5;
+    if (item.kind === 'removal') return strikes >= 3 ? 4 : 0;
+    if (item.kind === 'gem') return 2;
+    return { starter: 0, normal: 1, rare: 3, mythic: 4.5 }[cardDef(item.id!).rarity];
+  };
+  for (;;) {
+    const choices = state.shop!.items
+      .map((item, i) => ({ i, item, price: shopPrice(state, i) ?? Infinity }))
+      .filter(({ i, item, price }) => !item.sold && price <= state.coins && worth(i) > 0)
+      .sort((a, b) => worth(b.i) - worth(a.i));
+    if (!choices.length || !buyShopItem(game, choices[0]!.i)) break;
+  }
+  leaveShop(game);
+}
+
 function claim(game: Game, random: () => number): void {
   const { state } = game;
   const active = state.activeReward;
@@ -476,6 +504,10 @@ export function playTurn(game: Game, random: () => number, hooks: BotHooks = {})
   let walked = false;
   for (let step = 0; step < 60; step += 1) {
     if (state.phase !== 'player' || state.turn !== turn) break;
+    if (state.shopOpen) {
+      shop(game);
+      continue;
+    }
     if (state.activeReward) {
       claim(game, random);
       settle(game);
