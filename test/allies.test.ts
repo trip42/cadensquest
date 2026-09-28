@@ -84,19 +84,18 @@ describe('Tame', () => {
 
   it('never turns a guardian, and stops at the ally limit', () => {
     const game = quiet();
-    const [a, b, c] = cellsAt(game, 2);
+    const [a, ...rest] = cellsAt(game, 2);
     const warden = place(game, 'warden', a!);
     warden.hp = 1;
-    const first = place(game, 'bug', b!);
-    const second = place(game, 'bug', c!);
-    first.hp = second.hp = 1;
+    // One more than there is room for.
+    const bugs = rest.slice(0, stat(game.state, 'maxAllies') + 1).map((cell) => place(game, 'bug', cell));
+    for (const bug of bugs) bug.hp = 1;
     define('tame_c', [TAME]);
     play(game, 'tame_c', entityCell(warden));
     expect(warden.faction).toBe('enemy');
-    play(game, 'tame_c', entityCell(first));
-    play(game, 'tame_c', entityCell(second));
+    for (const bug of bugs) play(game, 'tame_c', entityCell(bug));
     expect(allies(game.state)).toHaveLength(stat(game.state, 'maxAllies'));
-    expect(second.faction).toBe('enemy');
+    expect(bugs.at(-1)!.faction).toBe('enemy');
   });
 
   it('then Mend heals the one it just tamed', () => {

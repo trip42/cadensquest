@@ -7,7 +7,7 @@ import { type Content, loadContent, validateContent } from '~/game/content';
 import type { Effect } from '~/game/effects';
 import { entityCell } from '~/game/entities/types';
 import { type Cell, cellDistance, reachable } from '~/game/map/navigation';
-import { allies, createGame, type Game, makeCard, makeEntity, player, resetUids } from '~/game/state';
+import { allies, createGame, type Game, makeCard, makeEntity, player, resetUids, stat } from '~/game/state';
 import { writeCardText } from '~/utils/contentText';
 import { readContentFiles } from './setup';
 
@@ -75,9 +75,9 @@ describe('summoning for the player', () => {
   it('takes a place among the allies you can keep', () => {
     const game = quiet();
     define('call', [WOLF]);
-    play(game, 'call', cellsAt(game, 2)[0]!);
-    play(game, 'call', cellsAt(game, 2)[1]!);
-    expect(allies(game.state)).toHaveLength(1);
+    const room = stat(game.state, 'maxAllies');
+    for (const cell of cellsAt(game, 2).slice(0, room + 1)) play(game, 'call', cell);
+    expect(allies(game.state)).toHaveLength(room);
   });
 
   it('can take its health from X', () => {

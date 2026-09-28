@@ -28,7 +28,7 @@ export const BASE_STATS = {
   /** Added to the block a card grants. */
   blockBonus: 0,
   /** How many tamed or summoned creatures can fight beside you at once. */
-  maxAllies: 1,
+  maxAllies: 2,
   /** Damage for each tile of knockback left when a wall or a creature
    *  stops the one knocked back — to it, and to whatever it hit. */
   slamDamage: 2,

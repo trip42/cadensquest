@@ -679,7 +679,7 @@ phase, are hit by terrain, block the way but cause no zone of control, and
 drop nothing. They are drawn with a pulsing cyan ring, a green bar and a
 cyan-edged intent chip; their tooltip says ALLY. `tame` (amount = the
 health threshold) turns the targeted enemy if its health is at most that,
-it is not a guardian, and `allies < maxAllies` (a stat, base 1); it gives up
+it is not a guardian, and `allies < maxAllies` (a stat, base 2); it gives up
 its reward and draws an intent at once. A card that *opens* with Tame only
 lights up enemies it can turn (`canTame`). `mend` heals the targeted
 creature on the actor's side — an ally, or the enemy the same card just
