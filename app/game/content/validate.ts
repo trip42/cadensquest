@@ -239,6 +239,9 @@ function crossCheck(content: Content): ContentIssue[] {
       if ((effect.kind === 'push' || effect.kind === 'pull') && card.targeting !== 'enemy' && card.targeting !== 'ally') {
         warn('cards', card.id, `${EFFECT_INFO[effect.kind].label} needs the card to target a creature`, `effects[${i}].kind`);
       }
+      if (effect.kind === 'command' && card.targeting !== 'ally') {
+        warn('cards', card.id, 'Command needs the card to target an ally', `effects[${i}].kind`);
+      }
       if (effect.kind === 'tame' && card.targeting !== 'enemy') {
         warn('cards', card.id, 'Tame needs the card to target an enemy', `effects[${i}].kind`);
       }

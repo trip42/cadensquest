@@ -1117,6 +1117,16 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
     case 'echo':
       if (isPlayer) state.echo += amount;
       break;
+    case 'command': {
+      // The ally's telegraphed card, queued to play out now, a step at a
+      // time as the enemy phase would — `tick` takes it in the player's.
+      const ally = target && entityAt(state, target.row, target.col);
+      if (!isPlayer || !ally || ally.dead || ally.faction !== 'ally' || !ally.intent) break;
+      const cardId = ally.intent.cardId;
+      state.queue.push(...intentDef(cardId).effects.map((_, index) => ({ entityId: ally.id, cardId, index, commanded: true as const })));
+      note(state, `${entityDef(ally.defId).name} acts at your command.`);
+      break;
+    }
     case 'flare':
       flare(game, actor, amount);
       break;
@@ -1726,14 +1736,21 @@ function resolveEnemy(game: Game, next: QueuedAction): void {
       goal,
     });
   }
-  if (next.index >= card.effects.length - 1) enemy.intent = null;
+  if (next.index >= card.effects.length - 1) {
+    // Played at the player's command: it draws its next card for the enemy
+    // phase. Otherwise its turn is done.
+    const cardId = next.commanded ? drawIntent(state, enemy) : null;
+    enemy.intent = cardId ? { cardId, label: intentDef(cardId).name } : null;
+  }
 }
 
 /** Returns true once the run is over, either way. */
 /* ------------------------------ shops ----------------------------------- */
 
-/** Play holds while a reward is being chosen or the shop is open. */
-const holding = (state: GameState): boolean => !!state.activeReward || state.shopOpen;
+/** Play holds while a reward is being chosen, the shop is open, or an ally
+ *  is acting at the player's command. */
+const holding = (state: GameState): boolean =>
+  !!state.activeReward || state.shopOpen || (state.phase === 'player' && state.queue.length > 0);
 
 /** Is this tile the floor's shop? */
 const shopUnder = (state: GameState, cell: Cell): boolean =>
@@ -2061,6 +2078,12 @@ export function tick(game: Game, dt: number): void {
       fire(game, 'enemyPhaseEnd');
       beginTurn(game);
     }
+    return;
+  }
+
+  // An ally acting at the player's command, one effect at a time.
+  if (state.phase === 'player' && state.queue.length) {
+    resolveEnemy(game, state.queue.shift()!);
     return;
   }
 

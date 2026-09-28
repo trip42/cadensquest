@@ -104,6 +104,9 @@ export interface QueuedAction {
   cardId: string;
   /** Which of the card's effects this is. */
   index: number;
+  /** Played now, in the player's phase, at his command: the ally draws
+   *  another card once it is done. */
+  commanded?: true;
 }
 
 export interface GameState {

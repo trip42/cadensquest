@@ -494,7 +494,7 @@ card is data; a new verb or shape is code (checklists at the end).
 **Seven shapes.** A **simple** effect is `{ kind, amount }` with a verb
 from `EFFECT_INFO`: `damage`, `block`, `loseBlock`, `heal`, `power`,
 `losePower`, `movement`, `energy`, `draw`, `step` (Leap), `advance`, `tame`,
-`mend`, `push` (Knockback), `pull`, `rekindle`, `flare`, `echo`.
+`mend`, `push` (Knockback), `pull`, `rekindle`, `flare`, `echo`, `command`.
 **Terrain** is `{ kind: "terrain", rounds, colour, effects: [simple...],
 enter?, exit?, radius? }`.
 **Summon** is `{ kind: "summon", entity, amount, rounds? }`. **Area** is
@@ -704,6 +704,13 @@ its reward and draws an intent at once. A card that *opens* with Tame only
 lights up enemies it can turn (`canTame`). `mend` heals the targeted
 creature on the actor's side — an ally, or the enemy the same card just
 tamed (`heal` only ever heals the actor). Cards can target `ally`.
+
+**Command.** `command` (the player's, on an ally-targeted card) queues
+the targeted ally's telegraphed card to play now, one effect at a time, in
+the player's phase: `tick` takes `state.queue` there too, and `holding()`
+holds play until it is empty. Entries carry `commanded`, so on its last
+effect the ally draws its next card for the enemy phase rather than
+standing idle.
 
 **Summon.** Brings an enemy definition (never a guardian) into play on the
 summoner's side — an ally for the player, another enemy for an enemy.

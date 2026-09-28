@@ -250,6 +250,7 @@ function simplePlayerPhrase(effect: SimpleData, range: number): string {
       case 'energy': return `gain ${n} energy`;
       case 'draw': return `draw ${n} cards`;
       case 'step': return `leap to a cell within ${range}`;
+      case 'command': return range <= 1 ? 'an adjacent ally plays its card now' : `an ally within ${range} plays its card now`;
       case 'rekindle': return `every fire burns ${n} rounds longer`;
       case 'echo': return `the next ${n} cards you play this turn each happen twice`;
       case 'flare': return `every fire flares, burning whoever stands in one again for ${n} more`;
@@ -268,6 +269,7 @@ function simplePlayerPhrase(effect: SimpleData, range: number): string {
       case 'energy': return `gain energy equal to ${n}`;
       case 'draw': return `draw cards equal to ${n}`;
       case 'step': return `leap to a cell within ${range}`;
+      case 'command': return range <= 1 ? 'an adjacent ally plays its card now' : `an ally within ${range} plays its card now`;
       case 'rekindle': return `every fire burns longer by rounds equal to ${n}`;
       case 'echo': return `the next cards you play this turn happen twice, as many as ${n}`;
       case 'flare': return `every fire flares, burning whoever stands in one again for ${n} more`;
@@ -285,6 +287,7 @@ function simplePlayerPhrase(effect: SimpleData, range: number): string {
     case 'energy': return `gain ${n} energy`;
     case 'draw': return n === 1 ? 'draw a card' : `draw ${n} cards`;
     case 'step': return `leap to a cell within ${range}`;
+    case 'command': return range <= 1 ? 'an adjacent ally plays its card now' : `an ally within ${range} plays its card now`;
     case 'rekindle': return `every fire burns ${plural(n, 'round')} longer`;
     case 'echo': return n === 1 ? 'the next card you play this turn happens twice' : `the next ${n} cards you play this turn each happen twice`;
     case 'flare': return n ? `every fire flares, burning whoever stands in one again for ${n} more` : 'every fire flares, burning whoever stands in one again now';

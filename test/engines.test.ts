@@ -158,3 +158,28 @@ describe('oil', () => {
     expect(validateContent(content as never).issues.filter((issue) => issue.level === 'error')).toEqual([]);
   });
 });
+
+describe('Command', () => {
+  it('has an ally play its card now, in the player\'s phase, then draw another', () => {
+    const game = quiet();
+    const self = player(game.state);
+    const here = entityCell(self);
+    const [near, next] = [...reachable(game.world, here, 1).values()].filter((entry) => entry.cost === 1).map((entry) => entry.cell);
+    const wolf = makeEntity('wolf', near!.row, near!.col);
+    wolf.faction = 'ally';
+    const foeCell = [...reachable(game.world, near!, 1).values()].find((entry) => entry.cost === 1
+      && !(entry.cell.row === here.row && entry.cell.col === here.col) && !(entry.cell.row === next?.row && entry.cell.col === next?.col))!.cell;
+    const foe = makeEntity('bug', foeCell.row, foeCell.col);
+    foe.hp = foe.maxHp = 99;
+    game.state.entities.push(wolf, foe);
+    wolf.intent = { cardId: 'wolf_lunge', label: 'Lunge' };
+    play(game, define('sic_t', [{ kind: 'command', amount: 0 }], { targeting: 'ally', range: 4 }), near!);
+    // Play holds while it acts.
+    expect(play(game, define('noop_t', [{ kind: 'draw', amount: 0 }]))).toBe(false);
+    for (let i = 0; i < 600 && game.state.queue.length; i += 1) tick(game, 1 / 60);
+    for (let i = 0; i < 120; i += 1) tick(game, 1 / 60);
+    expect(game.state.phase).toBe('player');
+    expect(foe.hp).toBeLessThan(99);
+    expect(wolf.intent).not.toBeNull();
+  });
+});

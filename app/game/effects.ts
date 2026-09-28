@@ -52,7 +52,10 @@ export type EffectKind =
   | 'flare'
   /** The next this-many cards the player plays this turn each happen
    *  twice: effects and gems, with X spent and read once. */
-  | 'echo';
+  | 'echo'
+  /** The targeted ally plays the card it telegraphed now, in the player's
+   *  phase, then draws another for the enemy phase. The number is unused. */
+  | 'command';
 
 /* How much. Either a fixed number, or worked out from something about the
    actor at the moment the effect happens: `{ of: 'block' }` is "as much as
@@ -467,6 +470,7 @@ export const EFFECT_INFO: Record<EffectKind, { label: string; help: string; play
   rekindle: { label: 'Rekindle', help: 'Every fire on the floor burns this many rounds longer — whoever lit it.', player: true, enemy: true, tile: false },
   flare: { label: 'Flare', help: 'Every fire on the floor hits whoever stands in it now, for its damage plus this much — whoever lit it. It does not use up that fire\'s hit for the round.', player: true, enemy: true, tile: false },
   echo: { label: 'Echo', help: 'The next this-many cards you play this turn each happen twice — their gems too. X is spent and read once.', player: true, enemy: false, tile: false },
+  command: { label: 'Command', help: 'The targeted ally plays the card it is showing now, then draws another to play in the enemy phase. The number is unused.', player: true, enemy: false, tile: false },
 };
 
 export const EFFECT_KINDS = Object.keys(EFFECT_INFO) as EffectKind[];
@@ -627,6 +631,7 @@ export function describeEffect(effect: Effect): string {
     case 'push': return scaled ? `knock the target back equal to ${n}` : `knock the target back ${n}`;
     case 'pull': return scaled ? `pull the target in equal to ${n}` : `pull the target in ${n}`;
     case 'rekindle': return scaled ? `every fire burns longer by ${n} rounds` : `every fire burns ${n} rounds longer`;
+    case 'command': return 'the targeted ally plays its card now';
     case 'echo': return `the next ${n} card${n === '1' ? '' : 's'} played this turn happen twice`;
     case 'flare': return scaled ? `every fire flares, ${n} hotter` : `every fire flares${n === '0' ? '' : `, ${n} hotter`}`;
   }
