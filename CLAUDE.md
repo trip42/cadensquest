@@ -102,6 +102,7 @@ app/game/            the simulation — no Vue, no DOM (see the rule above)
                        types (Cost, Targeting, Rarity), energySpent
   entities/            the player's definition, the ENTITIES registry, clips
   gems.ts talismans.ts rewards.ts   registries and reward rolling
+  shop.ts              a floor's shop: stock (rollStock), SHOP_PRICES
   telemetry.ts         GameEvent, record(), the run tally
   cues.ts              what just happened, for the screen and speakers: cue()
   sandbox.ts           trials: a run with one thing arranged (?try=)
@@ -132,7 +133,7 @@ app/pages/index.vue  the game screen: full-bleed map, HUD floating over it
 app/pages/editor.vue the content editor (dev only)
 app/pages/sounds.vue the sound board (dev only)
 app/components/      MapStage (canvas), GameCard, HandBar, RewardModal,
-                     TalismanRail, EnemyTip, TileTip, GroundLines
+                     ShopModal, TalismanRail, EnemyTip, TileTip, GroundLines
 app/components/editor/  the editor's forms (Form*), EffectList (nested for
                      terrain), AmountInput, DeckBuilder, pickers, Preview
 app/components/dev/  SoundScope (a sound's waveform and spectrogram)
@@ -252,14 +253,15 @@ of a dungeon. `state.floor` is the zone's index.
   `descend` either wins the run (the `out` portal of the last floor — the
   only way to win; `checkEnding` only knows defeat) or calls
   `enterFloor(next)`, records progress and calls `beginTurn`. That is a
-  fresh turn: the unspent hand is discarded, and the floor left behind gets
-  no enemy phase.
+  fresh turn: the unspent hand is kept and topped up like any other turn's,
+  and the floor left behind gets no enemy phase.
 - **`enterFloor`** bounds the world, puts the player at `arrivalOn` (on the
   trail, `START_ROW` rows in) and his allies on the nearest free tiles
   within four steps — any that do not fit are left behind — and clears the
-  old floor: enemies, terrain, hits, gates, queue. What he carries
-  stays: deck, health, talismans, pending rewards. Tests use it to start on
-  any floor.
+  old floor: enemies, terrain (running every mark's `exit` first), hits,
+  gates, shop, queue. What he carries stays: deck, hand, health, coins,
+  talismans, pending rewards, and his and his allies' Laters. Tests use it
+  to start on any floor.
 
 The HUD's ROW is floor-relative (`view.row` of `view.lastRow`), with FLOOR
 n/N beside it. The renderer snaps the camera rather than easing it when the
@@ -302,9 +304,9 @@ hand was thrown away every turn.)
 
 **The player phase ends itself** once there is nothing left to spend: an
 empty hand and no banked movement. With cards kept in hand it never ends by
-itself — keeping them is a choice, made by pressing END PHASE. It waits for animations (`isBusy`) and
-for any won reward to be claimed first, since claiming one is still
-something to do. `tick` handles it, so the END PHASE button is for leaving
+itself — keeping them is a choice, made by pressing END PHASE. It waits for
+animations (`isBusy`), for any won reward to be claimed and for an open
+shop to be left, since those are still something to do. `tick` handles it, so the END PHASE button is for leaving
 early rather than for finishing.
 
 **Movement is a stat.** Each refresh restores `movePerTurn` (3), and cards,
@@ -447,7 +449,8 @@ card is data; a new verb or shape is code (checklists at the end).
 from `EFFECT_INFO`: `damage`, `block`, `loseBlock`, `heal`, `power`,
 `losePower`, `movement`, `energy`, `draw`, `step` (Leap), `advance`, `tame`,
 `mend`, `push` (Knockback), `pull`.
-**Terrain** is `{ kind: "terrain", rounds, colour, effects: [simple...] }`.
+**Terrain** is `{ kind: "terrain", rounds, colour, effects: [simple...],
+enter?, exit?, radius? }`.
 **Summon** is `{ kind: "summon", entity, amount, rounds? }`. **Area** is
 `{ kind: "area", radius, colour, affects?, effects: [simple...] }`.
 **Later** is `{ kind: "later", rounds, effects: [simple...] }`. Code tells
@@ -661,9 +664,10 @@ union changes — follow its errors.
 
 A won reward queues in `pendingRewards` and is brought up by `tick` only
 when the player phase is idle — never mid-enemy-stride. While
-`activeReward` is set, `playCard`, `movePlayerTo`, `discardForMovement` and
-`endPlayerPhase` all refuse, so the modal is not the only thing holding the
-board.
+`activeReward` is set (or a shop is open — both go through `holding()`),
+`playCard`, `movePlayerTo`, `discardForMovement` and `endPlayerPhase` all
+refuse, so the modal is not the only thing holding the board. The flip side:
+if the modal fails to render, play looks frozen (see the ShopModal gotcha).
 
 Claiming: `chooseCardReward` (goes on **top** of the draw pile — `drawOne`
 pops from the end), `socketGemReward`, `takeTalismanReward`,
@@ -678,6 +682,22 @@ turn removal off too:** overrides merge with the defaults, so the guardians'
 content says `removal: 0`.
 
 ## Coins and shops
+
+**Why one currency and one kind of shop.** Two other designs were weighed
+and rejected on fun:
+
+- **Points per reward kind** (card points, gem points and so on, paying out
+  at a target). A bar that fills and pops a reward involves no decision.
+  It also smooths away the drop's luck, and undercuts reading an enemy's
+  pill to choose which fight is worth it.
+- **Shops that each sell one kind.** The fun of a shop is weighing unlike
+  things against each other (a removal or a talisman?). A card-only shop
+  just asks "which card?", and a random layout would sometimes put the
+  wrong one in your path. If route choice is wanted later, tilt a unified
+  shop's stock by zone or fork instead.
+
+Item drops stay as they were, alongside coins. Whether to make them rarer,
+so more of the choosing happens in the shop, is an open balance question.
 
 `game/shop.ts`. Every enemy carries `coins` (content, optional, 0 if left
 out); they go into `state.coins` as it falls — none from a summoned one —
@@ -755,6 +775,24 @@ which is the true far-to-near order in this projection. Characters fold into
 the same order by interpolated depth. Health bars and intent chips are drawn
 in a **separate pass afterwards**, or whoever stands in front paints over
 them.
+
+**Known and left as is: chips cover the enemy behind.** An enemy's intent
+chip and reward pill stack about 32 units above its head, which is where
+the next enemy back stands on screen. And `pick` tests tile tops only, never
+creatures or chips, so clicking an enemy's body lands on the tile behind
+it; you have to click its feet. The user chose to leave it for now. If it
+comes back, the agreed order was:
+
+1. Let `pick` try creature bodies first (the overlay already records each
+   one's feet and head every frame), frontmost winning.
+2. Fold the reward pill into the intent chip as a small coloured badge.
+3. Only if still needed: fade chips while aiming a card, or draw anything
+   standing in front of a valid target translucent, with the target's
+   outline over it (the "x-ray" approach).
+
+Map rotation was rejected. It touches draw order, picking, the camera,
+sprite facing and the art spec, and only moves the occlusion rather than
+removing it.
 
 ## Sprites
 
@@ -866,6 +904,7 @@ something happens:
 - a tame, a summon, a shove (knockback or pull), a mark, a burst
 - a card played, a discard, each step
 - a portal opening, a guardian waking, a descent, a turn
+- coins dropping, a shop opening or closing, and a buy
 - a reward coming up and being claimed, and the end of the run
 
 As with telemetry, the rules never know who is listening.
@@ -978,16 +1017,20 @@ is seen.
 
 - **Numbers.** Damage is red on the player's side, white on enemies, and
   yellow when heavy. Blocked damage reads "N BLOCKED" in blue. Gains read
-  "+N", "+N BLOCK", "+N POWER" and "TAMED". They start just above the health
-  bar, so it is never hidden, and stack per tile.
+  "+N", "+N BLOCK", "+N POWER" and "TAMED"; power lost reads "−N POWER" in
+  grey. "+N COINS" rises in yellow as an enemy falls (`impactOf` times it by
+  the fall just before it). They start just above the health bar, so it is
+  never hidden, and stack per tile.
 - **A flash.** The sprite's silhouette, in one colour, laid over it. The
   cut-outs are cached per frame and colour, and shrunk to at most 192px.
 - **Particles.** Sparks; shards in the creature's colour, lightened (an
   average colour reads dark); rising motes; step dust.
-- **Rings** on the ground, for a mark, summon, tame, fall or portal.
+- **Rings** on the ground, for a mark, summon, tame, fall or portal, and
+  two red ones for a guardian waking.
 - **Projectiles** for ranged blows: cool for the player's side, warm for
   enemies.
-- **Washes** over the whole screen: white going down a floor, red on death.
+- **Washes** over the whole screen: white going down a floor, red on death,
+  dark when a guardian wakes.
 
 **Shake** is trauma-based: `trauma` runs 0..1, the offset goes with its
 square, and it settles at 1.6 a second. It is one translate over the map;
@@ -1009,9 +1052,11 @@ turning opposite ways, and sparks climbing the beam.
 
 - The HP meter jolts when hurt and glows when healed, 90ms after the value
   changes, which is contact.
-- The block badge and the phase tag pop. They are keyed on their values, so
-  the animation runs again on each change.
-- A banner names each floor on arrival.
+- The block badge, the phase tag and the COINS count pop. They are keyed on
+  their values, so the animation runs again on each change.
+- A banner names each floor on arrival. A guardian waking gets a red one
+  in the same place ("THE GUARDIAN WAKES", its name at 48px), keyed on the
+  cue's seq, and never over the floor's own.
 - A red frame beats round the screen at 30% health or less.
 - The ending screen fades in after 0.7s.
 
@@ -1077,6 +1122,12 @@ HUD shows goes into the `view` snapshot, and its signature.
 
 The tooltips (`enemyTip` — enemies and allies — and `tileTip`) are tracked
 every frame from the hover cell, but only written when something changed.
+
+**A moment is not state.** Something the HUD should announce once, like a
+guardian waking, has no field to snapshot. The store reads it off the cue
+feed in `sync` (`listen`, remembering the last seq heard, reset on a new
+run) and publishes it as `announce`, which the page's banner watches by
+seq. Use the same pattern for any other one-off announcement.
 
 `store.run` counts runs, and the page keys `MapStage` on it: the renderer is
 built around one game object, so a new run (NEW RUN, or coming back from
@@ -1178,6 +1229,19 @@ minutes); `npm run sim -- sim/final.sim.ts` runs one. Reports land in
     from its own distance field (`reachable` leaves out where it starts);
     and camping on its own healing mark instead of taking the portal.
   - **A stall-breaker** drops caution after 4 turns without progress.
+  - **It throws its leftover hand away** before ending a turn
+    (`tidyHand`; `SIM_KEEP=none`, the default). The game keeps unspent
+    cards now, but a bot that kept them, even only its rares, lost about 12
+    points of win rate hoarding cards it had no use for. Discarding matches
+    the old rule, so scorecards stay comparable with earlier ones.
+    `SIM_KEEP=rare` or `all` is there to experiment with.
+  - **It plays for this turn.** It cannot save a burst of power for a
+    turn with several attacks, time a price paid later (Blood Pact), or
+    build a combo across turns in a kept hand. So Battle Fury, Frenzy X and
+    Blood Pact score badly for it whatever their numbers. Judge cards like
+    those, and the kept hand itself, by playing.
+  - **It shops** when it can afford something (`shop`, see **Coins and
+    shops**), and values standing on a mark whose `enter` gives power.
 - **The recorder** (`run.ts`) taps the cue feed as cues are pushed, since the
   feed only keeps the last 64 and an enemy phase can push more. Kills are
   credited to how the killing blow arrived.
@@ -1194,6 +1258,19 @@ minutes); `npm run sim -- sim/final.sim.ts` runs one. Reports land in
   the same seeds (`seeds()`), so differences come from the variant, not the
   dice. 150 runs give about ±8% on a win rate; `final` (the committed
   game's scorecard, the number to beat) uses 300.
+- **Where balance stood on 2026-09-27.** Before shops (`0e81628`), `final`
+  scored 7 of 11, with 26% of runs won against a 35–65% target and 75% of
+  deaths on floor 2 against a limit of 60%. With shops (`1cbc4de`), the
+  same seeds win 34%; the full scorecard has not been re-run since. Since
+  FUN.md's last write-up (10 of 11, 50%) three things moved it:
+  - Rallying Ground and the Second Wind trim, about 16 points together.
+    Second Wind was trimmed after testing it as two extra copies in the
+    deck; as an ordinary reward it matters more, so heal 8 / draw 2 is
+    worth trying again.
+  - Guardians waking and closing in, the Wyrm most of all.
+  - Shops then gave back about 8 points.
+
+  FUN.md does not have these numbers yet.
 
 ## Verifying UI work
 
@@ -1220,6 +1297,18 @@ handle `window.__game` (`store`, `renderer`, `game`, `makeEntity`,
   `player` again
 - zoom in on something: `Page.captureScreenshot` with a `clip` and
   `scale: 2`; take two a moment apart to see motion
+- walk somewhere: `store.commitCell({ row, col })` with nothing selected,
+  which takes the real path, rather than setting `motion` by hand
+
+**Rows outside the current floor are open air** (`World.setBounds`; floor
+0 is rows 0–47). A script that hunts along a row for footing must stop at
+the map's width, or on a row off the floor it spins for ever and hangs the
+page, which looks exactly like a game bug.
+
+**A fresh dev server can hide what the user sees.** The one a check starts
+has every component registered; theirs (usually port 3000) may not (see
+the ShopModal gotcha). When they report something the check cannot
+reproduce, load their server too and read its console.
 
 Anything the editor saves during a browser check lands in `content/` —
 undo it before committing.

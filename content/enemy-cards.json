@@ -244,6 +244,10 @@
       {
         "kind": "block",
         "amount": 8
+      },
+      {
+        "kind": "damage",
+        "amount": 3
       }
     ]
   },
@@ -282,11 +286,23 @@
     "name": "Scales",
     "enabled": true,
     "range": 3,
-    "text": "Gains 10 block.",
+    "text": "Gains 10 block and summons 2 Ember Whelps",
     "effects": [
       {
         "kind": "block",
         "amount": 10
+      },
+      {
+        "kind": "summon",
+        "entity": "whelp",
+        "amount": 6,
+        "rounds": 2
+      },
+      {
+        "kind": "summon",
+        "entity": "whelp",
+        "amount": 6,
+        "rounds": 6
       }
     ]
   },
