@@ -19,9 +19,7 @@ export const FAMILIES: Record<string, string[]> = {
   engines: ['echo', 'entrench'],
 };
 
-/** The first batch to switch on: cards that held or raised the win rate
- *  alone in the card study, one to start each of three families. */
-export const FIRST_BATCH = ['kindle', 'focus', 'twin_fangs', 'pack_tactics'];
+
 export const NEW_CARDS = Object.values(FAMILIES).flat();
 export const NEW_TALISMANS = ['brimstone', 'tinderbox', 'salamander_scale', 'beast_whistle', 'iron_knuckles', 'pyre'];
 export const NEW_GEMS = ['cinder'];

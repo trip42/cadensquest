@@ -21,11 +21,12 @@ import { cardDef, cardMovement } from '../app/game/cards/definitions';
 import { intentDef } from '../app/game/cards/intents';
 import { amountOf, isArea, isSummon, isTerrain, readsPower } from '../app/game/effects';
 import type { Entity } from '../app/game/entities/types';
-import { GEM_SLOTS } from '../app/game/gems';
+import { GEM_SLOTS, gemDef } from '../app/game/gems';
 import { type Cell, cellDistance, reachable } from '../app/game/map/navigation';
 import { gateRowOf } from '../app/game/map/tiles';
 import { resolveStat } from '../app/game/stats';
 import { allies, enemies, type Game, type GameState, gemsOf, player, stat } from '../app/game/state';
+import { cardWorth } from './synergy';
 
 /** Seconds per tick when fast-forwarding animations. */
 const STEP = 0.1;
@@ -455,9 +456,23 @@ function finalMove(game: Game): void {
 
 /* ------------------------------ rewards ---------------------------------- */
 
+/* How the bot chooses cards: `combo` (the default) by what each combines
+   with in the deck it has (sim/synergy.ts), skipping a payoff with nothing
+   to set it up; `rarity`, the rarest, as it did before — for comparing
+   with scorecards made then (SIM_PICK). */
+const byRarity = (): boolean => process.env.SIM_PICK === 'rarity';
+
+/** What a card offered is worth to this deck. */
+function offerWorth(game: Game, defId: string): number {
+  const def = cardDef(defId);
+  if (byRarity()) return { starter: 0, normal: 1, rare: 3, mythic: 4.5 }[def.rarity];
+  return cardWorth(def, gemTargets(game.state));
+}
+
 /* Shopping: the dearest thing it can afford, by a rough order of worth —
-   a talisman, a removal while there are Strikes to spare, a card by its
-   rarity, a gem — until nothing more is affordable. Then out. */
+   a talisman, a removal while there are Strikes to spare, a card by what it
+   is worth to the deck, a gem — until nothing more is affordable. Then
+   out. */
 function shop(game: Game): void {
   const { state } = game;
   const strikes = gemTargets(state).filter((card) => card.defId === 'strike').length;
@@ -466,7 +481,7 @@ function shop(game: Game): void {
     if (item.kind === 'talisman') return 5;
     if (item.kind === 'removal') return strikes >= 3 ? 4 : 0;
     if (item.kind === 'gem') return 2;
-    return { starter: 0, normal: 1, rare: 3, mythic: 4.5 }[cardDef(item.id!).rarity];
+    return byRarity() ? offerWorth(game, item.id!) : offerWorth(game, item.id!) * 1.5;
   };
   for (;;) {
     const choices = state.shop!.items
@@ -496,21 +511,25 @@ function claim(game: Game, random: () => number): void {
     return;
   }
   if (active.reward.kind === 'gem') {
-    // Into the card played most, or failing that any card with room.
+    // Into the card played most, or failing that any card with room. A gem
+    // that marks a tile only works on a card aimed somewhere.
     const played = state.tally.cardsPlayed;
-    const room = gemTargets(state).filter((card) => gemsOf(card).length < GEM_SLOTS);
+    const marks = gemDef(active.reward.gemId).effects.some(isTerrain);
+    const room = gemTargets(state).filter((card) => gemsOf(card).length < GEM_SLOTS
+      && (!marks || ['enemy', 'cell'].includes(cardDef(card.defId).targeting)));
     const target = room.sort((a, b) => (played[b.defId] ?? 0) - (played[a.defId] ?? 0))[0];
     if (target) socketGemReward(game, target.uid);
     else skipReward(game);
     return;
   }
-  // Cards: the rarest, with a little chance in it, so runs differ.
-  const rank = { starter: 0, normal: 1, rare: 2, mythic: 3 } as const;
+  // Cards: the best for this deck, with a little chance in it, so runs
+  // differ. Nothing worth having — every offer a payoff with no setup — is
+  // left behind rather than clogging the deck.
   const offered = active.offered ?? [];
   const pick = offered
-    .map((card) => ({ card, score: rank[cardDef(card.defId).rarity] + random() * 1.5 }))
+    .map((card) => ({ card, worth: offerWorth(game, card.defId), score: offerWorth(game, card.defId) + random() * 1.5 }))
     .sort((a, b) => b.score - a.score)[0];
-  if (pick) chooseCardReward(game, pick.card.uid);
+  if (pick && (byRarity() || pick.worth > 0)) chooseCardReward(game, pick.card.uid);
   else skipReward(game);
 }
 

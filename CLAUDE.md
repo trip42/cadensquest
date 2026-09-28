@@ -1372,6 +1372,13 @@ minutes); `npm run sim -- sim/final.sim.ts` runs one. Reports land in
     It is read as the bot plays; the default is 1, so older scorecards
     stay comparable. It raises the committed game's real choices from
     about 27% to 38%, and costs about 2.6× the time.
+  - **It picks cards for the deck it has** (`sim/synergy.ts`, the default;
+    `SIM_PICK=rarity` is the old rarest-first pick). Each card's effects
+    say what it gives (fire, power, an ally, a shove) and needs; a payoff
+    with no setup in the deck is worth less than nothing and is skipped,
+    and a setup with payoffs waiting is worth more. It goes for rewards,
+    the shop, and a marking gem only onto a card aimed somewhere. It lifted
+    the committed game from 45% to 51% of runs won (with lookahead).
   - **The combo study** (`sim/combo*.sim.ts`) sets it for itself. The new
     COMBOS.md content is disabled in `content/`; it enables items per
     variant (`enable`). FUN.md, section 9, has what it found.
