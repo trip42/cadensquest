@@ -430,6 +430,33 @@ the 30% limit.
 2. playtest the fire family by hand, as Blood Pact was;
 3. enable one family at a time, with its setup and payoff together.
 
+**Then the bot learned to pick for its deck, and the cards went on.**
+The bot now prices a card by what it combines with in its deck
+(`sim/synergy.ts`), not by rarity. That alone took the game as it was from
+45% to 51% won. It did not rescue the new cards:
+
+| Variant (lookahead, synergy picks) | Score | Win | Most deaths on one floor |
+|---|---|---|---|
+| before the new cards | 10 | 51% | 56% |
+| one family on: power / pack / shove / movement / engines | 8–9 | 43–51% | 61–73% |
+| one family on: fire | 8 | **27%** | 65% |
+| all 24 new cards on — **now committed** | 8 | **22%** | **72%** |
+
+The plain `final` scorecard (no lookahead, 300 runs) is now **7 of 11,
+19% won**, with 74% of deaths on floor 2 and real choices at 25%.
+
+**The fire family is most of the loss**, and no one card is: leaving any
+single fire card out still wins 16–29%. Its runs take *less* damage in all
+(they end sooner) but die earlier, mostly on floor 2, because fire cards
+crowd out what kept the bot alive: with fire on, Second Wind is played 45%
+less, Mend 50% less, Rallying Ground 60% less. Its own fires burn it about
+70% more, a few points of health a run.
+
+The other families are close to level. To get back into the 35–65% band,
+the choices are to switch fire off again, make the fire cards stronger than
+what they displace (bigger numbers, or fire that spares its lighter), or
+make the run easier elsewhere.
+
 ---
 
 ## What is still wrong

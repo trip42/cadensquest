@@ -5,9 +5,9 @@ fall into, what each needs from the engine, and in what order to build them.
 
 Written September 2026. **Built on 2026-09-28:** every mechanic below
 (M1–M16; M10 was already done) is in the engine, and every card, gem and
-talisman is in `content/` — **disabled**, because switched on they cost a
-lot of win rate in the simulator. FUN.md, section 9, has the numbers and
-what to do before enabling a family. Every number is a starting point for
+talisman is in `content/`. The 24 cards are **enabled**; Cinder and the six
+talismans are not. Switched on, the cards cost a lot of win rate in the
+simulator, the fire family most of all: FUN.md, section 9, has the numbers. Every number is a starting point for
 the simulator, not a balanced value.
 
 ---

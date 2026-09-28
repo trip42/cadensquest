@@ -1379,9 +1379,10 @@ minutes); `npm run sim -- sim/final.sim.ts` runs one. Reports land in
     and a setup with payoffs waiting is worth more. It goes for rewards,
     the shop, and a marking gem only onto a card aimed somewhere. It lifted
     the committed game from 45% to 51% of runs won (with lookahead).
-  - **The combo study** (`sim/combo*.sim.ts`) sets it for itself. The new
-    COMBOS.md content is disabled in `content/`; it enables items per
-    variant (`enable`). FUN.md, section 9, has what it found.
+  - **The combo study** (`sim/combo*.sim.ts`) sets it for itself, and
+    switches content on per variant (`enable`). The COMBOS.md cards are
+    enabled; its gem and talismans are not. FUN.md, section 9, has what it
+    found: with the cards on, `final` scores 7 of 11 and 19% won.
   - **It throws its leftover hand away** before ending a turn
     (`tidyHand`; `SIM_KEEP=none`, the default). The game keeps unspent
     cards now, but a bot that kept them, even only its rares, lost about 12
