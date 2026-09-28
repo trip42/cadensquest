@@ -12,7 +12,7 @@ import type { Entity } from "./entities/types";
 import { floorRows, START_ROW, surfaceKind } from "./map/tiles";
 import { World } from "./map/world";
 import { createRng, type Rng, shuffle } from "./rng";
-import type { Element, TileEffect } from "./effects";
+import type { Element, TerrainEffect, TileEffect } from "./effects";
 import { emptyTally, type GameEvent, record, type RunTally } from "./telemetry";
 import type { Reward } from "./rewards";
 import { resolveStat, type StatKey, type StatModifier } from "./stats";
@@ -75,6 +75,16 @@ export interface Boon extends StatModifier {
   id: string;
   /** Rounds left, counting this one. It goes as a round begins with none. */
   rounds: number;
+}
+
+/** Tiles left behind being marked, for a few rounds: a trail, with its
+ *  mark's amounts fixed. */
+export interface Trail {
+  id: string;
+  actorId: string;
+  /** Rounds left, counting this one. It goes as a round begins with none. */
+  rounds: number;
+  mark: TerrainEffect;
 }
 
 /** A floor's guardian, standing on its last row. The portal off the floor
@@ -147,6 +157,8 @@ export interface GameState {
   later: LaterEntry[];
   /** The player's stats raised for a few rounds. */
   boons: Boon[];
+  /** Whoever is marking the tiles they leave, and with what. */
+  trails: Trail[];
   /** The floor the player is on — the index of its zone. Only its rows
    *  exist; the portal at its end leads to the next, and out of the last
    *  one wins the run. */
@@ -268,6 +280,7 @@ export function createGame(seed: number): Game {
     cueSeq: 0,
     later: [],
     boons: [],
+    trails: [],
     floor: 0,
     descending: false,
     queue: [],

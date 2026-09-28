@@ -42,7 +42,7 @@ import {
   tick,
 } from '~/game/actions';
 import { cardDef, cardMovement } from '~/game/cards/definitions';
-import { describeMark, describeTileEffect, nowText } from '~/game/effects';
+import { describeMark, describeTileEffect, nowText, type TileEffect } from '~/game/effects';
 import { joinText, mentions, type TextPart } from '~/game/text';
 import { cuesSince } from '~/game/cues';
 import { intentDef } from '~/game/cards/intents';
@@ -179,7 +179,8 @@ export interface GameView {
   power: number;
   /** The player's delayed effects still to come, soonest first. */
   upcoming: Array<{ rounds: number; text: string }>;
-  /** What lasts a few rounds more: boons on his stats, and how long. */
+  /** What lasts a few rounds more: boons on his stats and trails he is
+   *  laying, and how long. */
   lasting: Array<{ rounds: number; text: string }>;
   /** How far into the current floor the player is, and how far it goes. */
   row: number;
@@ -247,7 +248,12 @@ export const useGameStore = defineStore('game', () => {
       upcoming: state.later
         .filter((entry) => entry.actorId === state.playerId)
         .map((entry) => ({ rounds: entry.due - state.turn, text: entry.effects.map(describeTileEffect).join(', ') })),
-      lasting: state.boons.map((boon) => ({ rounds: boon.rounds, text: describeModifier(boon) })),
+      lasting: [
+        ...state.boons.map((boon) => ({ rounds: boon.rounds, text: describeModifier(boon) })),
+        ...state.trails
+          .filter((trail) => trail.actorId === state.playerId)
+          .map((trail) => ({ rounds: trail.rounds, text: `trail: ${describeMark(trail.mark.effects as TileEffect[])}` })),
+      ],
       row: self.row - floorRows(state.floor).first,
       lastRow: floorRows(state.floor).last - floorRows(state.floor).first,
       floor: state.floor + 1,
@@ -343,6 +349,7 @@ export const useGameStore = defineStore('game', () => {
       state.entities.length, enemies(state).length, state.log.length,
       state.later.map((entry) => `${entry.id}@${entry.due}`).join(','),
       state.boons.map((boon) => `${boon.id}@${boon.rounds}`).join(','),
+      state.trails.map((trail) => `${trail.id}@${trail.rounds}`).join(','),
       isBusy(state) ? 1 : 0, selectedUid.value ?? '',
       state.talismans.join(','),
       state.activeReward ? state.activeReward.reward.kind : '',

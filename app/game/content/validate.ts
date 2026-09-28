@@ -94,19 +94,24 @@ function crossCheck(content: Content): ContentIssue[] {
   const offSide = (kind: string, side: 'player' | 'enemy') =>
     kind === 'boon'
       ? side === 'enemy'
-      : kind !== 'terrain' && kind !== 'summon' && kind !== 'area' && kind !== 'later' && !EFFECT_INFO[kind as EffectKind][side];
+      : !['terrain', 'summon', 'area', 'later', 'trail'].includes(kind) && !EFFECT_INFO[kind as EffectKind][side];
   const labelOf = (kind: string) => (kind === 'boon' ? BOON_INFO.label : EFFECT_INFO[kind as EffectKind].label);
+
+  /** A mark's own amounts: its rounds, and each on its tile. */
+  const markAmounts = (effect: Extract<EffectData, { kind: 'terrain' }>, at: string) => [
+    { amount: effect.rounds, field: `${at}.rounds` },
+    ...(['effects', 'enter', 'exit'] as const).flatMap((list) => (effect[list] ?? [])
+      .map((tile, t) => ({ amount: tile.amount, field: `${at}.${list}[${t}].amount` }))),
+  ];
 
   /** Every amount in a list of effects, with where it sits — a terrain
    *  effect's rounds and the amounts on its tile count too. */
   const amountsIn = (effects: readonly EffectData[], at = 'effects') =>
     effects.flatMap((effect, i): Array<{ amount: AmountData; field: string }> =>
       effect.kind === 'terrain'
-        ? [
-          { amount: effect.rounds, field: `${at}[${i}].rounds` },
-          ...(['effects', 'enter', 'exit'] as const).flatMap((list) => (effect[list] ?? [])
-            .map((tile, t) => ({ amount: tile.amount, field: `${at}[${i}].${list}[${t}].amount` }))),
-        ]
+        ? markAmounts(effect, `${at}[${i}]`)
+        : effect.kind === 'trail'
+          ? [{ amount: effect.rounds, field: `${at}[${i}].rounds` }, ...markAmounts(effect.mark, `${at}[${i}].mark`)]
         : effect.kind === 'summon'
           ? [
             { amount: effect.amount, field: `${at}[${i}].amount` },
@@ -133,19 +138,22 @@ function crossCheck(content: Content): ContentIssue[] {
   /** A burst, and a Later, land their effects the same way, so the same
    *  verbs. */
   const checkTiles = (file: ContentFile, id: string, effects: readonly EffectData[], at = 'effects') => {
-    effects.forEach((effect, i) => {
+    effects.forEach((outer, i) => {
+      // A trail's mark is checked as any other mark.
+      const effect = outer.kind === 'trail' ? outer.mark : outer;
+      const here = outer.kind === 'trail' ? `${at}[${i}].mark` : `${at}[${i}]`;
       if (effect.kind !== 'terrain' && effect.kind !== 'area' && effect.kind !== 'later') return;
       const where = effect.kind === 'area' ? 'in a burst' : effect.kind === 'later' ? 'in a Later' : 'on a tile';
       const lists = effect.kind === 'terrain' ? (['effects', 'enter', 'exit'] as const) : (['effects'] as const);
       for (const list of lists) {
         ((effect as Extract<EffectData, { kind: 'terrain' }>)[list] ?? []).forEach((tile, t) => {
           if (!EFFECT_INFO[tile.kind].tile) {
-            error(file, id, `${EFFECT_INFO[tile.kind].label} cannot go ${where}`, `${at}[${i}].${list}[${t}].kind`);
+            error(file, id, `${EFFECT_INFO[tile.kind].label} cannot go ${where}`, `${here}.${list}[${t}].kind`);
           }
         });
       }
       if (effect.kind === 'terrain' && !effect.effects.length && !effect.enter?.length && !effect.exit?.length) {
-        error(file, id, 'a marked tile needs at least one effect', `${at}[${i}].effects`);
+        error(file, id, 'a marked tile needs at least one effect', `${here}.effects`);
       }
     });
   };

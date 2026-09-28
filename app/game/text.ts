@@ -24,6 +24,7 @@
      a burst           its radius; inside, what each creature caught gets
      a summon          its health
      a boon            how much it adds (or multiplies by)
+     a trail           its rounds; inside, its mark's tile effects
 
    This file knows only effects, so the validator — which the editor's save
    endpoint runs on the server too — can use it without the rules. What a
@@ -31,7 +32,7 @@
    `intentText` in actions.ts, which know the game. */
 
 import {
-  type Amount, amountOf, type AmountValues, describeAmount, type Effect, isArea, isBoon, isLater, isScaled, isSummon, isTerrain,
+  type Amount, amountOf, type AmountValues, describeAmount, type Effect, isArea, isBoon, isLater, isScaled, isSummon, isTerrain, isTrail,
   markEffects, stepValues,
 } from './effects';
 import type { StatKey } from './stats';
@@ -117,6 +118,9 @@ function numbered(effects: readonly Effect[]): Map<string, Numbered> {
       found.set(key, { amount: effect.amount, kind: 'health' });
     } else if (isBoon(effect)) {
       found.set(key, { amount: effect.add ?? effect.mul ?? 0, kind: boonKind(effect.stat) });
+    } else if (isTrail(effect)) {
+      found.set(key, { amount: effect.rounds, kind: 'rounds' });
+      inside(markEffects(effect.mark));
     } else {
       found.set(key, { amount: effect.amount, kind: effect.kind });
     }
@@ -153,6 +157,9 @@ function liveNumbers(effects: readonly Effect[], start: AmountValues, bonuses: B
       found.set(key, amountOf(effect.amount, values));
     } else if (isBoon(effect)) {
       found.set(key, effect.add === undefined ? effect.mul ?? 0 : amountOf(effect.add, values));
+    } else if (isTrail(effect)) {
+      found.set(key, amountOf(effect.rounds, values));
+      inside(markEffects(effect.mark));
     } else {
       const n = amountOf(effect.amount, values);
       const total = effect.kind === 'damage' ? n + values.power + bonuses.damage

@@ -29,6 +29,7 @@ function setX(on: boolean): void {
     effect.kind === 'terrain' || effect.kind === 'later' ? isX(effect.rounds) || effect.effects.some((tile) => isX(tile.amount))
       : effect.kind === 'area' ? effect.effects.some((inner) => isX(inner.amount))
         : effect.kind === 'boon' ? isX(effect.rounds) || isX(effect.add)
+        : effect.kind === 'trail' ? isX(effect.rounds) || isX(effect.mark.rounds) || effect.mark.effects.some((tile) => isX(tile.amount))
           : isX(effect.amount));
   const first = props.item.effects.find((effect) => effect.kind !== 'step');
   if (usesX || !first) return;
@@ -36,7 +37,7 @@ function setX(on: boolean): void {
   // anything else X of itself.
   if (first.kind === 'terrain') first.rounds = { of: 'x' };
   else if (first.kind === 'area' || first.kind === 'later') { if (first.effects[0]) first.effects[0].amount = { of: 'x' }; }
-  else if (first.kind === 'boon') first.rounds = { of: 'x' };
+  else if (first.kind === 'boon' || first.kind === 'trail') first.rounds = { of: 'x' };
   else first.amount = { of: 'x' };
 }
 

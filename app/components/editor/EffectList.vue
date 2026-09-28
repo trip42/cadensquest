@@ -11,7 +11,7 @@
 import { computed } from 'vue';
 import type { ContentIssue, EffectData } from '~/game/content';
 import {
-  AREA_INFO, BOON_INFO, EFFECT_INFO, EFFECT_KINDS, type EffectKind, ELEMENTS, LATER_INFO, SUMMON_INFO, TERRAIN_INFO,
+  AREA_INFO, BOON_INFO, EFFECT_INFO, EFFECT_KINDS, type EffectKind, ELEMENTS, LATER_INFO, SUMMON_INFO, TERRAIN_INFO, TRAIL_INFO,
 } from '~/game/effects';
 import { STAT_KEYS, STAT_NAMES } from '~/game/stats';
 import { useEditorStore } from '~/stores/editor';
@@ -35,6 +35,7 @@ const info = (kind: string) =>
     : kind === 'area' ? { ...AREA_INFO, player: true, enemy: true, tile: false }
       : kind === 'later' ? { ...LATER_INFO, player: true, enemy: true, tile: false }
         : kind === 'boon' ? { ...BOON_INFO, player: true, enemy: false, tile: false }
+        : kind === 'trail' ? { ...TRAIL_INFO, player: true, enemy: true, tile: false }
           : EFFECT_INFO[kind as EffectKind];
 
 /** A boon either adds to its stat or multiplies it. */
@@ -99,10 +100,14 @@ function setKind(index: number, kind: string): void {
   } else if (kind === 'summon') {
     const first = summonable.value[0];
     props.effects[index] = { kind: 'summon', entity: first?.id ?? 'bug', amount: first?.maxHp ?? 6 };
+  } else if (kind === 'trail') {
+    props.effects[index] = {
+      kind: 'trail', rounds: 3, mark: { kind: 'terrain', rounds: 2, colour: '#e43b44', effects: [{ kind: 'damage', amount: 1 }], element: 'fire' },
+    };
   } else if (kind === 'boon') {
     props.effects[index] = { kind: 'boon', stat: 'fireDamage', add: 2, rounds: 2 };
   } else if (
-    current.kind === 'terrain' || current.kind === 'summon' || current.kind === 'area' || current.kind === 'later' || current.kind === 'boon'
+    ['terrain', 'summon', 'area', 'later', 'boon', 'trail'].includes(current.kind)
   ) {
     props.effects[index] = { kind: kind as EffectKind, amount: 3 };
   } else {
@@ -133,7 +138,7 @@ function move(index: number, by: number): void {
 
 <template>
   <div class="effects">
-    <div v-for="(effect, index) in effects" :key="index" class="effect" :class="{ 'is-terrain': effect.kind === 'terrain' || effect.kind === 'area' || effect.kind === 'later' }">
+    <div v-for="(effect, index) in effects" :key="index" class="effect" :class="{ 'is-terrain': ['terrain', 'area', 'later', 'trail'].includes(effect.kind) }">
       <span class="effect-step">{{ index + 1 }}</span>
       <select :value="effect.kind" :title="info(effect.kind).help" aria-label="Effect" @change="setKind(index, ($event.target as HTMLSelectElement).value)">
         <option v-for="kind in kinds" :key="kind" :value="kind">
@@ -143,10 +148,26 @@ function move(index: number, by: number): void {
         <option v-if="!onTile" value="summon">{{ SUMMON_INFO.label }}</option>
         <option v-if="!onTile" value="area">{{ AREA_INFO.label }}</option>
         <option v-if="!onTile" value="later">{{ LATER_INFO.label }}</option>
+        <option v-if="!onTile" value="trail">{{ TRAIL_INFO.label }}</option>
         <option v-if="!onTile" value="boon">{{ BOON_INFO.label }}{{ usable('boon') ? '' : ' (no effect here)' }}</option>
       </select>
 
-      <template v-if="effect.kind === 'boon'">
+      <template v-if="effect.kind === 'trail'">
+        <span class="terrain-head">
+          <span class="op">for</span>
+          <EditorAmountInput :effect="effect" field="rounds" :side="side" />
+          <span class="op">rounds, each tile left is marked for</span>
+          <EditorAmountInput :effect="effect.mark" field="rounds" :side="side" />
+          <span class="op">rounds, coloured</span>
+          <input v-model="effect.mark.colour" type="color" aria-label="Tile colour">
+          <span class="op">made of</span>
+          <select :value="effect.mark.element ?? ''" aria-label="Element" @change="setElement(effect.mark, ($event.target as HTMLSelectElement).value)">
+            <option value="">nothing special</option>
+            <option v-for="element in ELEMENTS" :key="element" :value="element">{{ element }}</option>
+          </select>
+        </span>
+      </template>
+      <template v-else-if="effect.kind === 'boon'">
         <span class="terrain-head">
           <select v-model="effect.stat" aria-label="Stat">
             <option v-for="key in STAT_KEYS" :key="key" :value="key">{{ STAT_NAMES[key] }}</option>
@@ -241,6 +262,10 @@ function move(index: number, by: number): void {
           <span class="tile-label">Once, as it leaves or the mark runs out:</span>
           <EditorEffectList :effects="(effect.exit ??= [])" :side="side" on-tile :issues="issues" :path="`${at(index)}.exit`" />
         </template>
+      </div>
+      <div v-if="effect.kind === 'trail'" class="tile-effects">
+        <span class="tile-label">Whoever is on a tile left behind, each round:</span>
+        <EditorEffectList :effects="effect.mark.effects" :side="side" on-tile :issues="issues" :path="`${at(index)}.mark.effects`" />
       </div>
       <div v-if="effect.kind === 'later'" class="tile-effects">
         <span class="tile-label">Then, on {{ side === 'player' ? 'you' : 'it' }}:</span>

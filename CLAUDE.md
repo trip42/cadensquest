@@ -486,7 +486,7 @@ with the same tagged objects from `game/effects.ts`, and `resolveEffect` in
 actions.ts is the only place that knows what any of them do. A new gem or
 card is data; a new verb or shape is code (checklists at the end).
 
-**Six shapes.** A **simple** effect is `{ kind, amount }` with a verb
+**Seven shapes.** A **simple** effect is `{ kind, amount }` with a verb
 from `EFFECT_INFO`: `damage`, `block`, `loseBlock`, `heal`, `power`,
 `losePower`, `movement`, `energy`, `draw`, `step` (Leap), `advance`, `tame`,
 `mend`, `push` (Knockback), `pull`, `rekindle`, `flare`.
@@ -495,9 +495,10 @@ enter?, exit?, radius? }`.
 **Summon** is `{ kind: "summon", entity, amount, rounds? }`. **Area** is
 `{ kind: "area", radius, colour, affects?, effects: [simple...] }`.
 **Later** is `{ kind: "later", rounds, effects: [simple...] }`. **Boon** is
-`{ kind: "boon", stat, add?, mul?, rounds }`. Code tells
-them apart with `isTerrain` / `isSummon` / `isArea` / `isLater` / `isBoon`;
-content validates them with a zod discriminated union.
+`{ kind: "boon", stat, add?, mul?, rounds }`. **Trail** is `{ kind:
+"trail", rounds, mark: terrain }`. Code tells them apart with `isTerrain` /
+`isSummon` / `isArea` / `isLater` / `isBoon` / `isTrail`; content validates
+them with a zod discriminated union.
 
 **Who an effect lands on.** Every effect is played by an actor. `damage`
 hits the actor's target (never its own side); `block`, `loseBlock`, `heal`,
@@ -654,6 +655,19 @@ the validator warns).
   beside the Later chips; the store's signature carries them.
 - **Text.** A boon's token is how much it adds (or multiplies by),
   coloured by the stat it raises.
+
+**Trails.** For `rounds` rounds (counting this one, like a boon), every
+tile the actor *leaves* gets `mark`, its radius ignored. Either side can
+lay one: a lava slug is one card.
+
+- **The hook is in `tick`** where a motion ends: `motion.from` is the tile
+  just left, so walking, leaping and being shoved all count. A shove of
+  several tiles marks only where it started.
+- **Amounts are fixed when played** (`state.trails`), and `ageTrails`
+  counts them down in `beginTurn`. The player's go down a floor with him,
+  and an ally's with it.
+- **It cuts both ways**: walk back over it and it hits you, like any mark.
+  The HUD shows the player's as a chip ("3 RND: TRAIL: TAKE 1 DAMAGE").
 
 **Allies, Tame and Mend.** A third faction, `ally`, fights on the player's
 side; `sameSide` groups player + allies against enemies. Every non-player

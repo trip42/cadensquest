@@ -205,13 +205,27 @@ export interface BoonEffect {
   rounds: Amount;
 }
 
-export type Effect = SimpleEffect | TerrainEffect | SummonEffect | AreaEffect | LaterEffect | BoonEffect;
+/* Trail: for a few rounds, every tile the actor leaves gets a mark — a
+   walk, a leap and being shoved all count, since each ends a motion off
+   the tile it started on. The mark's radius is ignored: one tile each.
+   Amounts and rounds are fixed when played. Rounds count down as each
+   round begins, like a boon's, so 3 rounds is this one and two more. */
+export interface TrailEffect {
+  kind: 'trail';
+  /** How many rounds, counting this one. */
+  rounds: Amount;
+  /** What each tile left behind is marked with. */
+  mark: TerrainEffect;
+}
+
+export type Effect = SimpleEffect | TerrainEffect | SummonEffect | AreaEffect | LaterEffect | BoonEffect | TrailEffect;
 
 export const isTerrain = (effect: Effect): effect is TerrainEffect => effect.kind === 'terrain';
 export const isSummon = (effect: Effect): effect is SummonEffect => effect.kind === 'summon';
 export const isArea = (effect: Effect): effect is AreaEffect => effect.kind === 'area';
 export const isLater = (effect: Effect): effect is LaterEffect => effect.kind === 'later';
 export const isBoon = (effect: Effect): effect is BoonEffect => effect.kind === 'boon';
+export const isTrail = (effect: Effect): effect is TrailEffect => effect.kind === 'trail';
 
 /** A tile's effect once it has been placed: the amount is a plain number. */
 export interface TileEffect {
@@ -286,6 +300,8 @@ export function previewAmounts(effects: readonly Effect[], start: AmountValues):
     if (isArea(effect)) return 0;
     // A delayed effect changes nothing now; its number is its rounds.
     if (isLater(effect)) return amountOf(effect.rounds, values);
+    // A trail changes nothing about its maker; its number is its rounds.
+    if (isTrail(effect)) return amountOf(effect.rounds, values);
     // A boon changes a stat, not these values; its number is how much.
     if (isBoon(effect)) return effect.add === undefined ? effect.mul ?? 0 : amountOf(effect.add, values);
     const amount = amountOf(effect.amount, values);
@@ -357,6 +373,13 @@ export function nowText(effects: readonly Effect[], values: AmountValues, style:
           .filter((inner) => isScaled(inner.amount))
           .map((inner) => `${style === 'short' ? 'AREA' : 'each'} ${labels[inner.kind]?.(amountOf(inner.amount, values))}`);
       }
+      if (isTrail(effect)) {
+        const rounds = isScaled(effect.rounds) ? [style === 'short' ? `${amounts[i]} RND` : `${amounts[i]} rounds`] : [];
+        const inner = markEffects(effect.mark)
+          .filter((tile) => isScaled(tile.amount))
+          .map((tile) => `${style === 'short' ? 'TILE' : 'tile'} ${labels[tile.kind]?.(amountOf(tile.amount, values))}`);
+        return [...rounds, ...inner];
+      }
       if (isBoon(effect)) {
         const add = effect.add !== undefined && isScaled(effect.add)
           ? [style === 'short' ? `+${amounts[i]} ${STAT_NAMES[effect.stat].toUpperCase()}` : `+${amounts[i]} ${STAT_NAMES[effect.stat]}`]
@@ -396,7 +419,9 @@ export const hasScaledAmount = (effects: readonly Effect[]): boolean =>
             ? isScaled(effect.rounds) || effect.effects.some((inner) => isScaled(inner.amount))
             : isBoon(effect)
               ? isScaled(effect.rounds) || (effect.add !== undefined && isScaled(effect.add))
-              : isScaled(effect.amount));
+              : isTrail(effect)
+                ? isScaled(effect.rounds) || hasScaledAmount([effect.mark])
+                : isScaled(effect.amount));
 
 
 /* What each verb is, for the content editor and the validator: a plain
@@ -443,6 +468,11 @@ export const SUMMON_INFO = {
 export const LATER_INFO = {
   label: 'Later',
   help: 'After this many rounds, these land on you — as if you played them on yourself then. Amounts are fixed when played.',
+};
+
+export const TRAIL_INFO = {
+  label: 'Trail',
+  help: 'For this many rounds, counting this one, every tile left behind gets this mark — walking, leaping or shoved.',
 };
 
 export const BOON_INFO = {
@@ -525,6 +555,10 @@ export function describeMark(effects: readonly TileEffect[], enter?: readonly Ti
 }
 
 export function describeEffect(effect: Effect): string {
+  if (isTrail(effect)) {
+    const rounds = describeAmount(effect.rounds);
+    return `for ${rounds} round${rounds === '1' ? '' : 's'}, every tile left behind: ${describeEffect(effect.mark)}`;
+  }
   if (isBoon(effect)) {
     const rounds = describeAmount(effect.rounds);
     const what = [

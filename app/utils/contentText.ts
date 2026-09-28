@@ -7,7 +7,9 @@
 import type { EffectData } from '~/game/content';
 import type { Targeting } from '~/game/cards/types';
 
-type SimpleData = Exclude<EffectData, { kind: 'terrain' } | { kind: 'summon' } | { kind: 'area' } | { kind: 'later' } | { kind: 'boon' }>;
+type SimpleData = Exclude<
+  EffectData, { kind: 'terrain' } | { kind: 'summon' } | { kind: 'area' } | { kind: 'later' } | { kind: 'boon' } | { kind: 'trail' }
+>;
 type BoonData = Extract<EffectData, { kind: 'boon' }>;
 
 /* What a boon does, said to the player: "for 2 rounds, every fire deals 2
@@ -185,6 +187,10 @@ function playerPhrase(
 ): string {
   if (effect.kind === 'later') return laterPhrase(effect);
   if (effect.kind === 'boon') return boonPhrase(effect);
+  if (effect.kind === 'trail') {
+    const rounds = describeAmount(effect.rounds as Amount);
+    return `for ${rounds} round${rounds === '1' ? '' : 's'}, every tile you leave is marked ${roundsPhrase(effect.mark)}: ${markPhrase(effect.mark, 'your')}`;
+  }
   if (effect.kind === 'push' || effect.kind === 'pull') return movePhrase(effect, range, mentioned);
   // After a pull or knockback the creature has moved: name it, not a tile.
   if (effect.kind === 'damage' && mentioned) {
@@ -272,6 +278,10 @@ function enemyPhrase(effect: EffectData, range: number, nameOf: NameOf = byId): 
   if (effect.kind === 'later') return `${whenPhrase(effect.rounds as Amount)}, ${tilePhrase(effect.effects, 'its')}`;
   // An enemy has no stats to raise; the validator warns.
   if (effect.kind === 'boon') return 'does nothing';
+  if (effect.kind === 'trail') {
+    const rounds = describeAmount(effect.rounds as Amount);
+    return `for ${rounds} round${rounds === '1' ? '' : 's'}, marks every tile it leaves ${roundsPhrase(effect.mark)}: ${markPhrase(effect.mark, 'its')}`;
+  }
   const amount = effect.amount as Amount;
   const n = describeAmount(amount, 'its');
   const scaled = isScaled(amount);

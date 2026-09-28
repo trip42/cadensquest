@@ -17,7 +17,7 @@ import { intentDef } from './cards/intents';
 import type { CardDefinition, CardInstance } from './cards/types';
 import {
   amountOf, type AmountValues, type AreaEffect, type BoonEffect, type Effect, FIRES_WITHIN, isArea, isBoon, isLater, isSummon,
-  isTerrain,
+  isTerrain, isTrail, type TrailEffect,
   type LaterEffect,
   type SummonEffect, type TerrainEffect, type TileEffect, type TriggerPoint,
 } from './effects';
@@ -360,6 +360,48 @@ function ageBoons(state: GameState): void {
   if (left.length === state.boons.length) return;
   state.boons = left;
   syncStats(state);
+}
+
+/* ------------------------------ trails ---------------------------------- */
+
+/* A trail: for a few rounds, every tile the actor leaves gets the mark,
+   its amounts fixed now. Either side can lay one. */
+function startTrail(game: Game, effect: TrailEffect, play: Play): void {
+  const { state } = game;
+  const values = amountValues(state, play.actor, play.x);
+  const rounds = amountOf(effect.rounds, values);
+  if (rounds <= 0) return;
+  const fix = (list: TerrainEffect['effects']) => list.map((tile) => ({ kind: tile.kind, amount: amountOf(tile.amount, values) }));
+  const { radius: _, ...mark } = effect.mark;
+  state.trails.push({
+    id: nextUid('trail'),
+    actorId: play.actor.id,
+    rounds,
+    mark: {
+      ...mark,
+      rounds: amountOf(mark.rounds, values),
+      effects: fix(mark.effects),
+      ...(mark.enter ? { enter: fix(mark.enter) } : {}),
+      ...(mark.exit ? { exit: fix(mark.exit) } : {}),
+    },
+  });
+  noteNear(state, play.actor, `${entityDef(play.actor.defId).name} leaves a trail.`);
+}
+
+/** A creature has just left `from`: its trails mark it. */
+function layTrail(game: Game, entity: Entity, from: Cell): void {
+  const { state } = game;
+  if (entity.dead) return;
+  for (const trail of state.trails) {
+    if (trail.actorId !== entity.id) continue;
+    markTile(game, trail.mark, { actor: entity, target: from, range: Infinity });
+  }
+}
+
+/** A new round: every trail loses one, and those with none left end. */
+function ageTrails(state: GameState): void {
+  for (const trail of state.trails) trail.rounds -= 1;
+  state.trails = state.trails.filter((trail) => trail.rounds > 0);
 }
 
 /** Who is playing an effect, at what, and with how much reach. */
@@ -914,6 +956,10 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
     grantBoon(game, effect, play);
     return;
   }
+  if (isTrail(effect)) {
+    startTrail(game, effect, play);
+    return;
+  }
   const amount = amountOf(effect.amount, amountValues(state, actor, play.x));
 
   switch (effect.kind) {
@@ -1384,8 +1430,10 @@ export function enterFloor(game: Game, floor: number): void {
   state.gates = [];
   state.shop = null;
   state.shopOpen = false;
-  // What the player and the allies who came along are owed still comes due.
+  // What the player and the allies who came along are owed still comes due,
+  // and the trails they are laying go on.
   state.later = state.later.filter((entry) => state.entities.some((entity) => entity.id === entry.actorId));
+  state.trails = state.trails.filter((trail) => state.entities.some((entity) => entity.id === trail.actorId));
   state.queue = [];
   state.descending = false;
 }
@@ -1508,6 +1556,7 @@ export function beginTurn(game: Game): void {
   ageTerrain(game);
   ageSummons(state);
   ageBoons(state);
+  ageTrails(state);
 
   const self = player(state);
   // Block from talismans replaces what was left, rather than adding to it.
@@ -1876,9 +1925,12 @@ export function tick(game: Game, dt: number): void {
     if (entity.motion) {
       entity.motion.t += entity.motion.speed * dt;
       if (entity.motion.t >= 1) {
+        const left = entity.motion.from;
         entity.row = entity.motion.to.row;
         entity.col = entity.motion.to.col;
         entity.motion = null;
+        // The tile just left: whatever trail it is laying marks it.
+        layTrail(game, entity, left);
         cue(state, { type: 'step', target: entity.id, side: entity.faction, cell: entityCell(entity) });
         // Stepping onto a marked tile sets it off, part-way through a walk too.
         // If that killed it, it is already falling: stop the walk and leave

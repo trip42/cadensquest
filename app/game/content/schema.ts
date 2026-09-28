@@ -97,8 +97,17 @@ export const boonEffectSchema = z.strictObject({
   rounds: amountSchema,
 });
 
+/** For `rounds` rounds, counting this one, every tile the actor leaves
+ *  gets `mark` — its radius ignored. */
+export const trailEffectSchema = z.strictObject({
+  kind: z.literal('trail'),
+  rounds: amountSchema,
+  mark: terrainEffectSchema,
+});
+
 export const effectSchema = z.discriminatedUnion('kind', [
   simpleEffectSchema, terrainEffectSchema, summonEffectSchema, areaEffectSchema, laterEffectSchema, boonEffectSchema,
+  trailEffectSchema,
 ]);
 
 export const cardSchema = z.strictObject({
