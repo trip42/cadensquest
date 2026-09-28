@@ -617,12 +617,62 @@ function markTile(game: Game, effect: TerrainEffect, play: Play): void {
    `fireWard` keeps the player out of all of them. */
 function applyTile(game: Game, entity: Entity, layers: readonly TerrainLayer[]): void {
   const { state } = game;
-  const warded = entity.id === state.playerId && stat(state, 'fireWard') >= 1;
   for (const layer of layers) {
     const owner = state.entities.find((item) => item.id === layer.ownerId);
     const effects = layerEffects(state, layer);
-    applyTo(game, entity, warded && layer.element === 'fire' ? effects.filter((effect) => effect.kind !== 'damage') : effects, 'tile', owner);
+    applyTo(game, entity, warded(state, entity, layer) ? effects.filter((effect) => effect.kind !== 'damage') : effects, 'tile', owner);
   }
+}
+
+/** Is this creature kept out of this mark's damage — the player, by
+ *  `fireWard`, from a fire? */
+const warded = (state: GameState, entity: Entity, layer: TerrainLayer): boolean =>
+  layer.element === 'fire' && entity.id === state.playerId && stat(state, 'fireWard') >= 1;
+
+/** Every fire on the floor, by tile. */
+function fires(state: GameState): Array<{ cell: Cell; layers: TerrainLayer[] }> {
+  return Object.entries(state.terrain).flatMap(([key, layers]) => {
+    const burning = layers.filter((layer) => layer.element === 'fire');
+    if (!burning.length) return [];
+    const [row, col] = key.split(',').map(Number);
+    return [{ cell: { row: row!, col: col! }, layers: burning }];
+  });
+}
+
+/** How a flare is drawn: a ring on every fire. */
+const FLARE_COLOUR = '#feae34';
+
+/* Rekindle: every fire on the floor burns `rounds` longer. Fire has no
+   side, so the Whelp's lasts longer too. */
+function rekindle(game: Game, actor: Entity, rounds: number): void {
+  const { state } = game;
+  const burning = fires(state);
+  if (rounds <= 0 || !burning.length) return;
+  for (const { layers } of burning) for (const layer of layers) layer.rounds += rounds;
+  cue(state, { type: 'mark', cells: burning.map((item) => item.cell), colour: FLARE_COLOUR });
+  noteNear(state, actor, `Every fire burns ${rounds} round${rounds === 1 ? '' : 's'} longer.`);
+}
+
+/* Flare: every fire hits whoever stands in it now, for its damage plus
+   `extra`, heated by the fire stats — and credited to whoever lit it. It
+   is a hit on top of the round's: it neither uses that up nor needs it. */
+function flare(game: Game, actor: Entity, extra: number): void {
+  const { state } = game;
+  const burning = fires(state);
+  if (!burning.length) return;
+  cue(state, { type: 'mark', cells: burning.map((item) => item.cell), colour: FLARE_COLOUR });
+  for (const { cell, layers } of burning) {
+    for (const layer of layers) {
+      const victim = entityAt(state, cell.row, cell.col);
+      if (!victim || victim.dead || warded(state, victim, layer)) continue;
+      const owner = state.entities.find((item) => item.id === layer.ownerId);
+      const hits = layer.effects
+        .filter((effect) => effect.kind === 'damage')
+        .map((effect) => ({ kind: 'damage' as const, amount: fireHit(state, effect.amount, extra) }));
+      applyTo(game, victim, hits, 'tile', owner);
+    }
+  }
+  noteNear(state, actor, 'Every fire flares.');
 }
 
 /** What a fire's hit of `amount` comes to now: (it + `fireDamage` + any
@@ -940,6 +990,12 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
       if (moved) play.target = moved;
       break;
     }
+    case 'rekindle':
+      rekindle(game, actor, amount);
+      break;
+    case 'flare':
+      flare(game, actor, amount);
+      break;
     case 'movement':
       if (isPlayer) state.movement += amount;
       break;

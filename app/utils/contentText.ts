@@ -222,6 +222,8 @@ function simplePlayerPhrase(effect: SimpleData, range: number): string {
       case 'energy': return `gain ${n} energy`;
       case 'draw': return `draw ${n} cards`;
       case 'step': return `leap to a cell within ${range}`;
+      case 'rekindle': return `every fire burns ${n} rounds longer`;
+      case 'flare': return `every fire flares, burning whoever stands in one again for ${n} more`;
       default: return `${effect.kind} ${n}`;
     }
   }
@@ -237,6 +239,8 @@ function simplePlayerPhrase(effect: SimpleData, range: number): string {
       case 'energy': return `gain energy equal to ${n}`;
       case 'draw': return `draw cards equal to ${n}`;
       case 'step': return `leap to a cell within ${range}`;
+      case 'rekindle': return `every fire burns longer by rounds equal to ${n}`;
+      case 'flare': return `every fire flares, burning whoever stands in one again for ${n} more`;
       default: return `${effect.kind} ${n}`;
     }
   }
@@ -251,6 +255,8 @@ function simplePlayerPhrase(effect: SimpleData, range: number): string {
     case 'energy': return `gain ${n} energy`;
     case 'draw': return n === 1 ? 'draw a card' : `draw ${n} cards`;
     case 'step': return `leap to a cell within ${range}`;
+    case 'rekindle': return `every fire burns ${plural(n, 'round')} longer`;
+    case 'flare': return n ? `every fire flares, burning whoever stands in one again for ${n} more` : 'every fire flares, burning whoever stands in one again now';
     default: return `${effect.kind} ${n}`;
   }
 }
@@ -282,6 +288,8 @@ function enemyPhrase(effect: EffectData, range: number, nameOf: NameOf = byId): 
     case 'losePower': return isAllOf(amount, 'power') ? 'loses all its power' : `loses ${n} power`;
     case 'push': return `knocks its target back ${n}`;
     case 'pull': return `drags its target up to ${n} closer`;
+    case 'rekindle': return `makes every fire burn ${n} rounds longer`;
+    case 'flare': return `makes every fire flare${scaled || n !== '0' ? `, ${n} hotter` : ''}`;
     default: return `${effect.kind} ${n}`;
   }
 }

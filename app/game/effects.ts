@@ -44,7 +44,12 @@ export type EffectKind =
   | 'push'
   /** Drag the targeted creature up to this many tiles toward the actor,
    *  stopping beside it. */
-  | 'pull';
+  | 'pull'
+  /** Every fire on the floor burns this many rounds longer, whoever lit it. */
+  | 'rekindle'
+  /** Every fire hits whoever stands in it now, for its damage plus this
+   *  much, without using up that tile's hit for the round. */
+  | 'flare';
 
 /* How much. Either a fixed number, or worked out from something about the
    actor at the moment the effect happens: `{ of: 'block' }` is "as much as
@@ -299,6 +304,8 @@ const NOW_SHORT: Partial<Record<EffectKind, (n: number) => string>> = {
   mend: (n) => `MEND ${n}`,
   push: (n) => `PUSH ${n}`,
   pull: (n) => `PULL ${n}`,
+  rekindle: (n) => `FIRE +${n} RND`,
+  flare: (n) => `FLARE +${n}`,
 };
 
 const NOW_LABELS: Partial<Record<EffectKind, (n: number) => string>> = {
@@ -316,6 +323,8 @@ const NOW_LABELS: Partial<Record<EffectKind, (n: number) => string>> = {
   mend: (n) => `mends ${n}`,
   push: (n) => `knocks back ${n}`,
   pull: (n) => `pulls in ${n}`,
+  rekindle: (n) => `every fire +${n} rounds`,
+  flare: (n) => `every fire flares +${n}`,
 };
 
 /** What the effects that depend on the moment come to right now — "8
@@ -404,6 +413,8 @@ export const EFFECT_INFO: Record<EffectKind, { label: string; help: string; play
   mend: { label: 'Mend', help: 'Heal the targeted creature this much — an ally, or one this card just tamed.', player: true, enemy: false, tile: false },
   push: { label: 'Knockback', help: 'Knock the target this many tiles straight back. If a wall or another creature stops it, both take damage for each tile it had left. Guardians hold their ground.', player: true, enemy: true, tile: false },
   pull: { label: 'Pull', help: 'Drag the target up to this many tiles toward you, stopping beside you. Guardians hold their ground.', player: true, enemy: true, tile: false },
+  rekindle: { label: 'Rekindle', help: 'Every fire on the floor burns this many rounds longer — whoever lit it.', player: true, enemy: true, tile: false },
+  flare: { label: 'Flare', help: 'Every fire on the floor hits whoever stands in it now, for its damage plus this much — whoever lit it. It does not use up that fire\'s hit for the round.', player: true, enemy: true, tile: false },
 };
 
 export const EFFECT_KINDS = Object.keys(EFFECT_INFO) as EffectKind[];
@@ -552,5 +563,7 @@ export function describeEffect(effect: Effect): string {
     case 'mend': return scaled ? `heal the target equal to ${n}` : `heal the target ${n}`;
     case 'push': return scaled ? `knock the target back equal to ${n}` : `knock the target back ${n}`;
     case 'pull': return scaled ? `pull the target in equal to ${n}` : `pull the target in ${n}`;
+    case 'rekindle': return scaled ? `every fire burns longer by ${n} rounds` : `every fire burns ${n} rounds longer`;
+    case 'flare': return scaled ? `every fire flares, ${n} hotter` : `every fire flares${n === '0' ? '' : `, ${n} hotter`}`;
   }
 }

@@ -145,3 +145,64 @@ describe('the fire stats', () => {
     expect(layerEffects(game.state, layer!)).toEqual([{ kind: 'damage', amount: 5 }]);
   });
 });
+
+describe('Rekindle and Flare', () => {
+  it('Rekindle makes every fire burn longer, whoever lit it', () => {
+    const game = quiet();
+    const mine = cellAt(game, 2);
+    const theirs = cellAt(game, 2, 1);
+    define('fire_t', [fire(3, 2)]);
+    play(game, 'fire_t', mine);
+    play(game, 'fire_t', theirs);
+    terrainAt(game.state, theirs)[0]!.ownerId = 'someone_else';
+    define('spring_t', [{ kind: 'terrain', rounds: 2, colour: '#63c74d', effects: [{ kind: 'heal', amount: 1 }] }]);
+    play(game, 'spring_t', mine);
+    define('rekindle_t', [{ kind: 'rekindle', amount: 3 }], { targeting: 'self', range: 0 });
+    play(game, 'rekindle_t');
+    expect(terrainAt(game.state, mine).map((layer) => layer.rounds)).toEqual([5, 2]);
+    expect(terrainAt(game.state, theirs)[0]!.rounds).toBe(5);
+  });
+
+  it('Flare burns whoever stands in a fire again, without using up its hit for the round', () => {
+    const game = quiet();
+    const cell = cellAt(game, 2);
+    define('fire_t', [fire(3)]);
+    play(game, 'fire_t', cell);
+    const enemy = dummy(game, cell);
+    define('flare_t', [{ kind: 'flare', amount: 1 }], { targeting: 'self', range: 0 });
+    play(game, 'flare_t');
+    expect(enemy.hp).toBe(99 - 4);
+    // Its turn begins in the fire: burned as usual.
+    endPlayerPhase(game);
+    expect(enemy.hp).toBe(99 - 4 - 3);
+  });
+
+  it('Flare is heated by the fire stats, and credits whoever lit the fire', () => {
+    const game = quiet();
+    const cell = cellAt(game, 2);
+    define('fire_t', [fire(3)]);
+    play(game, 'fire_t', cell);
+    const enemy = dummy(game, cell);
+    enemy.hp = 7;
+    TALISMANS.test_charm = { id: 'test_charm', name: 'Charm', text: '', icon: 'gem', modifiers: [{ stat: 'fireMultiplier', mul: 2 }] };
+    game.state.talismans.push('test_charm');
+    define('flare_t', [{ kind: 'flare', amount: 1 }], { targeting: 'self', range: 0 });
+    play(game, 'flare_t');
+    expect(enemy.dead).toBe(true);
+    const kill = game.state.events.find((event) => event.type === 'enemy_killed');
+    expect(kill && 'by' in kill ? kill.by : null).toBe('caden');
+  });
+
+  it('Flare leaves the player alone under fireWard', () => {
+    const game = quiet();
+    const self = player(game.state);
+    define('fire_self', [fire(3)], { targeting: 'self', range: 0 });
+    play(game, 'fire_self');
+    TALISMANS.test_charm = { id: 'test_charm', name: 'Charm', text: '', icon: 'gem', modifiers: [{ stat: 'fireWard', add: 1 }] };
+    game.state.talismans.push('test_charm');
+    const hp = self.hp;
+    define('flare_t', [{ kind: 'flare', amount: 0 }], { targeting: 'self', range: 0 });
+    play(game, 'flare_t');
+    expect(self.hp).toBe(hp);
+  });
+});

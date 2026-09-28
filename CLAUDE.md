@@ -489,7 +489,7 @@ card is data; a new verb or shape is code (checklists at the end).
 **Six shapes.** A **simple** effect is `{ kind, amount }` with a verb
 from `EFFECT_INFO`: `damage`, `block`, `loseBlock`, `heal`, `power`,
 `losePower`, `movement`, `energy`, `draw`, `step` (Leap), `advance`, `tame`,
-`mend`, `push` (Knockback), `pull`.
+`mend`, `push` (Knockback), `pull`, `rekindle`, `flare`.
 **Terrain** is `{ kind: "terrain", rounds, colour, effects: [simple...],
 enter?, exit?, radius? }`.
 **Summon** is `{ kind: "summon", entity, amount, rounds? }`. **Area** is
@@ -580,6 +580,11 @@ under them — and a death by fire is still credited to whoever lit it.
   damage + `fireDamage`) × `fireMultiplier`, **worked out as it hits** by
   `fireHit`, so heat reaches fires already burning. `fireRounds` is added
   as a fire is lit. At `fireWard` 1 or more fire does not hurt the player.
+- **`rekindle` and `flare`** are verbs for either side. Rekindle: every
+  fire on the floor burns N rounds longer. Flare: every fire hits whoever
+  stands in it now, for (its damage + `fireDamage` + N) × `fireMultiplier`,
+  credited to whoever lit it — a hit on top of the round's, which it neither
+  uses up nor needs. Neither can go on a tile.
 - **`layerEffects(state, layer)`** is a mark's effects as they would land
   now. The rules (`applyTile`), the tile tooltip and the bot all read
   through it, so what the tooltip says is what the tile does.
