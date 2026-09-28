@@ -497,6 +497,8 @@ export const useGameStore = defineStore('game', () => {
           ? `Step on to go down to ${ZONES[state.floor + 1]?.name ?? 'the next floor'}`
           : layer.shop
           ? 'Step on to trade coins for cards, gems, a talisman or a removal'
+          : layer.element === 'oil' && !layer.effects.length && !layer.enter && !layer.exit
+          ? `Oil: fire lit on it spreads across the slick · ${layer.rounds} round${layer.rounds === 1 ? '' : 's'}`
           : `${describeMark(
             layerEffects(state, layer),
             layer.enter && layerEffects(state, layer, layer.enter),

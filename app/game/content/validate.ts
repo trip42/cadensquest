@@ -168,7 +168,8 @@ function crossCheck(content: Content): ContentIssue[] {
           }
         });
       }
-      if (effect.kind === 'terrain' && !effect.effects.length && !effect.enter?.length && !effect.exit?.length) {
+      // Oil does nothing until fire finds it, so it may be empty.
+      if (effect.kind === 'terrain' && effect.element !== 'oil' && !effect.effects.length && !effect.enter?.length && !effect.exit?.length) {
         error(file, id, 'a marked tile needs at least one effect', `${here}.effects`);
       }
     });

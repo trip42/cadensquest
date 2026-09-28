@@ -653,8 +653,10 @@ function markTile(game: Game, effect: TerrainEffect, play: Play): void {
   const exit = effect.exit?.length ? fix(effect.exit) : undefined;
 
   // Every tile in the radius gets a mark of its own, so each counts down,
-  // stacks and hits on its own like any other.
-  const spots = cellsWithin(game, cell, effect.radius ?? 0);
+  // stacks and hits on its own like any other. Fire lit on oil takes the
+  // whole slick with it.
+  const within = cellsWithin(game, cell, effect.radius ?? 0);
+  const spots = effect.element === 'fire' ? ignite(game, within) : within;
   if (spots.length) cue(state, { type: 'mark', cells: spots, colour: effect.colour });
   for (const spot of spots) {
     const layer: TerrainLayer = { id: nextUid('mark'), effects, colour: effect.colour, rounds, ownerId: actor.id };
@@ -672,6 +674,42 @@ function markTile(game: Game, effect: TerrainEffect, play: Play): void {
       crossMarks(game, occupant);
     }
   }
+}
+
+/* Fire lit on oil spreads across the whole connected slick at once — a
+   flood fill over oiled tiles, four ways, from every oiled tile it was lit
+   on. Each oiled tile it reaches burns, and its oil is gone. Returns the
+   tiles to set alight: those it was lit on, and the slick. */
+function ignite(game: Game, lit: Cell[]): Cell[] {
+  const { state } = game;
+  const oiled = (cell: Cell) => terrainAt(state, cell).some((layer) => layer.element === 'oil');
+  const seen = new Set(lit.map(terrainKey));
+  const spots = [...lit];
+  const queue = lit.filter(oiled);
+  const slick = [...queue];
+  while (queue.length) {
+    const here = queue.pop()!;
+    for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      const next = { row: here.row + dr, col: here.col + dc };
+      const key = terrainKey(next);
+      if (seen.has(key) || !oiled(next)) continue;
+      seen.add(key);
+      spots.push(next);
+      queue.push(next);
+      slick.push(next);
+    }
+  }
+  // The oil burns away as it catches.
+  for (const cell of slick) {
+    const key = terrainKey(cell);
+    const layers = state.terrain[key] ?? [];
+    for (const layer of layers) if (layer.element === 'oil') emptyMark(game, layer);
+    const left = layers.filter((layer) => layer.element !== 'oil');
+    if (left.length) state.terrain[key] = left;
+    else delete state.terrain[key];
+  }
+  if (slick.length) note(state, 'The oil catches.');
+  return spots;
 }
 
 /* What a tile does to whoever is on it: each effect as if they had played

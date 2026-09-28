@@ -587,6 +587,10 @@ Fire has no side: anything that heats, lengthens or counts fire works on
 every burning tile, whoever lit it — the Whelp's under you as much as yours
 under them — and a death by fire is still credited to whoever lit it.
 
+- **Oil** (`"element": "oil"`) does nothing alone, and may be a mark with
+  no effects. Fire lit on an oiled tile spreads across the whole connected
+  slick at once (`ignite`: a four-way flood fill in `markTile`); each oiled
+  tile it reaches burns, and loses its oil.
 - **The fire stats** are `fireDamage` (0), `fireMultiplier` (1),
   `fireRounds` (0) and `fireWard` (0), read from the player's stat table
   (talismans and boons) and applied to *every* fire. A fire's hit is (its

@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { amountValues, beginTurn, endPlayerPhase, movePlayerTo, playCard, terrainAt, tick } from '~/game/actions';
 import { CARDS } from '~/game/cards/definitions';
 import type { CardDefinition } from '~/game/cards/types';
-import { loadContent } from '~/game/content';
+import { type Content, loadContent, validateContent } from '~/game/content';
 import type { Effect } from '~/game/effects';
 import { entityCell } from '~/game/entities/types';
 import { type Cell, reachable } from '~/game/map/navigation';
@@ -129,5 +129,32 @@ describe('Echo', () => {
     play(game, define('echo_t', [{ kind: 'echo', amount: 1 }]));
     nextTurn(game);
     expect(game.state.echo).toBe(0);
+  });
+});
+
+describe('oil', () => {
+  it('does nothing alone, and fire lit on it spreads across the connected slick', () => {
+    const game = quiet();
+    const self = player(game.state);
+    const here = entityCell(self);
+    const near = [...reachable(game.world, here, 3).values()].filter((entry) => entry.cost === 2).map((entry) => entry.cell);
+    const target = near[0]!;
+    const oil: Effect = { kind: 'terrain', rounds: 4, colour: '#3e2731', element: 'oil', effects: [], radius: 1 };
+    play(game, define('oil_t', [oil], { targeting: 'cell', range: 3 }), target);
+    const slick = Object.entries(game.state.terrain).filter(([, layers]) => layers.some((layer) => layer.element === 'oil')).map(([key]) => key);
+    expect(slick.length).toBeGreaterThan(1);
+    // Light the one tile: the whole slick burns, and the oil is gone.
+    play(game, define('fire_t', [{ kind: 'terrain', rounds: 2, colour: '#e43b44', element: 'fire', effects: [{ kind: 'damage', amount: 2 }] }], { targeting: 'cell', range: 3 }), target);
+    for (const key of slick) {
+      const layers = game.state.terrain[key]!;
+      expect(layers.map((layer) => layer.element), key).toEqual(['fire']);
+    }
+    expect(terrainAt(game.state, target)).toHaveLength(1);
+  });
+
+  it('may be an empty mark in content', () => {
+    const content = structuredClone(readContentFiles()) as unknown as Content;
+    content.cards[0]!.effects = [{ kind: 'terrain', rounds: 4, colour: '#3e2731', element: 'oil', effects: [] }];
+    expect(validateContent(content as never).issues.filter((issue) => issue.level === 'error')).toEqual([]);
   });
 });

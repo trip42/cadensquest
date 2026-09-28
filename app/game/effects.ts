@@ -123,9 +123,10 @@ export interface TerrainEffect {
 }
 
 /* What a mark can be made of. Fire has no side: whatever boosts, lengthens
-   or counts fire works on every burning tile, whoever lit it. */
-export type Element = 'fire';
-export const ELEMENTS: Element[] = ['fire'];
+   or counts fire works on every burning tile, whoever lit it. Oil does
+   nothing alone; fire lit on it spreads across the whole slick at once. */
+export type Element = 'fire' | 'oil';
+export const ELEMENTS: Element[] = ['fire', 'oil'];
 
 /** Every simple effect a burst carries, those inside a Later included. */
 export const burstEffects = (effect: AreaEffect): SimpleEffect[] =>
