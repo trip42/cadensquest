@@ -354,11 +354,89 @@ seeds:
   a turn with several attacks, and it walks into a fight with Blood Pact's
   bill due. Judge these cards by hand before changing them.
 
+### 9. The combo study (2026-09-28)
+
+docs/COMBOS.md's engine is built (fire tags and stats, boons, Rekindle and
+Flare, trails, the `fires`, `allies` and `moved` sources, oil, Echo,
+Command, Entrench, bursts that carry a Later) and its 24 cards, Cinder and
+six talismans are in content, **all disabled**. `sim/combo*.sim.ts`
+measured them, with the bot looking one play ahead (`SIM_LOOKAHEAD=2`), so
+these numbers compare with each other and not with the sections above.
+150 runs a variant, about ±8% on a win rate.
+
+**The lookahead bot changes the baseline.** The committed game scores 10 of
+11 and wins 45% of runs, and **real choices are 38%**, above the 35%
+target the combo design was meant to reach. The same game without
+lookahead scored 26–27% real choices. Part of the old miss was the bot not
+seeing setup cards, not the cards.
+
+**The two engine changes that alter the game alone:**
+
+| Variant | Score | Win | Most deaths on one floor |
+|---|---|---|---|
+| committed (ally cap 2, power once) | 10 | 45% | 58% |
+| ally cap back to 1 | 9 | 47% | **66%** ✗ |
+| Power Strike counted twice again | 10 | 44% | 57% |
+
+Keep the cap at 2. Power counted once changes nothing measurable: Power
+Strike is a mythic and rarely held.
+
+**Each card, two copies in the starting deck** (win rate; the committed
+game is 45%):
+
+| Better | | Level | | Worse | |
+|---|---|---|---|---|---|
+| Focus | 60% | Charge | 46% | Inferno | 32% |
+| Twin Fangs | 58% | Pack Tactics | 45% | Kindled Fury | 31% |
+| Kindle | 51% | Juggernaut | 43% | Unleash | 33% |
+| | | Battle Cry | 43% | Salamander | 34% |
+| | | Flame Trail | 42% | Heat Shield | 35% |
+| | | Brand, Decoys | 41% | Haste | 35% |
+
+(Flashpoint 40%; Reignite, Sic 'Em, Echo, Entrench 39%; Afterimage 38%;
+Oil Flask 37%; Stoke 36%.) Focus lifts the most-played card to 33%, over
+the 30% limit.
+
+- **Most payoffs look weak alone, as expected.** Inferno, Kindled Fury and
+  Heat Shield need fire already burning, Unleash needs power built up, and
+  a starting deck has neither. Two copies of a payoff with no setup is a
+  test of a dead card. The bot also cannot hold a payoff in hand for its
+  partner.
+- **A bot bug was found and fixed on the way.** `value()` paid for a fire
+  boon whether or not any fire was burning, so the bot spent energy on
+  Stoke for nothing: 22% of runs won. Counting heat only on fires actually
+  near enemies, it is 36%.
+
+**Switched on in the reward pool, as they would ship:**
+
+| Variant | Score | Win | Most deaths on one floor | Real choices | Positional kills |
+|---|---|---|---|---|---|
+| committed | 10 | 45% | 58% | 38% | 25% |
+| first batch: Kindle, Focus, Twin Fangs, Pack Tactics | 9 | 48% | **72%** ✗ | 36% | 25% |
+| the fire family, Cinder and the fire talismans | 7 | **20%** ✗ | **76%** ✗ | **34%** ✗ | 32% |
+| everything | 8 | **16%** ✗ | **72%** ✗ | 36% | 34% |
+
+- **Everything at once is ruinous:** 29 points of win rate. Every reward
+  offer is diluted, and the bot picks by rarity, so it takes mythic payoffs
+  it has no setup for.
+- **The fire family alone costs 25 points.** Fire has no side, and heat
+  applies to the Whelp's fire under the player too.
+- **Even the first batch is not a clear win.** The win rate is level, and
+  deaths shift to floor 2, past the 60% limit.
+
+**So nothing is enabled yet.** Before switching a family on:
+
+1. make the bot pick rewards for what they combine with, not by rarity;
+2. playtest the fire family by hand, as Blood Pact was;
+3. enable one family at a time, with its setup and payoff together.
+
 ---
 
 ## What is still wrong
 
-- **Real choices are at 27%, against a 35% target.** A hand of four
+- **Real choices are at 27%, against a 35% target** — measured by a bot that
+  plays one card at a time. Looking one play ahead, the same game scores
+  38% (section 9), so some of this is the bot. A hand of four
   identical Strikes is one option, not four. Most cards are strictly
   better or worse than each other rather than *different*, and energy is
   the only tension besides throwing cards away for steps. No number

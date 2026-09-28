@@ -3,8 +3,12 @@
 A design for cards that do more together than apart: which families they
 fall into, what each needs from the engine, and in what order to build them.
 
-Written September 2026. **Nothing here is built yet.** Every number is a
-starting point for the simulator, not a balanced value.
+Written September 2026. **Built on 2026-09-28:** every mechanic below
+(M1–M16; M10 was already done) is in the engine, and every card, gem and
+talisman is in `content/` — **disabled**, because switched on they cost a
+lot of win rate in the simulator. FUN.md, section 9, has the numbers and
+what to do before enabling a family. Every number is a starting point for
+the simulator, not a balanced value.
 
 ---
 
