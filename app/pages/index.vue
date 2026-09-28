@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
-import { parseTrial } from '~/game/sandbox';
+import { parseTrials } from '~/game/sandbox';
 import { useGameStore } from '~/stores/game';
 // Imported by hand, unlike the page's other components: a dev server started
 // before ShopModal existed never registered it for auto-import, rendered an
@@ -12,12 +12,13 @@ const route = useRoute();
 
 // ?seed=123 replays a run exactly — the whole world comes from the seed,
 // so a bug report is a single number. ?try=card:bolt starts with one thing
-// arranged: the content editor's "Try it".
+// arranged: the content editor's "Try it". ?try=card:stoke,card:fire
+// arranges both, to try a combo.
 onMounted(() => {
   const seed = Number(route.query.seed);
   store.start(
     Number.isFinite(seed) && route.query.seed !== undefined ? seed : undefined,
-    parseTrial(route.query.try),
+    parseTrials(route.query.try),
   );
 });
 

@@ -27,6 +27,7 @@ anything — the whole world comes from that number (and from the content
 files, which are the other half of a run). `?try=card:fire` (or `enemy:`,
 `enemy-card:`, `gem:`, `talisman:`) starts a run with one thing arranged up
 front — the editor's "Try it", and the quickest way to test anything.
+Several go comma-separated, `?try=card:stoke,card:fire`, to try a combo.
 
 ## Commits: always leave a state you can roll back to
 
@@ -738,7 +739,9 @@ union changes — follow its errors.
 - **Gems** (`game/gems.ts`) socket into a `CardInstance`, not a definition —
   `card.gems`, capped at `GEM_SLOTS`. Playing a card resolves its own
   effects and then each gem's, so one gemmed Strike leaves the other three
-  plain. Test asserts exactly that.
+  plain. Test asserts exactly that. A gem's mark lands on the card's
+  target, and does nothing on a card with none — an untargeted mark would
+  land under the player (a rule in `playCard`).
 - **Talismans** (`game/talismans.ts`) carry `modifiers` (permanent, via the
   stat table) and/or `triggers` (effects at a `TriggerPoint`). `fire(game,
   point)` dispatches them; the points are wired into `beginTurn`,

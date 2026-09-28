@@ -5,7 +5,8 @@
    card, or the talisman held — so a change can be felt within seconds of
    making it. Everything else is an ordinary run, and every rule applies.
 
-   A trial is written `kind:id`, which is how it travels in the URL. */
+   A trial is written `kind:id`, which is how it travels in the URL; several
+   go comma-separated, `card:stoke,card:fire`, to try a combo. */
 
 import { amountValues } from './actions';
 import { CARDS, energySpent } from './cards/definitions';
@@ -36,6 +37,14 @@ export function parseTrial(text: unknown): Trial | null {
   const kind = text.slice(0, at) as TrialKind;
   const id = text.slice(at + 1);
   return at > 0 && id && TRIAL_KINDS.includes(kind) ? { kind, id } : null;
+}
+
+/** Several trials at once, comma-separated — `card:stoke,card:fire` — for
+ *  trying a combo, which takes two things arranged. Any that do not parse
+ *  are left out. */
+export function parseTrials(text: unknown): Trial[] {
+  if (typeof text !== 'string') return [];
+  return text.split(',').map((part) => parseTrial(part.trim())).filter((trial): trial is Trial => !!trial);
 }
 
 /** How far off a tried enemy stands: close enough to meet this turn, far

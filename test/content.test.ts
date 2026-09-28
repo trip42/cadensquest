@@ -5,7 +5,7 @@ import { type Content, loadContent, validateContent } from '~/game/content';
 import { ENEMY_IDS, GUARDIAN_IDS } from '~/game/entities/definitions';
 import { entityCell } from '~/game/entities/types';
 import { cellDistance } from '~/game/map/navigation';
-import { applyTrial, parseTrial } from '~/game/sandbox';
+import { applyTrial, parseTrial, parseTrials } from '~/game/sandbox';
 import { createGame, player, resetUids } from '~/game/state';
 import { readContentFiles } from './setup';
 
@@ -111,6 +111,13 @@ describe('trying something out', () => {
     expect(parseTrial('enemy-card:wolf_lunge')).toEqual({ kind: 'enemy-card', id: 'wolf_lunge' });
     expect(parseTrial('nonsense')).toBeNull();
     expect(parseTrial('dragon:')).toBeNull();
+  });
+
+  it('reads several trials, comma-separated, to try a combo', () => {
+    expect(parseTrials('card:stoke,card:fire')).toEqual([{ kind: 'card', id: 'stoke' }, { kind: 'card', id: 'fire' }]);
+    expect(parseTrials('card:bolt')).toEqual([{ kind: 'card', id: 'bolt' }]);
+    expect(parseTrials('card:bolt,nonsense')).toEqual([{ kind: 'card', id: 'bolt' }]);
+    expect(parseTrials(undefined)).toEqual([]);
   });
 
   it('puts a tried card in the hand', () => {

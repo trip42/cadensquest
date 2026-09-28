@@ -440,21 +440,24 @@ export const useGameStore = defineStore('game', () => {
 
   /* ------------------------------ lifecycle ---------------------------- */
 
-  /** Begin a run. A trial arranges one thing up front — the content
-   *  editor's "Try it" — and is otherwise an ordinary run. */
+  /** Begin a run. Trials arrange things up front — the content editor's
+   *  "Try it", or two at once to try a combo — and it is otherwise an
+   *  ordinary run. */
   /* Counts runs. The map is keyed on it: its renderer is built once, around
      one game object, so a new run needs a new renderer — without this, NEW
      RUN (or coming back from the editor) kept drawing the old game. */
   const run = ref(0);
 
-  function start(seed: number = Math.floor(Math.random() * 0xffffffff), trial: Trial | null = null): void {
+  function start(seed: number = Math.floor(Math.random() * 0xffffffff), trials: Trial[] = []): void {
     runId = crypto.randomUUID();
     run.value += 1;
     game = createGame(seed);
     heard = 0;
     announce.value = null;
     beginTurn(game);
-    if (trial && !applyTrial(game, trial)) console.warn(`[try] could not arrange ${trialText(trial)}`);
+    for (const trial of trials) {
+      if (!applyTrial(game, trial)) console.warn(`[try] could not arrange ${trialText(trial)}`);
+    }
     selectedUid.value = null;
     signature = '';
     sync(true);
