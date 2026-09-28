@@ -149,7 +149,8 @@ sim/                 the fun simulator: bot, recorder, scorecard, experiments
                      (see "Simulator"); reports/ is generated, not committed
 docs/                ART_SPEC.md (the brief for an artist), MARKETING.md
                      (the plan for finding an audience), FUN.md (research,
-                     the fun scorecard, the simulator's findings)
+                     the fun scorecard, the simulator's findings), COMBOS.md
+                     (cards that combine: families, mechanics, build order)
 legacy/              the original single-file prototype this grew from
 ```
 

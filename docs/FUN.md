@@ -414,7 +414,8 @@ with a variant in `sim/design.sim.ts` before it's built properly.
    - "shove" cards that add slam damage
    - a talisman per family
 
-   This gives reward choices a direction.
+   This gives reward choices a direction. *Designed in
+   [COMBOS.md](COMBOS.md), not built yet.*
 7. **Stakes and bonds** (Fire Emblem). Let allies persist between floors as
    named companions, with Rescue to pull one out of danger. Losing one
    should hurt.
