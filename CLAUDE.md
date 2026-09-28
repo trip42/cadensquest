@@ -77,8 +77,9 @@ It is plain TypeScript that runs in Node, which is why `npm test` can play
 whole turns — draw a hand, spend energy, walk a path, run an enemy phase —
 in 200ms with no browser. Keep it that way:
 
-- Asset URLs live in `app/render/sprites.ts`, keyed by name. The game layer
-  says `sheet: 'caden'`, never a path.
+- Asset URLs live in `app/render/sprites.ts` (and floor backdrops in
+  `app/render/backdrops.ts`), keyed by name. The game layer says
+  `sheet: 'caden'`, never a path.
 - The renderer reads state once per frame and never writes to it.
 - The store holds the game object **outside** Vue's reactivity.
 
@@ -125,6 +126,7 @@ app/render/          canvas renderer — DOM, still no Vue
   juice.ts             takes new cues each frame: sound, numbers, flashes,
                        sparks, shake, hit-stop — and when a blow lands
   sprites.ts           SHEET_FILES registry, frameFor, placeholder art
+  backdrops.ts         each floor's background picture, found by its name
   glyphs.ts            placeholder line art for cards and talismans
   renderer.ts          frame loop, depth order, highlights, entities, marked
                        tiles (drawMarks), ally/summon rings, chips
@@ -808,6 +810,17 @@ Everything that is not a tile is open water: the renderer fills the canvas
 with the current zone's own water colour, sunk darker, so the shallows drawn
 on the map read as shallows against the deep. `MapStage`'s CSS background
 matches, so nothing flashes before the first frame.
+
+**A floor's backdrop** covers that water, if the floor has one
+(`backdrops.ts`, `drawBackdrop`). It is the picture in
+`app/assets/backgrounds/` named after the floor — "North Basin" is
+`north-basin.jpeg` (or .jpg, .png, .webp), found by `import.meta.glob`, so
+adding one is dropping a file in. It is drawn still: in screen space and
+before the shake, so it never pans, zooms or shakes with the map. It covers
+the screen from the centre, cropping what does not fit, under a
+`BACKDROP_DIM` (0.35) ink wash so the tiles stay the brightest thing on
+screen. The water shows until it loads, and on a floor without one. A test
+fails on a picture no floor's name would find — a typo, or a renamed floor.
 
 Draw order is a painter's algorithm over diagonals of constant `row + col`,
 which is the true far-to-near order in this projection. Characters fold into

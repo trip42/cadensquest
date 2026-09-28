@@ -296,6 +296,24 @@ More will be added. The current list is always in
 
 ---
 
+## Floor backdrops
+
+Each floor can have a painting behind it: everything that is not a tile
+shows it, where there was open water. The map is drawn over it, so the
+painting is scenery and never needs to line up with the tiles.
+
+- **It stays still.** It is scaled to cover the screen and centred. The
+  edges are cropped on screens of a different shape, so keep anything that
+  matters away from them.
+- **It is dimmed** a third under the map, so the tiles stay the brightest
+  thing on screen. Busy detail in the middle competes with the fight.
+- **Size:** at least 1408 × 752 (the North Basin's), wider than 16:9. Twice
+  that is better on large screens. JPEG is fine: there is no transparency.
+- **Name it after the floor:** `north-basin.jpeg`, `sunken-reach.jpeg`,
+  `pale-shelf.jpeg`.
+
+---
+
 ## Delivery
 
 - **Format:** PNG, 32-bit with transparency, sRGB, straight (not

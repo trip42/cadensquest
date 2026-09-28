@@ -15,7 +15,7 @@ import type { Entity } from '../game/entities/types';
 import { gemDef } from '../game/gems';
 import type { Cell } from '../game/map/navigation';
 import { type Reward, rewardLabel } from '../game/rewards';
-import { KIND_OF, type FacePalette, MAX_STACK_HEIGHT, type TileKind, type TileLetter, VOID } from '../game/map/tiles';
+import { KIND_OF, type FacePalette, MAX_STACK_HEIGHT, type TileKind, type TileLetter, VOID, ZONES } from '../game/map/tiles';
 import type { Game, TerrainLayer } from '../game/state';
 import {
   type Camera,
@@ -39,6 +39,7 @@ import {
   unproject,
   type Viewport,
 } from './iso';
+import { BACKDROP_DIM, backdropFor } from './backdrops';
 import { Juice, type Stage } from './juice';
 import { frameFor, type SourceFrame } from './sprites';
 
@@ -360,6 +361,25 @@ export class MapRenderer implements Stage {
     return darken(zone.palette.water.top, 0.58);
   }
 
+  /** The floor's painting, if it has one: still behind the map — drawn
+   *  before the shake, and in screen space, so it neither pans nor shakes —
+   *  covering the screen from the centre, and dimmed so the tiles stay the
+   *  brightest thing on it. */
+  private drawBackdrop(): void {
+    const { ctx, view } = this;
+    const zone = ZONES[this.game.state.floor];
+    const image = zone && backdropFor(zone.name);
+    if (!image) return;
+    const cover = Math.max(view.width / image.width, view.height / image.height);
+    const w = image.width * cover;
+    const h = image.height * cover;
+    ctx.drawImage(image, (view.width - w) / 2, (view.height - h) / 2, w, h);
+    if (BACKDROP_DIM > 0) {
+      ctx.fillStyle = `rgba(11, 11, 23, ${BACKDROP_DIM})`;
+      ctx.fillRect(0, 0, view.width, view.height);
+    }
+  }
+
   private paletteFor(row: number, letter: TileLetter): FacePalette {
     const kind: TileKind = KIND_OF[letter] ?? 'ground';
     return this.game.world.zoneAt(row).palette[kind];
@@ -373,9 +393,11 @@ export class MapRenderer implements Stage {
 
     /* The land is an archipelago: everything that is not a tile is open
        water. Taken from the zone's own water colour and sunk a little
-       darker, so the shallows on the map read as shallows against it. */
+       darker, so the shallows on the map read as shallows against it —
+       and shown only until the floor's painting, if it has one, is in. */
     ctx.fillStyle = this.backdrop();
     ctx.fillRect(0, 0, view.width, view.height);
+    this.drawBackdrop();
 
     // Everything on the map shakes together; the washes over the whole
     // screen, drawn last, do not.
