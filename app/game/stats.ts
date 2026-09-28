@@ -44,6 +44,9 @@ export const BASE_STATS = {
   fireRounds: 0,
   /** At 1 or more, fire does not hurt the player. */
   fireWard: 0,
+  /** At 1 or more, the refresh keeps the player's block rather than
+   *  clearing it; block from `blockPerRefresh` goes on top. */
+  keepBlock: 0,
 } as const;
 
 export type StatKey = keyof typeof BASE_STATS;
@@ -98,6 +101,7 @@ export const STAT_NAMES: Record<StatKey, string> = {
   fireMultiplier: 'fire damage multiplier',
   fireRounds: 'rounds every fire burns',
   fireWard: 'protection from fire',
+  keepBlock: 'block kept between turns',
 };
 
 export const STAT_KEYS = Object.keys(BASE_STATS) as StatKey[];

@@ -1584,8 +1584,9 @@ export function beginTurn(game: Game): void {
   ageTrails(state);
 
   const self = player(state);
-  // Block from talismans replaces what was left, rather than adding to it.
-  self.block = stat(state, 'blockPerRefresh');
+  // Block from talismans replaces what was left, rather than adding to it —
+  // unless it is being kept (Entrench), when it goes on top.
+  self.block = (stat(state, 'keepBlock') >= 1 ? self.block : 0) + stat(state, 'blockPerRefresh');
   self.hp = Math.min(self.maxHp, self.hp + stat(state, 'healPerRefresh'));
   state.energy = stat(state, 'maxEnergy');
   // Base speed each turn. Cards, gems and talismans raise it through the

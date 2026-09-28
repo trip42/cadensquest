@@ -477,6 +477,10 @@ raise it; enemies use the base. The simulator found +1 or +2 made runs
 easier and spikier, not better, so it stays off until something is built
 around it (see docs/FUN.md).
 
+`keepBlock` (base 0) at 1 or more makes the refresh keep the player's
+block instead of clearing it, with `blockPerRefresh` on top — Entrench, as
+a boon, for a few rounds.
+
 `syncStats` runs after the talismans change; it is what hands over the extra
 health when `maxHp` goes up instead of leaving a dent.
 
