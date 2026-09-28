@@ -79,11 +79,13 @@ const SPAWN_LOOKAHEAD = 2;
 
 /* ------------------------------ triggers ------------------------------- */
 
-/** Fire whatever the held talismans do at this point in the loop. */
-function fire(game: Game, point: TriggerPoint): void {
+/** Fire whatever the held talismans do at this point in the loop. `at`
+ *  is where they aim, when the moment has a place: the tile an enemy fell
+ *  on. Otherwise they have no target, and a mark lands under the player. */
+function fire(game: Game, point: TriggerPoint, at: Cell | null = null): void {
   const self = player(game.state);
   for (const effect of talismanEffects(game.state.talismans, point)) {
-    resolveEffect(game, effect, { actor: self, target: null, range: 0 });
+    resolveEffect(game, effect, { actor: self, target: at, range: 0 });
   }
 }
 
@@ -253,7 +255,7 @@ function dealDamage(game: Game, target: Entity, amount: number, blow: Blow): voi
       }
       // A floor's guardian falling opens the way off the floor, where it fell.
       if (state.gates.some((gate) => gate.guardianId === target.id)) openPortal(game, entityCell(target));
-      fire(game, 'enemyDefeated');
+      fire(game, 'enemyDefeated', entityCell(target));
     }
   } else {
     setAnimation(target, 'hurt');

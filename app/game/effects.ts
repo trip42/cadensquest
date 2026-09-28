@@ -510,7 +510,7 @@ export const TRIGGER_INFO: Record<TriggerPoint, string> = {
   playerPhaseEnd: 'When you end your phase',
   enemyPhaseEnd: 'After the enemies have acted',
   cardPlayed: 'Whenever you play a card',
-  enemyDefeated: 'Whenever an enemy falls',
+  enemyDefeated: 'Whenever an enemy falls — aimed at where it fell',
 };
 
 export const TRIGGER_POINTS = Object.keys(TRIGGER_INFO) as TriggerPoint[];

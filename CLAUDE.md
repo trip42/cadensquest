@@ -752,7 +752,8 @@ union changes — follow its errors.
   land under the player (a rule in `playCard`).
 - **Talismans** (`game/talismans.ts`) carry `modifiers` (permanent, via the
   stat table) and/or `triggers` (effects at a `TriggerPoint`). `fire(game,
-  point)` dispatches them; the points are wired into `beginTurn`,
+  point)` dispatches them (`enemyDefeated` aims at the tile the enemy fell
+  on, so a mark there lands there; the rest have no target); the points are wired into `beginTurn`,
   `endPlayerPhase`, the end of the enemy phase, `playCard` and enemy death.
   Duplicates stack, because they are just more modifiers.
 - **Rarities** are `starter`, `normal`, `rare`, `mythic`. `starter` is the

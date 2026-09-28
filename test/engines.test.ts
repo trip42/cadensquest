@@ -1,14 +1,15 @@
 /* The later engines of COMBOS.md: oil, Echo, triggers that aim where an
    enemy fell, momentum, Entrench and Command. */
 import { afterEach, describe, expect, it } from 'vitest';
-import { amountValues, beginTurn, endPlayerPhase, movePlayerTo, playCard, tick } from '~/game/actions';
+import { amountValues, beginTurn, endPlayerPhase, movePlayerTo, playCard, terrainAt, tick } from '~/game/actions';
 import { CARDS } from '~/game/cards/definitions';
 import type { CardDefinition } from '~/game/cards/types';
 import { loadContent } from '~/game/content';
 import type { Effect } from '~/game/effects';
 import { entityCell } from '~/game/entities/types';
 import { type Cell, reachable } from '~/game/map/navigation';
-import { createGame, entityAt, type Game, makeCard, player, resetUids } from '~/game/state';
+import { createGame, entityAt, type Game, makeCard, makeEntity, player, resetUids } from '~/game/state';
+import { TALISMANS } from '~/game/talismans';
 import { readContentFiles } from './setup';
 
 afterEach(() => loadContent(readContentFiles()));
@@ -71,5 +72,26 @@ describe('momentum: tiles walked this turn', () => {
     expect(game.state.moved).toBe(2);
     nextTurn(game);
     expect(game.state.moved).toBe(0);
+  });
+});
+
+describe('triggers aim where an enemy fell', () => {
+  it('a mark from enemyDefeated lands on the fallen one\'s tile, not the player\'s', () => {
+    const game = quiet();
+    const self = player(game.state);
+    TALISMANS.test_pyre = {
+      id: 'test_pyre', name: 'Pyre', text: '', icon: 'flame',
+      triggers: [{ on: 'enemyDefeated', effects: [{ kind: 'terrain', rounds: 2, colour: '#e43b44', element: 'fire', effects: [{ kind: 'damage', amount: 2 }] }] }],
+    };
+    game.state.talismans.push('test_pyre');
+    const here = entityCell(self);
+    const cell = [...reachable(game.world, here, 1).values()].find((entry) => entry.cost === 1)!.cell;
+    const foe = makeEntity('bug', cell.row, cell.col);
+    foe.hp = 1;
+    game.state.entities.push(foe);
+    play(game, define('hit_t', [{ kind: 'damage', amount: 5 }], { targeting: 'enemy', range: 1 }), cell);
+    expect(foe.dead).toBe(true);
+    expect(terrainAt(game.state, cell).map((layer) => layer.element)).toEqual(['fire']);
+    expect(terrainAt(game.state, here)).toEqual([]);
   });
 });
