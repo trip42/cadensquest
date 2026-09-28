@@ -9,6 +9,7 @@ import { entityDef, GUARDIAN_IDS } from '~/game/entities/definitions';
 import { rollReward } from '~/game/rewards';
 import { createRng } from '~/game/rng';
 import { createGame, type Game, makeCard, makeEntity, player, resetUids, stat, wholeDeck } from '~/game/state';
+import { printedText } from '~/game/text';
 import { writeCardText } from '~/utils/contentText';
 import { readContentFiles } from './setup';
 
@@ -157,7 +158,7 @@ describe('the new cards', () => {
   it('read the way the editor would write them', () => {
     for (const id of ['battle_fury', 'frenzy_x', 'blood_pact', 'second_wind', 'wildfire']) {
       const card = CARDS[id]!;
-      expect(writeCardText(card.effects as never, card.range, 'player', card.targeting), id).toBe(card.text);
+      expect(writeCardText(card.effects as never, card.range, 'player', card.targeting), id).toBe(printedText(card.text, card.effects));
     }
   });
 

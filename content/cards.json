@@ -8,7 +8,7 @@
     "cost": 1,
     "targeting": "enemy",
     "range": 1,
-    "text": "Deal 6 damage to an adjacent enemy.",
+    "text": "Deal {1} damage to an adjacent enemy.",
     "effects": [
       {
         "kind": "damage",
@@ -25,7 +25,7 @@
     "cost": 1,
     "targeting": "enemy",
     "range": 4,
-    "text": "Deal 4 damage at range.",
+    "text": "Deal {1} damage three times at range.",
     "effects": [
       {
         "kind": "damage",
@@ -50,7 +50,7 @@
     "cost": 1,
     "targeting": "self",
     "range": 0,
-    "text": "Gain 5 block.",
+    "text": "Gain {1} block.",
     "effects": [
       {
         "kind": "block",
@@ -67,7 +67,7 @@
     "cost": 0,
     "targeting": "self",
     "range": 0,
-    "text": "Draw 2 cards.",
+    "text": "Draw {1} cards.",
     "effects": [
       {
         "kind": "draw",
@@ -84,7 +84,7 @@
     "cost": 1,
     "targeting": "enemy",
     "range": 1,
-    "text": "Gain 4 block then Deal 8 damage to an adjacent enemy.",
+    "text": "Deal {1} damage to an adjacent enemy and gain {2} block.",
     "effects": [
       {
         "kind": "damage",
@@ -122,7 +122,7 @@
     "cost": 2,
     "targeting": "self",
     "range": 1,
-    "text": "Deal 11 damage to all adjacent enemies.",
+    "text": "Deal {1.1} damage to every enemy within {1}.",
     "effects": [
       {
         "kind": "area",
@@ -147,7 +147,7 @@
     "cost": 1,
     "targeting": "self",
     "range": 0,
-    "text": "Heal 5.",
+    "text": "Heal {1}.",
     "effects": [
       {
         "kind": "heal",
@@ -164,7 +164,7 @@
     "cost": 1,
     "targeting": "enemy",
     "range": 3,
-    "text": "Deal 6 damage and draw a card.",
+    "text": "Deal {1} damage and draw a card.",
     "effects": [
       {
         "kind": "damage",
@@ -185,7 +185,7 @@
     "cost": 0,
     "targeting": "self",
     "range": 0,
-    "text": "Gain 1 energy and draw a card.",
+    "text": "Gain {1} energy and draw a card.",
     "effects": [
       {
         "kind": "energy",
@@ -206,7 +206,7 @@
     "cost": 2,
     "targeting": "self",
     "range": 0,
-    "text": "Gain 14 block.",
+    "text": "Gain {1} block.",
     "effects": [
       {
         "kind": "block",
@@ -240,7 +240,7 @@
     "cost": 1,
     "targeting": "enemy",
     "range": 1,
-    "text": "Deal damage equal to your block. Lose it all.",
+    "text": "Hit an adjacent enemy for {1}, then lose all your block.",
     "effects": [
       {
         "kind": "damage",
@@ -265,7 +265,7 @@
     "cost": "X",
     "targeting": "enemy",
     "range": 1,
-    "text": "Deal 5X damage to an adjacent enemy.",
+    "text": "Deal {1} damage to an adjacent enemy.",
     "effects": [
       {
         "kind": "damage",
@@ -285,7 +285,7 @@
     "cost": 1,
     "targeting": "cell",
     "range": 3,
-    "text": "Mark a tile within 3: for 3 rounds, whoever is on it takes 3 damage.",
+    "text": "Mark a tile within 3: for {1} rounds, whoever is on it takes {1.1} damage.",
     "effects": [
       {
         "kind": "terrain",
@@ -309,7 +309,7 @@
     "cost": 1,
     "targeting": "cell",
     "range": 2,
-    "text": "Mark a tile within 2: for 3 rounds, whoever is on it heals 3.",
+    "text": "Mark a tile within 2: for {1} rounds, whoever is on it heals {1.1}.",
     "effects": [
       {
         "kind": "terrain",
@@ -333,7 +333,7 @@
     "cost": 1,
     "targeting": "enemy",
     "range": 2,
-    "text": "Tame an enemy within 2 with 8 health or less and heal it 5.",
+    "text": "Tame an enemy within 2 with {1} health or less and heal it {2}.",
     "effects": [
       {
         "kind": "tame",
@@ -354,7 +354,7 @@
     "cost": 0,
     "targeting": "ally",
     "range": 3,
-    "text": "Heal an ally within 3 for 6.",
+    "text": "Heal an ally within 3 for {1}.",
     "effects": [
       {
         "kind": "mend",
@@ -371,7 +371,7 @@
     "cost": 2,
     "targeting": "cell",
     "range": 2,
-    "text": "Summon a Wolf onto a tile within 2 with 10 health for 3 rounds.",
+    "text": "Summon a Wolf onto a tile within 2 with {1} health for 3 rounds.",
     "effects": [
       {
         "kind": "summon",
@@ -390,7 +390,7 @@
     "cost": 2,
     "targeting": "cell",
     "range": 3,
-    "text": "Burst at a tile within 3: everyone within 1 takes 4 damage.",
+    "text": "Burst at a tile within 3: everyone within {1} takes {1.1} damage.",
     "effects": [
       {
         "kind": "area",
@@ -414,7 +414,7 @@
     "cost": 1,
     "targeting": "self",
     "range": 0,
-    "text": "Burst around you: each of your side within 1 heals 4.",
+    "text": "Burst around you: each of your side within {1} heals {1.1}.",
     "effects": [
       {
         "kind": "area",
@@ -439,7 +439,7 @@
     "cost": "X",
     "targeting": "cell",
     "range": 3,
-    "text": "Mark a tile within 3 and every tile within 1 of it: for X rounds, whoever is on it takes 2 damage.",
+    "text": "Mark a tile within 3 and every tile within 1 of it: for {1} rounds, whoever is on it takes {1.1} damage.",
     "effects": [
       {
         "kind": "terrain",
@@ -466,7 +466,7 @@
     "cost": 1,
     "targeting": "enemy",
     "range": 1,
-    "text": "Deal 4 damage to an adjacent enemy and knock it back 2.",
+    "text": "Deal {1} damage to an adjacent enemy and knock it back {2}.",
     "effects": [
       {
         "kind": "damage",
@@ -487,7 +487,7 @@
     "cost": "X",
     "targeting": "enemy",
     "range": 1,
-    "text": "Deal 3X damage to an adjacent enemy and knock it back X.",
+    "text": "Deal {1} damage to an adjacent enemy and knock it back {2}.",
     "effects": [
       {
         "kind": "damage",
@@ -513,7 +513,7 @@
     "cost": 2,
     "targeting": "enemy",
     "range": 1,
-    "text": "Deal 8 damage to an adjacent enemy and knock it back 3.",
+    "text": "Deal {1} damage to an adjacent enemy and knock it back {2}.",
     "effects": [
       {
         "kind": "damage",
@@ -534,7 +534,7 @@
     "cost": 1,
     "targeting": "enemy",
     "range": 4,
-    "text": "Pull an enemy within 4 up to 3 closer and deal 3 damage to it.",
+    "text": "Pull an enemy within 4 up to {1} closer and deal {2} damage to it.",
     "effects": [
       {
         "kind": "pull",
@@ -555,7 +555,7 @@
     "cost": 0,
     "targeting": "enemy",
     "range": 3,
-    "text": "Pull an enemy within 3 up to 2 closer and draw a card.",
+    "text": "Pull an enemy within 3 up to {1} closer and draw a card.",
     "effects": [
       {
         "kind": "pull",
@@ -576,7 +576,7 @@
     "cost": 1,
     "targeting": "self",
     "range": 0,
-    "text": "Deal 2 more damage for 2 rounds.",
+    "text": "Deal {1} more damage for {2} rounds.",
     "effects": [
       {
         "kind": "power",
@@ -603,7 +603,7 @@
     "cost": "X",
     "targeting": "self",
     "range": 0,
-    "text": "Deal X more damage for 2 rounds.",
+    "text": "Deal {1} more damage for {2} rounds.",
     "effects": [
       {
         "kind": "power",
@@ -634,7 +634,7 @@
     "cost": 0,
     "targeting": "self",
     "range": 0,
-    "text": "Deal 3 more damage for the rest of the run and in 2 rounds, take 8 damage.",
+    "text": "Deal {1} more damage for the rest of the run and in {2} rounds, take {2.1} damage.",
     "effects": [
       {
         "kind": "power",
@@ -661,7 +661,7 @@
     "cost": 1,
     "targeting": "self",
     "range": 0,
-    "text": "Next round, heal 5 and draw 1.",
+    "text": "Next round, heal {1.1} and draw {1.2}.",
     "effects": [
       {
         "kind": "later",
@@ -688,7 +688,7 @@
     "cost": 1,
     "targeting": "cell",
     "range": 2,
-    "text": "Mark a tile within 2 and every tile within 1 of it: for 3 rounds, whoever stands on it deals 1 more damage.",
+    "text": "Mark a tile within 2 and every tile within 1 of it: for {1} rounds, whoever stands on it deals {1.1} more damage.",
     "effects": [
       {
         "kind": "terrain",
@@ -720,7 +720,7 @@
     "cost": 2,
     "targeting": "enemy",
     "range": 1,
-    "text": "Pull an enemy in range 4, hit for 8, knockback 4",
+    "text": "Pull an enemy in range 4, hit for {2}, knockback {3}",
     "effects": [
       {
         "kind": "pull",
@@ -745,7 +745,7 @@
     "cost": 2,
     "targeting": "enemy",
     "range": 1,
-    "text": "Attack for your current power 3 times.",
+    "text": "Hit an adjacent enemy 3 times for {1}.",
     "effects": [
       {
         "kind": "damage",
@@ -776,7 +776,7 @@
     "cost": 2,
     "targeting": "enemy",
     "range": 5,
-    "text": "Tame an enemy <15 health then pull it adjacent to you",
+    "text": "Tame an enemy with {1} health or less, then pull it adjacent to you.",
     "effects": [
       {
         "kind": "tame",

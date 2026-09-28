@@ -7,6 +7,7 @@ import type { Effect } from '~/game/effects';
 import { entityCell } from '~/game/entities/types';
 import { type Cell, reachable } from '~/game/map/navigation';
 import { createGame, type Game, makeCard, makeEntity, player, resetUids } from '~/game/state';
+import { printedText } from '~/game/text';
 import { writeCardText } from '~/utils/contentText';
 import { readContentFiles } from './setup';
 
@@ -144,7 +145,7 @@ describe('entering and leaving a mark', () => {
 describe('enter and exit in content', () => {
   it('Rallying Ground reads the way the editor writes it', () => {
     const card = CARDS.rallying_ground!;
-    expect(writeCardText(card.effects as never, card.range, 'player', card.targeting)).toBe(card.text);
+    expect(writeCardText(card.effects as never, card.range, 'player', card.targeting)).toBe(printedText(card.text, card.effects));
   });
 
   it('refuses a mark with nothing in it, and verbs that cannot go on a tile', () => {

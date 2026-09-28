@@ -9,6 +9,7 @@ import { GUARDIAN_IDS } from '~/game/entities/definitions';
 import { entityCell } from '~/game/entities/types';
 import { type Cell, canEnter } from '~/game/map/navigation';
 import { createGame, type Game, makeCard, makeEntity, player, resetUids } from '~/game/state';
+import { printedText } from '~/game/text';
 import { writeCardText } from '~/utils/contentText';
 import { readContentFiles } from './setup';
 
@@ -184,7 +185,7 @@ describe('the sample cards', () => {
   it('read the way the editor would write them', () => {
     for (const id of ids) {
       const card = CARDS[id]!;
-      expect(writeCardText(card.effects as never, card.range, 'player', card.targeting), id).toBe(card.text);
+      expect(writeCardText(card.effects as never, card.range, 'player', card.targeting), id).toBe(printedText(card.text, card.effects));
     }
   });
 
