@@ -1167,5 +1167,61 @@
         ]
       }
     ]
+  },
+  {
+    "id": "battle_cry",
+    "name": "Battle Cry",
+    "enabled": false,
+    "rarity": "rare",
+    "art": "arc",
+    "cost": 1,
+    "targeting": "self",
+    "range": 0,
+    "text": "You and every ally within 2 deal {1.1} more damage for {1.2} rounds.",
+    "effects": [
+      {
+        "kind": "area",
+        "radius": 2,
+        "colour": "#feae34",
+        "affects": "friends",
+        "effects": [
+          {
+            "kind": "power",
+            "amount": 2
+          },
+          {
+            "kind": "later",
+            "rounds": 2,
+            "effects": [
+              {
+                "kind": "losePower",
+                "amount": 2
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "kindled_fury",
+    "name": "Kindled Fury",
+    "enabled": false,
+    "rarity": "mythic",
+    "art": "flame",
+    "cost": 1,
+    "targeting": "self",
+    "range": 0,
+    "text": "For 2 rounds, every fire deals extra damage equal to your power.",
+    "effects": [
+      {
+        "kind": "boon",
+        "stat": "fireDamage",
+        "add": {
+          "of": "power"
+        },
+        "rounds": 2
+      }
+    ]
   }
 ]
