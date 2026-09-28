@@ -30,6 +30,7 @@ import {
   handMovementValue,
   isBusy,
   isValidTarget,
+  layerEffects,
   MIN_DECK,
   movePlayerTo,
   movementRange,
@@ -481,7 +482,11 @@ export const useGameStore = defineStore('game', () => {
           ? `Step on to go down to ${ZONES[state.floor + 1]?.name ?? 'the next floor'}`
           : layer.shop
           ? 'Step on to trade coins for cards, gems, a talisman or a removal'
-          : `${describeMark(layer.effects, layer.enter, layer.exit)} · ${layer.rounds} round${layer.rounds === 1 ? '' : 's'}`,
+          : `${describeMark(
+            layerEffects(state, layer),
+            layer.enter && layerEffects(state, layer, layer.enter),
+            layer.exit && layerEffects(state, layer, layer.exit),
+          )} · ${layer.rounds} round${layer.rounds === 1 ? '' : 's'}`,
     }));
   }
 

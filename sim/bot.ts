@@ -13,7 +13,8 @@
    far to walk, what to take from a reward. Nothing in the rules is bent. */
 
 import {
-  amountValues, buyShopItem, canPlay, chooseCardReward, discardForMovement, endPlayerPhase, gemTargets, isBusy, isValidTarget, leaveShop, shopPrice,
+  amountValues, buyShopItem, canPlay, chooseCardReward, discardForMovement, endPlayerPhase, gemTargets, isBusy, isValidTarget, layerEffects,
+  leaveShop, shopPrice,
   movePlayerTo, playCard, playerMoveOptions, removeCardReward, skipReward, socketGemReward, takeTalismanReward, terrainAt, tick,
 } from '../app/game/actions';
 import { cardDef, cardMovement } from '../app/game/cards/definitions';
@@ -139,10 +140,12 @@ function walkingDistance(game: Game, goal: Cell): (cell: Cell) => number {
 function markWorth(state: GameState, cell: Cell): number {
   const self = player(state);
   let worth = 0;
+  const warded = stat(state, 'fireWard') >= 1;
   for (const layer of terrainAt(state, cell)) {
     if (layer.portal) worth += 30;
-    for (const effect of layer.effects) {
-      if (effect.kind === 'damage') worth -= effect.amount;
+    // Heat counts, as the rules will land it.
+    for (const effect of layerEffects(state, layer)) {
+      if (effect.kind === 'damage') worth -= warded && layer.element === 'fire' ? 0 : effect.amount;
       else if (effect.kind === 'heal') worth += Math.min(effect.amount, self.maxHp - self.hp) * 0.6;
       else if (effect.kind === 'block') worth += effect.amount * 0.3;
       else if (effect.kind === 'draw' || effect.kind === 'energy') worth += effect.amount;
@@ -194,7 +197,7 @@ export function value(game: Game): number {
   for (const [key, layers] of Object.entries(state.terrain)) {
     const [row, col] = key.split(',').map(Number);
     const cell = { row: row!, col: col! };
-    const hurt = layers.reduce((sum, layer) => sum + layer.effects
+    const hurt = layers.reduce((sum, layer) => sum + layerEffects(state, layer)
       .filter((effect) => effect.kind === 'damage')
       .reduce((n, effect) => n + effect.amount, 0) * Math.min(layer.rounds, 2), 0);
     if (!hurt) continue;

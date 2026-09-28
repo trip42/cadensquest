@@ -573,6 +573,16 @@ Fire has no side: anything that heats, lengthens or counts fire works on
 every burning tile, whoever lit it — the Whelp's under you as much as yours
 under them — and a death by fire is still credited to whoever lit it.
 
+- **The fire stats** are `fireDamage` (0), `fireMultiplier` (1),
+  `fireRounds` (0) and `fireWard` (0), read from the player's stat table
+  (talismans and boons) and applied to *every* fire. A fire's hit is (its
+  damage + `fireDamage`) × `fireMultiplier`, **worked out as it hits** by
+  `fireHit`, so heat reaches fires already burning. `fireRounds` is added
+  as a fire is lit. At `fireWard` 1 or more fire does not hurt the player.
+- **`layerEffects(state, layer)`** is a mark's effects as they would land
+  now. The rules (`applyTile`), the tile tooltip and the bot all read
+  through it, so what the tooltip says is what the tile does.
+
 **Knockback and pull.** `push` knocks the targeted creature back from the
 actor, `pull` drags it in, a tile at a time (`shove`), for either side.
 

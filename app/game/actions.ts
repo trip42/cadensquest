@@ -549,7 +549,8 @@ function markTile(game: Game, effect: TerrainEffect, play: Play): void {
   if (!world.walkable(cell.row, cell.col)) return;
 
   const values = amountValues(state, actor, play.x);
-  const rounds = amountOf(effect.rounds, values);
+  // Every fire lit burns `fireRounds` longer, whoever lights it.
+  const rounds = amountOf(effect.rounds, values) + (effect.element === 'fire' ? stat(state, 'fireRounds') : 0);
   if (rounds <= 0) return;
   const fix = (list: TerrainEffect['effects']) => list.map((tile) => ({ kind: tile.kind, amount: amountOf(tile.amount, values) }));
   const effects = fix(effect.effects);
@@ -579,12 +580,31 @@ function markTile(game: Game, effect: TerrainEffect, play: Play): void {
 }
 
 /* What a tile does to whoever is on it: each effect as if they had played
-   it on themselves. No bonuses — a fire burns the same for everyone. */
+   it on themselves. No bonuses — a fire burns the same for everyone. The
+   fire stats are not a bonus of whoever lit it: they heat every fire, and
+   `fireWard` keeps the player out of all of them. */
 function applyTile(game: Game, entity: Entity, layers: readonly TerrainLayer[]): void {
+  const { state } = game;
+  const warded = entity.id === state.playerId && stat(state, 'fireWard') >= 1;
   for (const layer of layers) {
-    const owner = game.state.entities.find((item) => item.id === layer.ownerId);
-    applyTo(game, entity, layer.effects, 'tile', owner);
+    const owner = state.entities.find((item) => item.id === layer.ownerId);
+    const effects = layerEffects(state, layer);
+    applyTo(game, entity, warded && layer.element === 'fire' ? effects.filter((effect) => effect.kind !== 'damage') : effects, 'tile', owner);
   }
+}
+
+/** What a fire's hit of `amount` comes to now: (it + `fireDamage` + any
+ *  `extra`) × `fireMultiplier`. Worked out as it hits, not when it was lit,
+ *  so heat reaches fires already burning — every fire, whoever lit it. */
+export const fireHit = (state: GameState, amount: number, extra = 0): number =>
+  (amount + stat(state, 'fireDamage') + extra) * stat(state, 'fireMultiplier');
+
+/** A mark's effects as they would land now — a fire's damage heated by the
+ *  fire stats. `list` is which of its lists: its effects, enter or exit.
+ *  For the rules, the tile's tooltip and the bot alike. */
+export function layerEffects(state: GameState, layer: TerrainLayer, list: readonly TileEffect[] = layer.effects): TileEffect[] {
+  if (layer.element !== 'fire') return [...list];
+  return list.map((effect) => (effect.kind === 'damage' ? { kind: 'damage', amount: fireHit(state, effect.amount) } : effect));
 }
 
 /* Effects landing on a creature as if it had played them on itself: Damage

@@ -35,6 +35,15 @@ export const BASE_STATS = {
   /** Extra damage a blow deals for each layer the attacker stands above its
    *  target. 0 is off: height is scenery. Enemies use the base value. */
   highGround: 0,
+  /** Added to every point of damage a fire deals — every fire, whoever lit
+   *  it, worked out as it hits, so it heats fires already burning. */
+  fireDamage: 0,
+  /** What every fire's damage is multiplied by, after `fireDamage`. */
+  fireMultiplier: 1,
+  /** Rounds added to every fire as it is lit, whoever lights it. */
+  fireRounds: 0,
+  /** At 1 or more, fire does not hurt the player. */
+  fireWard: 0,
 } as const;
 
 export type StatKey = keyof typeof BASE_STATS;
@@ -85,6 +94,10 @@ export const STAT_NAMES: Record<StatKey, string> = {
   maxAllies: 'allies you can keep',
   slamDamage: 'knockback slam damage',
   highGround: 'damage per layer of high ground',
+  fireDamage: 'fire damage',
+  fireMultiplier: 'fire damage multiplier',
+  fireRounds: 'rounds every fire burns',
+  fireWard: 'protection from fire',
 };
 
 export const STAT_KEYS = Object.keys(BASE_STATS) as StatKey[];

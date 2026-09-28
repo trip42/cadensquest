@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { beginTurn, playCard, terrainAt, tick } from '~/game/actions';
+import { beginTurn, endPlayerPhase, layerEffects, playCard, terrainAt, tick } from '~/game/actions';
 import { CARDS } from '~/game/cards/definitions';
 import { INTENTS } from '~/game/cards/intents';
 import type { CardDefinition } from '~/game/cards/types';
@@ -8,6 +8,7 @@ import type { Effect } from '~/game/effects';
 import { entityCell } from '~/game/entities/types';
 import { type Cell, reachable } from '~/game/map/navigation';
 import { createGame, type Game, makeCard, makeEntity, player, resetUids } from '~/game/state';
+import { type TalismanDefinition, TALISMANS } from '~/game/talismans';
 import { readContentFiles } from './setup';
 
 afterEach(() => loadContent(readContentFiles()));
@@ -64,5 +65,83 @@ describe('fire', () => {
     for (const card of [CARDS.fire!, CARDS.wildfire!, INTENTS.whelp_scorch!]) {
       expect(card.effects.some((effect) => effect.kind === 'terrain' && effect.element === 'fire'), card.id).toBe(true);
     }
+  });
+});
+
+describe('the fire stats', () => {
+  /** Hold a talisman made of these modifiers. */
+  function hold(game: Game, modifiers: TalismanDefinition['modifiers']): void {
+    TALISMANS.test_charm = { id: 'test_charm', name: 'Charm', text: '', icon: 'gem', modifiers };
+    game.state.talismans.push('test_charm');
+  }
+
+  it('heat every fire as it hits, including fires already burning', () => {
+    const game = quiet();
+    const cell = cellAt(game, 2);
+    define('fire_t', [fire(3)]);
+    play(game, 'fire_t', cell);
+    const enemy = dummy(game, cell);
+    hold(game, [{ stat: 'fireDamage', add: 2 }, { stat: 'fireMultiplier', mul: 2 }]);
+    endPlayerPhase(game);
+    expect(enemy.hp).toBe(99 - (3 + 2) * 2);
+  });
+
+  it('heat an enemy\'s fire under the player too', () => {
+    const game = quiet();
+    const self = player(game.state);
+    const whelp = dummy(game, cellAt(game, 2));
+    INTENTS.scorch_t = { id: 'scorch_t', name: 'Scorch', cost: 0, rarity: 'normal', targeting: 'enemy', range: 3, text: '', effects: [fire(3)] };
+    whelp.intent = { cardId: 'scorch_t', label: 'Scorch' };
+    hold(game, [{ stat: 'fireDamage', add: 1 }]);
+    self.block = 0;
+    const hp = self.hp;
+    // Lit by the whelp, under the player's feet: it hits him at once.
+    endPlayerPhase(game);
+    for (let i = 0; i < 3000 && self.hp === hp; i += 1) tick(game, 1 / 60);
+    expect(self.hp).toBe(hp - 4);
+    expect(terrainAt(game.state, entityCell(self))[0]!.ownerId).toBe(whelp.id);
+  });
+
+  it('leave marks that are not fire alone', () => {
+    const game = quiet();
+    const cell = cellAt(game, 2);
+    define('mark_t', [{ kind: 'terrain', rounds: 3, colour: '#e43b44', effects: [{ kind: 'damage', amount: 3 }] }]);
+    hold(game, [{ stat: 'fireDamage', add: 5 }]);
+    const enemy = dummy(game, cell);
+    play(game, 'mark_t', cell);
+    expect(enemy.hp).toBe(96);
+  });
+
+  it('make every fire lit burn fireRounds longer', () => {
+    const game = quiet();
+    const cell = cellAt(game, 2);
+    define('fire_t', [fire(3, 2)]);
+    hold(game, [{ stat: 'fireRounds', add: 1 }]);
+    play(game, 'fire_t', cell);
+    expect(terrainAt(game.state, cell)[0]!.rounds).toBe(3);
+  });
+
+  it('keep the player out of the fire with fireWard, but not the enemies', () => {
+    const game = quiet();
+    const self = player(game.state);
+    define('fire_self', [fire(3)], { targeting: 'self', range: 0 });
+    hold(game, [{ stat: 'fireWard', add: 1 }]);
+    const hp = self.hp;
+    play(game, 'fire_self');
+    expect(self.hp).toBe(hp);
+    const enemy = dummy(game, cellAt(game, 1));
+    define('fire_t', [fire(3)]);
+    play(game, 'fire_t', entityCell(enemy));
+    expect(enemy.hp).toBe(96);
+  });
+
+  it('show on the tile as they would land', () => {
+    const game = quiet();
+    const cell = cellAt(game, 2);
+    define('fire_t', [fire(3)]);
+    play(game, 'fire_t', cell);
+    hold(game, [{ stat: 'fireDamage', add: 2 }]);
+    const [layer] = terrainAt(game.state, cell);
+    expect(layerEffects(game.state, layer!)).toEqual([{ kind: 'damage', amount: 5 }]);
   });
 });
