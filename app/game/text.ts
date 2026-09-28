@@ -23,6 +23,7 @@
      a Later           its rounds; inside, what lands then
      a burst           its radius; inside, what each creature caught gets
      a summon          its health
+     a boon            how much it adds (or multiplies by)
 
    This file knows only effects, so the validator — which the editor's save
    endpoint runs on the server too — can use it without the rules. What a
@@ -30,9 +31,20 @@
    `intentText` in actions.ts, which know the game. */
 
 import {
-  type Amount, amountOf, type AmountValues, describeAmount, type Effect, isArea, isLater, isScaled, isSummon, isTerrain,
+  type Amount, amountOf, type AmountValues, describeAmount, type Effect, isArea, isBoon, isLater, isScaled, isSummon, isTerrain,
   markEffects, stepValues,
 } from './effects';
+import type { StatKey } from './stats';
+
+/** What a boon's number measures, by the stat it raises. */
+const STAT_UNITS: Partial<Record<StatKey, string>> = {
+  damageBonus: 'damage', fireDamage: 'damage', slamDamage: 'damage', highGround: 'damage',
+  blockBonus: 'block', blockPerRefresh: 'block',
+  maxHp: 'health', healPerRefresh: 'health',
+  maxEnergy: 'energy',
+  movePerTurn: 'movement', movementBonus: 'movement',
+};
+const boonKind = (stat: StatKey): string => STAT_UNITS[stat] ?? 'boon';
 
 /** What a number measures, so the screen can colour it the way the rest
  *  of the game does — damage red, health green, block blue, power and
@@ -103,6 +115,8 @@ function numbered(effects: readonly Effect[]): Map<string, Numbered> {
       inside(effect.effects);
     } else if (isSummon(effect)) {
       found.set(key, { amount: effect.amount, kind: 'health' });
+    } else if (isBoon(effect)) {
+      found.set(key, { amount: effect.add ?? effect.mul ?? 0, kind: boonKind(effect.stat) });
     } else {
       found.set(key, { amount: effect.amount, kind: effect.kind });
     }
@@ -137,6 +151,8 @@ function liveNumbers(effects: readonly Effect[], start: AmountValues, bonuses: B
       inside(effect.effects, values.power + bonuses.damage);
     } else if (isSummon(effect)) {
       found.set(key, amountOf(effect.amount, values));
+    } else if (isBoon(effect)) {
+      found.set(key, effect.add === undefined ? effect.mul ?? 0 : amountOf(effect.add, values));
     } else {
       const n = amountOf(effect.amount, values);
       const total = effect.kind === 'damage' ? n + values.power + bonuses.damage

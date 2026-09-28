@@ -486,7 +486,7 @@ with the same tagged objects from `game/effects.ts`, and `resolveEffect` in
 actions.ts is the only place that knows what any of them do. A new gem or
 card is data; a new verb or shape is code (checklists at the end).
 
-**Five shapes.** A **simple** effect is `{ kind, amount }` with a verb
+**Six shapes.** A **simple** effect is `{ kind, amount }` with a verb
 from `EFFECT_INFO`: `damage`, `block`, `loseBlock`, `heal`, `power`,
 `losePower`, `movement`, `energy`, `draw`, `step` (Leap), `advance`, `tame`,
 `mend`, `push` (Knockback), `pull`.
@@ -494,9 +494,10 @@ from `EFFECT_INFO`: `damage`, `block`, `loseBlock`, `heal`, `power`,
 enter?, exit?, radius? }`.
 **Summon** is `{ kind: "summon", entity, amount, rounds? }`. **Area** is
 `{ kind: "area", radius, colour, affects?, effects: [simple...] }`.
-**Later** is `{ kind: "later", rounds, effects: [simple...] }`. Code tells
-them apart with `isTerrain` / `isSummon` / `isArea` / `isLater`; content
-validates them with a zod discriminated union.
+**Later** is `{ kind: "later", rounds, effects: [simple...] }`. **Boon** is
+`{ kind: "boon", stat, add?, mul?, rounds }`. Code tells
+them apart with `isTerrain` / `isSummon` / `isArea` / `isLater` / `isBoon`;
+content validates them with a zod discriminated union.
 
 **Who an effect lands on.** Every effect is played by an actor. `damage`
 hits the actor's target (never its own side); `block`, `loseBlock`, `heal`,
@@ -630,6 +631,22 @@ verbs may go inside.
   surprise.
 - **Card text.** `writeCardText` reads power paired with an equal
   losePower Later as "deal N more damage for R rounds".
+
+**Boons: a stat for a few rounds.** A boon raises one of the player's
+stats as if a talisman were held that long: `add` first, then `mul`, like a
+talisman's modifier. It is the player's only (an enemy has no stat table;
+the validator warns).
+
+- **Amounts and rounds are fixed when played**, as for a Later, and kept in
+  `state.boons`. `modifiersOf` includes them beside the talismans, so
+  everything that reads `stat()` sees a boon with no code of its own.
+- **They count down in `beginTurn`** (`ageBoons`), before the refresh reads
+  any stat: "for 2 rounds" is this round and the next. `syncStats` runs as
+  one starts and as one ends, so a boon to max health hands the health over.
+- **The HUD** shows a yellow chip for each ("2 RND: +2 FIRE DAMAGE"),
+  beside the Later chips; the store's signature carries them.
+- **Text.** A boon's token is how much it adds (or multiplies by),
+  coloured by the stat it raises.
 
 **Allies, Tame and Mend.** A third faction, `ally`, fights on the player's
 side; `sameSide` groups player + allies against enemies. Every non-player

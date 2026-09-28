@@ -28,13 +28,15 @@ function setX(on: boolean): void {
   const usesX = props.item.effects.some((effect) =>
     effect.kind === 'terrain' || effect.kind === 'later' ? isX(effect.rounds) || effect.effects.some((tile) => isX(tile.amount))
       : effect.kind === 'area' ? effect.effects.some((inner) => isX(inner.amount))
-        : isX(effect.amount));
+        : effect.kind === 'boon' ? isX(effect.rounds) || isX(effect.add)
+          : isX(effect.amount));
   const first = props.item.effects.find((effect) => effect.kind !== 'step');
   if (usesX || !first) return;
   // A terrain card usually wants X rounds; a burst X of its first effect;
   // anything else X of itself.
   if (first.kind === 'terrain') first.rounds = { of: 'x' };
   else if (first.kind === 'area' || first.kind === 'later') { if (first.effects[0]) first.effects[0].amount = { of: 'x' }; }
+  else if (first.kind === 'boon') first.rounds = { of: 'x' };
   else first.amount = { of: 'x' };
 }
 

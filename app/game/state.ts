@@ -69,6 +69,14 @@ export interface LaterEntry {
   effects: TileEffect[];
 }
 
+/** A stat raised for a few rounds: a boon, with its amount fixed. It is a
+ *  stat modifier like a talisman's, for as long as it has rounds left. */
+export interface Boon extends StatModifier {
+  id: string;
+  /** Rounds left, counting this one. It goes as a round begins with none. */
+  rounds: number;
+}
+
 /** A floor's guardian, standing on its last row. The portal off the floor
  *  opens where it falls. */
 export interface Gate {
@@ -137,6 +145,8 @@ export interface GameState {
   cueSeq: number;
   /** Delayed effects still to land, soonest first. */
   later: LaterEntry[];
+  /** The player's stats raised for a few rounds. */
+  boons: Boon[];
   /** The floor the player is on — the index of its zone. Only its rows
    *  exist; the portal at its end leads to the next, and out of the last
    *  one wins the run. */
@@ -257,6 +267,7 @@ export function createGame(seed: number): Game {
     cues: [],
     cueSeq: 0,
     later: [],
+    boons: [],
     floor: 0,
     descending: false,
     queue: [],
@@ -276,7 +287,7 @@ export function createGame(seed: number): Game {
    through here, so a talisman changes it without anything else knowing. */
 
 export const modifiersOf = (state: GameState): StatModifier[] =>
-  talismanModifiers(state.talismans);
+  [...talismanModifiers(state.talismans), ...state.boons];
 
 export const stat = (state: GameState, key: StatKey): number =>
   resolveStat(key, modifiersOf(state));

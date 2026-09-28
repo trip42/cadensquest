@@ -14,7 +14,7 @@ import {
   TRIGGER_POINTS,
 } from '../effects';
 import { REWARD_KINDS } from '../rewards';
-import { STAT_KEYS } from '../stats';
+import { STAT_KEYS, type StatKey } from '../stats';
 
 const count = (min = 0, max = 999) => z.number().int('must be a whole number').min(min).max(max);
 
@@ -87,8 +87,18 @@ export const laterEffectSchema = z.strictObject({
   effects: z.array(simpleEffectSchema).min(1, 'needs at least one effect'),
 });
 
+/** One of the player's stats raised for `rounds` rounds, counting this one:
+ *  `add` on, then `mul`. The validator wants at least one of the two. */
+export const boonEffectSchema = z.strictObject({
+  kind: z.literal('boon'),
+  stat: z.enum(STAT_KEYS as [StatKey, ...StatKey[]]),
+  add: amountSchema.optional(),
+  mul: z.number().positive('must be more than 0').max(10).optional(),
+  rounds: amountSchema,
+});
+
 export const effectSchema = z.discriminatedUnion('kind', [
-  simpleEffectSchema, terrainEffectSchema, summonEffectSchema, areaEffectSchema, laterEffectSchema,
+  simpleEffectSchema, terrainEffectSchema, summonEffectSchema, areaEffectSchema, laterEffectSchema, boonEffectSchema,
 ]);
 
 export const cardSchema = z.strictObject({

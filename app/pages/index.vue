@@ -157,6 +157,15 @@ const energyCells = computed(() => {
           >
             IN {{ soon.rounds }}: {{ soon.text }}
           </span>
+          <!-- What lasts a while yet: a boon on his stats, and for how long. -->
+          <span
+            v-for="(boon, i) in store.view.lasting"
+            :key="`b${i}`"
+            class="soon is-boon"
+            :title="`For ${boon.rounds} more round${boon.rounds === 1 ? '' : 's'}: ${boon.text}`"
+          >
+            {{ boon.rounds }} RND: {{ boon.text }}
+          </span>
           <span class="meter">
             <span class="label">MOVE</span>
             <strong class="move">{{ store.view.movement }}</strong>
@@ -330,6 +339,7 @@ const energyCells = computed(() => {
 .block { padding: 0 4px; background: var(--px-blue); color: var(--px-text); animation: tag-in 0.25s cubic-bezier(0.3, 1.6, 0.5, 1); }
 .power { padding: 0 4px; background: var(--px-yellow); color: var(--px-ink); animation: tag-in 0.25s cubic-bezier(0.3, 1.6, 0.5, 1); }
 .soon { padding: 0 4px; border: 2px solid var(--px-muted); color: var(--px-muted); }
+.soon.is-boon { border-color: var(--px-yellow); color: var(--px-yellow); }
 /* Hurt: the meter jolts and flashes. Healed: it glows green. */
 .hp.is-hurt { animation: jolt 0.36s steps(6) both; }
 .hp.is-hurt .cells { background: var(--px-red); }

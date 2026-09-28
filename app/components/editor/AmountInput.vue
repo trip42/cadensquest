@@ -8,7 +8,7 @@ import { AMOUNT_SOURCE_KEYS, AMOUNT_SOURCES, type Amount, type AmountSource, isS
 
 const props = withDefaults(defineProps<{
   effect: Record<string, unknown>;
-  field?: 'amount' | 'rounds';
+  field?: 'amount' | 'rounds' | 'add';
   side: 'player' | 'enemy';
 }>(), { field: 'amount' });
 

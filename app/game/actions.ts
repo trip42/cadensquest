@@ -16,7 +16,8 @@ import { cardDef, cardMovement, energySpent, minimumCost } from './cards/definit
 import { intentDef } from './cards/intents';
 import type { CardDefinition, CardInstance } from './cards/types';
 import {
-  amountOf, type AmountValues, type AreaEffect, type Effect, isArea, isLater, isSummon, isTerrain, type LaterEffect,
+  amountOf, type AmountValues, type AreaEffect, type BoonEffect, type Effect, isArea, isBoon, isLater, isSummon, isTerrain,
+  type LaterEffect,
   type SummonEffect, type TerrainEffect, type TileEffect, type TriggerPoint,
 } from './effects';
 import { GEM_SLOTS, gemDef } from './gems';
@@ -41,7 +42,7 @@ import {
 import { FLOORS, floorRows, gateRowOf, surfaceKind, ZONES } from './map/tiles';
 import { chunkIndexForRow } from './map/world';
 import { rollDrop } from './rewards';
-import { resolveStat } from './stats';
+import { describeModifier, resolveStat } from './stats';
 import { record } from './telemetry';
 import { nextInt, pick, shuffle } from './rng';
 import { priceOf, rollStock, SHOP_COLOUR, shopRowOf } from './shop';
@@ -50,6 +51,7 @@ import { liveText, NO_BONUSES, type TextPart } from './text';
 import {
   arrivalOn,
   allies,
+  type Boon,
   nextUid,
   enemies,
   entityAt,
@@ -327,6 +329,36 @@ function landLater(game: Game): void {
     const actor = state.entities.find((entity) => entity.id === entry.actorId && !entity.dead);
     if (actor) applyTo(game, actor, entry.effects, 'later', actor);
   }
+}
+
+/* ------------------------------ boons ----------------------------------- */
+
+/* A boon: one of the player's stats raised for a few rounds, amounts fixed
+   now. It is a modifier in `modifiersOf` for as long as it lasts, so
+   everything that reads `stat()` sees it. The player's only. */
+function grantBoon(game: Game, effect: BoonEffect, play: Play): void {
+  const { state } = game;
+  if (play.actor.id !== state.playerId) return;
+  const values = amountValues(state, play.actor, play.x);
+  const rounds = amountOf(effect.rounds, values);
+  if (rounds <= 0) return;
+  const boon: Boon = { id: nextUid('boon'), stat: effect.stat, rounds };
+  if (effect.add !== undefined) boon.add = amountOf(effect.add, values);
+  if (effect.mul !== undefined) boon.mul = effect.mul;
+  state.boons.push(boon);
+  syncStats(state);
+  note(state, `For ${rounds} round${rounds === 1 ? '' : 's'}: ${describeModifier(boon)}.`);
+}
+
+/** A new round, before anything reads a stat: every boon loses one, and
+ *  those with none left are gone. "For 2 rounds" is this one and the next. */
+function ageBoons(state: GameState): void {
+  if (!state.boons.length) return;
+  for (const boon of state.boons) boon.rounds -= 1;
+  const left = state.boons.filter((boon) => boon.rounds > 0);
+  if (left.length === state.boons.length) return;
+  state.boons = left;
+  syncStats(state);
 }
 
 /** Who is playing an effect, at what, and with how much reach. */
@@ -812,6 +844,10 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
   }
   if (isLater(effect)) {
     schedule(game, effect, play);
+    return;
+  }
+  if (isBoon(effect)) {
+    grantBoon(game, effect, play);
     return;
   }
   const amount = amountOf(effect.amount, amountValues(state, actor, play.x));
@@ -1401,6 +1437,7 @@ export function beginTurn(game: Game): void {
   // with a lifetime count down too.
   ageTerrain(game);
   ageSummons(state);
+  ageBoons(state);
 
   const self = player(state);
   // Block from talismans replaces what was left, rather than adding to it.

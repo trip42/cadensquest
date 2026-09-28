@@ -54,6 +54,7 @@ import { entityDef } from '~/game/entities/definitions';
 import { rewardLabel } from '~/game/rewards';
 import type { Cell } from '~/game/map/navigation';
 import { FLOORS, floorRows, ZONES } from '~/game/map/tiles';
+import { describeModifier } from '~/game/stats';
 import {
   createGame,
   enemies,
@@ -178,6 +179,8 @@ export interface GameView {
   power: number;
   /** The player's delayed effects still to come, soonest first. */
   upcoming: Array<{ rounds: number; text: string }>;
+  /** What lasts a few rounds more: boons on his stats, and how long. */
+  lasting: Array<{ rounds: number; text: string }>;
   /** How far into the current floor the player is, and how far it goes. */
   row: number;
   lastRow: number;
@@ -244,6 +247,7 @@ export const useGameStore = defineStore('game', () => {
       upcoming: state.later
         .filter((entry) => entry.actorId === state.playerId)
         .map((entry) => ({ rounds: entry.due - state.turn, text: entry.effects.map(describeTileEffect).join(', ') })),
+      lasting: state.boons.map((boon) => ({ rounds: boon.rounds, text: describeModifier(boon) })),
       row: self.row - floorRows(state.floor).first,
       lastRow: floorRows(state.floor).last - floorRows(state.floor).first,
       floor: state.floor + 1,
@@ -338,6 +342,7 @@ export const useGameStore = defineStore('game', () => {
       state.hand.map((card) => `${card.uid}:${(card.gems ?? []).join('+')}`).join(','),
       state.entities.length, enemies(state).length, state.log.length,
       state.later.map((entry) => `${entry.id}@${entry.due}`).join(','),
+      state.boons.map((boon) => `${boon.id}@${boon.rounds}`).join(','),
       isBusy(state) ? 1 : 0, selectedUid.value ?? '',
       state.talismans.join(','),
       state.activeReward ? state.activeReward.reward.kind : '',

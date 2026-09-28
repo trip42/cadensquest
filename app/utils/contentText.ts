@@ -7,7 +7,36 @@
 import type { EffectData } from '~/game/content';
 import type { Targeting } from '~/game/cards/types';
 
-type SimpleData = Exclude<EffectData, { kind: 'terrain' } | { kind: 'summon' } | { kind: 'area' } | { kind: 'later' }>;
+type SimpleData = Exclude<EffectData, { kind: 'terrain' } | { kind: 'summon' } | { kind: 'area' } | { kind: 'later' } | { kind: 'boon' }>;
+type BoonData = Extract<EffectData, { kind: 'boon' }>;
+
+/* What a boon does, said to the player: "for 2 rounds, every fire deals 2
+   more damage". The stats cards raise most have their own wording; the rest
+   read as the stat table names them. */
+function boonPhrase(effect: BoonData): string {
+  const rounds = describeAmount(effect.rounds as Amount);
+  const add = effect.add === undefined ? null : describeAmount(effect.add as Amount, 'your');
+  const scaled = effect.add !== undefined && isScaled(effect.add as Amount);
+  const times = effect.mul === 2 ? 'double' : effect.mul === 3 ? 'triple' : `${effect.mul}×`;
+  const what: string[] = [];
+  switch (effect.stat) {
+    case 'fireDamage':
+      if (add) what.push(scaled ? `every fire deals extra damage equal to ${add}` : `every fire deals ${add} more damage`);
+      if (effect.mul) what.push(`every fire's damage is multiplied by ${effect.mul}`);
+      break;
+    case 'fireMultiplier':
+      if (effect.mul) what.push(`every fire deals ${times} damage`);
+      break;
+    case 'slamDamage':
+      if (add) what.push(`knockback slams deal ${add} more`);
+      if (effect.mul) what.push(effect.mul === 2 ? 'knockback slams hit twice as hard' : `knockback slams deal ${times} damage`);
+      break;
+    default:
+      if (add) what.push(`gain ${add} ${STAT_NAMES[effect.stat]}`);
+      if (effect.mul) what.push(`your ${STAT_NAMES[effect.stat]} is ×${effect.mul}`);
+  }
+  return `for ${rounds} round${rounds === '1' ? '' : 's'}, ${what.join(' and ')}`;
+}
 type LaterData = Extract<EffectData, { kind: 'later' }>;
 type AreaData = Extract<EffectData, { kind: 'area' }>;
 
@@ -39,6 +68,7 @@ function summonedPhrase(effect: SummonData, nameOf: NameOf, where = ''): string 
 }
 type TerrainData = Extract<EffectData, { kind: 'terrain' }>;
 import { type Amount, describeAmount, isScaled } from '~/game/effects';
+import { STAT_NAMES } from '~/game/stats';
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
@@ -154,6 +184,7 @@ function playerPhrase(
   effect: EffectData, range: number, targeting?: Targeting, afterTame = false, nameOf: NameOf = byId, mentioned = false,
 ): string {
   if (effect.kind === 'later') return laterPhrase(effect);
+  if (effect.kind === 'boon') return boonPhrase(effect);
   if (effect.kind === 'push' || effect.kind === 'pull') return movePhrase(effect, range, mentioned);
   // After a pull or knockback the creature has moved: name it, not a tile.
   if (effect.kind === 'damage' && mentioned) {
@@ -233,6 +264,8 @@ function enemyPhrase(effect: EffectData, range: number, nameOf: NameOf = byId): 
   }
   if (effect.kind === 'area') return `bursts at its target's tile: ${caughtPhrase(effect, 'its')}`;
   if (effect.kind === 'later') return `${whenPhrase(effect.rounds as Amount)}, ${tilePhrase(effect.effects, 'its')}`;
+  // An enemy has no stats to raise; the validator warns.
+  if (effect.kind === 'boon') return 'does nothing';
   const amount = effect.amount as Amount;
   const n = describeAmount(amount, 'its');
   const scaled = isScaled(amount);

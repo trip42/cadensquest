@@ -15,6 +15,8 @@
    knows what any of them mean, so a new gem or talisman is data unless it
    needs a genuinely new verb. */
 
+import { STAT_NAMES, type StatKey } from './stats';
+
 export type EffectKind =
   | 'damage'
   | 'block'
@@ -176,12 +178,31 @@ export interface LaterEffect {
   effects: SimpleEffect[];
 }
 
-export type Effect = SimpleEffect | TerrainEffect | SummonEffect | AreaEffect | LaterEffect;
+/* Boon: one of the player's stats raised for a few rounds, as if a
+   talisman were held that long. `add` goes on first and `mul` multiplies,
+   as for a talisman; everything that reads `stat()` picks it up. Amounts
+   and rounds are fixed when played, as for a Later: "for 2 rounds, fire
+   deals extra damage equal to your power" keeps the power it was played
+   with. Rounds count down as each new round begins, so 2 rounds is this
+   one and the next. The player's only: an enemy has no stat table. */
+export interface BoonEffect {
+  kind: 'boon';
+  stat: StatKey;
+  /** Added to the stat. */
+  add?: Amount;
+  /** Multiplies the stat, after every `add`. */
+  mul?: number;
+  /** How many rounds, counting this one. */
+  rounds: Amount;
+}
+
+export type Effect = SimpleEffect | TerrainEffect | SummonEffect | AreaEffect | LaterEffect | BoonEffect;
 
 export const isTerrain = (effect: Effect): effect is TerrainEffect => effect.kind === 'terrain';
 export const isSummon = (effect: Effect): effect is SummonEffect => effect.kind === 'summon';
 export const isArea = (effect: Effect): effect is AreaEffect => effect.kind === 'area';
 export const isLater = (effect: Effect): effect is LaterEffect => effect.kind === 'later';
+export const isBoon = (effect: Effect): effect is BoonEffect => effect.kind === 'boon';
 
 /** A tile's effect once it has been placed: the amount is a plain number. */
 export interface TileEffect {
@@ -252,6 +273,8 @@ export function previewAmounts(effects: readonly Effect[], start: AmountValues):
     if (isArea(effect)) return 0;
     // A delayed effect changes nothing now; its number is its rounds.
     if (isLater(effect)) return amountOf(effect.rounds, values);
+    // A boon changes a stat, not these values; its number is how much.
+    if (isBoon(effect)) return effect.add === undefined ? effect.mul ?? 0 : amountOf(effect.add, values);
     const amount = amountOf(effect.amount, values);
     stepValues(values, effect.kind, amount);
     return amount;
@@ -317,6 +340,13 @@ export function nowText(effects: readonly Effect[], values: AmountValues, style:
           .filter((inner) => isScaled(inner.amount))
           .map((inner) => `${style === 'short' ? 'AREA' : 'each'} ${labels[inner.kind]?.(amountOf(inner.amount, values))}`);
       }
+      if (isBoon(effect)) {
+        const add = effect.add !== undefined && isScaled(effect.add)
+          ? [style === 'short' ? `+${amounts[i]} ${STAT_NAMES[effect.stat].toUpperCase()}` : `+${amounts[i]} ${STAT_NAMES[effect.stat]}`]
+          : [];
+        const rounds = isScaled(effect.rounds) ? [style === 'short' ? `${amountOf(effect.rounds, values)} RND` : `${amountOf(effect.rounds, values)} rounds`] : [];
+        return [...add, ...rounds];
+      }
       if (isLater(effect)) {
         const rounds = isScaled(effect.rounds) ? [style === 'short' ? `IN ${amounts[i]}` : `in ${amounts[i]} rounds`] : [];
         const inner = effect.effects
@@ -347,7 +377,9 @@ export const hasScaledAmount = (effects: readonly Effect[]): boolean =>
           ? effect.effects.some((inner) => isScaled(inner.amount))
           : isLater(effect)
             ? isScaled(effect.rounds) || effect.effects.some((inner) => isScaled(inner.amount))
-            : isScaled(effect.amount));
+            : isBoon(effect)
+              ? isScaled(effect.rounds) || (effect.add !== undefined && isScaled(effect.add))
+              : isScaled(effect.amount));
 
 
 /* What each verb is, for the content editor and the validator: a plain
@@ -392,6 +424,11 @@ export const SUMMON_INFO = {
 export const LATER_INFO = {
   label: 'Later',
   help: 'After this many rounds, these land on you — as if you played them on yourself then. Amounts are fixed when played.',
+};
+
+export const BOON_INFO = {
+  label: 'Boon',
+  help: 'Raise one of your stats for this many rounds, counting this one — as if you held a talisman that long. Yours only: an enemy has no stats.',
 };
 
 export const TERRAIN_INFO = {
@@ -468,6 +505,14 @@ export function describeMark(effects: readonly TileEffect[], enter?: readonly Ti
 }
 
 export function describeEffect(effect: Effect): string {
+  if (isBoon(effect)) {
+    const rounds = describeAmount(effect.rounds);
+    const what = [
+      effect.add === undefined ? '' : `+${describeAmount(effect.add)} ${STAT_NAMES[effect.stat]}`,
+      effect.mul === undefined ? '' : `${STAT_NAMES[effect.stat]} ×${effect.mul}`,
+    ].filter(Boolean).join(', ');
+    return `for ${rounds} round${rounds === '1' ? '' : 's'}: ${what}`;
+  }
   if (isArea(effect)) {
     const who = effect.affects === 'foes' ? 'every foe' : effect.affects === 'friends' ? 'every friend' : 'everyone';
     return `burst (radius ${effect.radius}): ${who} caught will ${effect.effects.map(describeTileEffect).join(', ')}`;

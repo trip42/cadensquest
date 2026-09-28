@@ -11,8 +11,9 @@
 import { computed } from 'vue';
 import type { ContentIssue, EffectData } from '~/game/content';
 import {
-  AREA_INFO, EFFECT_INFO, EFFECT_KINDS, type EffectKind, ELEMENTS, LATER_INFO, SUMMON_INFO, TERRAIN_INFO,
+  AREA_INFO, BOON_INFO, EFFECT_INFO, EFFECT_KINDS, type EffectKind, ELEMENTS, LATER_INFO, SUMMON_INFO, TERRAIN_INFO,
 } from '~/game/effects';
+import { STAT_KEYS, STAT_NAMES } from '~/game/stats';
 import { useEditorStore } from '~/stores/editor';
 
 const props = defineProps<{
@@ -33,7 +34,19 @@ const info = (kind: string) =>
     : kind === 'summon' ? { ...SUMMON_INFO, player: true, enemy: true, tile: false }
     : kind === 'area' ? { ...AREA_INFO, player: true, enemy: true, tile: false }
       : kind === 'later' ? { ...LATER_INFO, player: true, enemy: true, tile: false }
-        : EFFECT_INFO[kind as EffectKind];
+        : kind === 'boon' ? { ...BOON_INFO, player: true, enemy: false, tile: false }
+          : EFFECT_INFO[kind as EffectKind];
+
+/** A boon either adds to its stat or multiplies it. */
+function setBoonMode(effect: { add?: unknown; mul?: number }, mode: string): void {
+  if (mode === 'mul') {
+    delete effect.add;
+    effect.mul = 2;
+  } else {
+    delete effect.mul;
+    effect.add = 2;
+  }
+}
 
 /** What can be summoned: every enemy in the draft but the guardians. */
 const editor = useEditorStore();
@@ -86,7 +99,11 @@ function setKind(index: number, kind: string): void {
   } else if (kind === 'summon') {
     const first = summonable.value[0];
     props.effects[index] = { kind: 'summon', entity: first?.id ?? 'bug', amount: first?.maxHp ?? 6 };
-  } else if (current.kind === 'terrain' || current.kind === 'summon' || current.kind === 'area' || current.kind === 'later') {
+  } else if (kind === 'boon') {
+    props.effects[index] = { kind: 'boon', stat: 'fireDamage', add: 2, rounds: 2 };
+  } else if (
+    current.kind === 'terrain' || current.kind === 'summon' || current.kind === 'area' || current.kind === 'later' || current.kind === 'boon'
+  ) {
     props.effects[index] = { kind: kind as EffectKind, amount: 3 };
   } else {
     current.kind = kind as EffectKind;
@@ -126,9 +143,27 @@ function move(index: number, by: number): void {
         <option v-if="!onTile" value="summon">{{ SUMMON_INFO.label }}</option>
         <option v-if="!onTile" value="area">{{ AREA_INFO.label }}</option>
         <option v-if="!onTile" value="later">{{ LATER_INFO.label }}</option>
+        <option v-if="!onTile" value="boon">{{ BOON_INFO.label }}{{ usable('boon') ? '' : ' (no effect here)' }}</option>
       </select>
 
-      <template v-if="effect.kind === 'terrain'">
+      <template v-if="effect.kind === 'boon'">
+        <span class="terrain-head">
+          <select v-model="effect.stat" aria-label="Stat">
+            <option v-for="key in STAT_KEYS" :key="key" :value="key">{{ STAT_NAMES[key] }}</option>
+          </select>
+          <select :value="effect.mul === undefined ? 'add' : 'mul'" aria-label="How" @change="setBoonMode(effect, ($event.target as HTMLSelectElement).value)">
+            <option value="add">raised by</option>
+            <option value="mul">multiplied by</option>
+          </select>
+          <EditorAmountInput v-if="effect.mul === undefined" :effect="effect" field="add" :side="side" />
+          <input v-else v-model.number="effect.mul" type="number" min="0.5" max="10" step="0.5" class="num small" aria-label="Multiplier">
+          <span class="op">for</span>
+          <EditorAmountInput :effect="effect" field="rounds" :side="side" />
+          <span class="op">rounds</span>
+        </span>
+      </template>
+
+      <template v-else-if="effect.kind === 'terrain'">
         <span class="terrain-head">
           <span class="op">for</span>
           <EditorAmountInput :effect="effect" field="rounds" :side="side" />

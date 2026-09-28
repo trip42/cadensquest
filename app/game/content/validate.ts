@@ -11,7 +11,7 @@
    but are almost certainly a mistake. */
 
 import type { ZodError } from 'zod';
-import { AMOUNT_SOURCES, type AmountSource, EFFECT_INFO, type Effect, type EffectKind } from '../effects';
+import { AMOUNT_SOURCES, type AmountSource, BOON_INFO, EFFECT_INFO, type Effect, type EffectKind } from '../effects';
 import { ZONES } from '../map/tiles';
 import { tokenProblems } from '../text';
 import { type AmountData, CONTENT_FILES, type Content, type ContentFile, type EffectData, FILE_SCHEMAS } from './schema';
@@ -90,8 +90,12 @@ function crossCheck(content: Content): ContentIssue[] {
   const gems = new Map(content.gems.map((gem) => [gem.id, gem]));
   const talismans = new Map(content.talismans.map((talisman) => [talisman.id, talisman]));
 
+  // A boon raises the player's stats; an enemy has none.
   const offSide = (kind: string, side: 'player' | 'enemy') =>
-    kind !== 'terrain' && kind !== 'summon' && kind !== 'area' && kind !== 'later' && !EFFECT_INFO[kind as EffectKind][side];
+    kind === 'boon'
+      ? side === 'enemy'
+      : kind !== 'terrain' && kind !== 'summon' && kind !== 'area' && kind !== 'later' && !EFFECT_INFO[kind as EffectKind][side];
+  const labelOf = (kind: string) => (kind === 'boon' ? BOON_INFO.label : EFFECT_INFO[kind as EffectKind].label);
 
   /** Every amount in a list of effects, with where it sits — a terrain
    *  effect's rounds and the amounts on its tile count too. */
@@ -115,7 +119,12 @@ function crossCheck(content: Content): ContentIssue[] {
                 { amount: effect.rounds, field: `${at}[${i}].rounds` },
                 ...effect.effects.map((inner, t) => ({ amount: inner.amount, field: `${at}[${i}].effects[${t}].amount` })),
               ]
-              : [{ amount: effect.amount, field: `${at}[${i}].amount` }]);
+              : effect.kind === 'boon'
+                ? [
+                  { amount: effect.rounds, field: `${at}[${i}].rounds` },
+                  ...(effect.add === undefined ? [] : [{ amount: effect.add, field: `${at}[${i}].add` }]),
+                ]
+                : [{ amount: effect.amount, field: `${at}[${i}].amount` }]);
 
   const scaledOf = (amount: AmountData) => (typeof amount === 'object' ? amount.of : null);
   const usesX = (effects: readonly EffectData[]) => amountsIn(effects).some(({ amount }) => scaledOf(amount) === 'x');
@@ -159,6 +168,21 @@ function crossCheck(content: Content): ContentIssue[] {
     talisman.triggers?.forEach((trigger, t) => checkSummons('talismans', talisman.id, talisman.enabled, trigger.effects, `triggers[${t}].effects`));
   }
 
+  /** A boon has to raise its stat somehow. */
+  const checkBoons = (file: ContentFile, id: string, effects: readonly EffectData[], at = 'effects') => {
+    effects.forEach((effect, i) => {
+      if (effect.kind === 'boon' && effect.add === undefined && effect.mul === undefined) {
+        error(file, id, 'a boon needs an amount to add or a number to multiply by', `${at}[${i}]`);
+      }
+    });
+  };
+  for (const card of content.cards) checkBoons('cards', card.id, card.effects);
+  for (const card of content['enemy-cards']) checkBoons('enemy-cards', card.id, card.effects);
+  for (const gem of content.gems) checkBoons('gems', gem.id, gem.effects);
+  for (const talisman of content.talismans) {
+    talisman.triggers?.forEach((trigger, t) => checkBoons('talismans', talisman.id, trigger.effects, `triggers[${t}].effects`));
+  }
+
   for (const card of content.cards) checkTiles('cards', card.id, card.effects);
   for (const card of content['enemy-cards']) checkTiles('enemy-cards', card.id, card.effects);
   for (const gem of content.gems) checkTiles('gems', gem.id, gem.effects);
@@ -179,7 +203,7 @@ function crossCheck(content: Content): ContentIssue[] {
     }
     card.effects.forEach((effect, i) => {
       if (offSide(effect.kind, 'player')) {
-        warn('cards', card.id, `${EFFECT_INFO[effect.kind as EffectKind].label} does nothing on a player card`, `effects[${i}].kind`);
+        warn('cards', card.id, `${labelOf(effect.kind)} does nothing on a player card`, `effects[${i}].kind`);
       }
       if (effect.kind === 'damage' && card.targeting !== 'enemy') {
         warn('cards', card.id, 'Damage needs the card to target an enemy', `effects[${i}].kind`);
@@ -214,7 +238,7 @@ function crossCheck(content: Content): ContentIssue[] {
   for (const card of content['enemy-cards']) {
     card.effects.forEach((effect, i) => {
       if (offSide(effect.kind, 'enemy')) {
-        warn('enemy-cards', card.id, `${EFFECT_INFO[effect.kind as EffectKind].label} does nothing for an enemy`, `effects[${i}].kind`);
+        warn('enemy-cards', card.id, `${labelOf(effect.kind)} does nothing for an enemy`, `effects[${i}].kind`);
       }
       // An enemy's block falls as it starts to act, so "its block" is only
       // what this card has given it so far.
