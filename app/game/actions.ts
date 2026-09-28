@@ -17,7 +17,7 @@ import { intentDef } from './cards/intents';
 import type { CardDefinition, CardInstance } from './cards/types';
 import {
   amountOf, type AmountValues, type AreaEffect, type BoonEffect, type Effect, FIRES_WITHIN, isArea, isBoon, isLater, isSummon,
-  isTerrain, isTrail, type TrailEffect,
+  isTerrain, isTrail, readsPower, type TrailEffect,
   type LaterEffect,
   type SummonEffect, type TerrainEffect, type TileEffect, type TriggerPoint,
 } from './effects';
@@ -747,22 +747,21 @@ export function layerEffects(state: GameState, layer: TerrainLayer, list: readon
 
 /* Effects landing on a creature as if it had played them on itself: Damage
    hurts it, Block and Heal land on it, Energy/Draw/Movement only matter to
-   the player. Shared by marked tiles (no bonus) and bursts (the caster's
-   bonus on damage). `source` is credited with the damage. */
+   the player. Shared by marked tiles, bursts (their bonuses already in the
+   amounts) and Laters. `source` is credited with the damage. */
 function applyTo(
   game: Game,
   entity: Entity,
   effects: readonly TileEffect[],
   via: HitVia,
   source?: Entity,
-  damageBonus = 0,
 ): void {
   const { state } = game;
   const isPlayer = entity.id === state.playerId;
   for (const { kind, amount } of effects) {
     if (entity.dead) return;
     switch (kind) {
-      case 'damage': dealDamage(game, entity, amount + damageBonus, { source, via }); break;
+      case 'damage': dealDamage(game, entity, amount, { source, via }); break;
       case 'block': gainBlock(state, entity, amount); break;
       case 'loseBlock': entity.block = Math.max(0, entity.block - amount); break;
       case 'heal': heal(state, entity, amount); break;
@@ -815,8 +814,13 @@ function burst(game: Game, effect: AreaEffect, play: Play): void {
 
   const cells = cellsWithin(game, center, effect.radius);
   const values = amountValues(state, actor, play.x);
-  const effects = effect.effects.map((inner) => ({ kind: inner.kind, amount: amountOf(inner.amount, values) }));
-  const bonus = actor.power + (isPlayer ? stat(state, 'damageBonus') : 0);
+  // A burst is the caster's own attack: its damage adds the caster's power —
+  // unless it was worked out from power — and the player's damageBonus.
+  const bonus = isPlayer ? stat(state, 'damageBonus') : 0;
+  const effects = effect.effects.map((inner) => {
+    const amount = amountOf(inner.amount, values);
+    return { kind: inner.kind, amount: inner.kind === 'damage' ? amount + bonus + (readsPower(inner.amount) ? 0 : actor.power) : amount };
+  });
 
   // Who is caught is decided before anything lands, so a creature killed
   // part-way does not change who else is hit.
@@ -824,7 +828,7 @@ function burst(game: Game, effect: AreaEffect, play: Play): void {
     !entity.dead && cellDistance(entityCell(entity), center) <= effect.radius && caughtBy(actor, entity, effect.affects));
   // Cued before anything lands, so the flash goes off under the hits.
   cue(state, { type: 'burst', center, cells, colour: effect.colour });
-  for (const entity of caught) applyTo(game, entity, effects, 'burst', actor, bonus);
+  for (const entity of caught) applyTo(game, entity, effects, 'burst', actor);
   noteNear(state, actor, `${entityDef(actor.defId).name}'s burst catches ${caught.length}.`);
 }
 
@@ -973,7 +977,10 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
       }
       faceToward(actor, entityCell(victim));
       if (!isPlayer) setAnimation(actor, 'attack');
-      const bonus = actor.power + (isPlayer ? stat(state, 'damageBonus') : 0) + highGroundBonus(game, actor, victim);
+      // Power adds to every blow — once: a blow worked out from power has
+      // counted it already.
+      const power = readsPower(effect.amount) ? 0 : actor.power;
+      const bonus = power + (isPlayer ? stat(state, 'damageBonus') : 0) + highGroundBonus(game, actor, victim);
       // Ranged only if it has somewhere to fly: a far-reaching card played on
       // something adjacent — or just pulled in — lands like a swing.
       const ranged = range > 1 && cellDistance(entityCell(actor), entityCell(victim)) > 1;

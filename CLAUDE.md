@@ -523,6 +523,9 @@ player's living allies; 0 for anyone else). For a played card, `energy` and `han
 or hand (always 0), and its block falls as it starts to act, so "its block"
 is only what that card gave it — the validator warns about both. Bonuses:
 damage adds `power` and `damageBonus`; `loseBlock` takes no `blockBonus`.
+**Power is counted once**: a blow worked out from power (`{ "of": "power"
+}`, `readsPower`) does not add power again, in `resolveEffect`, `burst`
+and `liveNumbers` alike — so Power Strike deals 3× power, as it says.
 `nowText` / `previewAmounts` simulate a card in order to show the live
 "Now" value on cards in hand and in an enemy's tooltip.
 

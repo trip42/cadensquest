@@ -19,7 +19,7 @@ import {
 } from '../app/game/actions';
 import { cardDef, cardMovement } from '../app/game/cards/definitions';
 import { intentDef } from '../app/game/cards/intents';
-import { amountOf, isArea, isSummon, isTerrain } from '../app/game/effects';
+import { amountOf, isArea, isSummon, isTerrain, readsPower } from '../app/game/effects';
 import type { Entity } from '../app/game/entities/types';
 import { GEM_SLOTS } from '../app/game/gems';
 import { type Cell, cellDistance, reachable } from '../app/game/map/navigation';
@@ -62,12 +62,12 @@ function threatOf(state: GameState, enemy: Entity, at: Cell): number {
   for (const effect of card.effects) {
     if (isSummon(effect) || isTerrain(effect)) continue;
     if (isArea(effect)) {
-      for (const inner of effect.effects) if (inner.kind === 'damage') damage += amountOf(inner.amount, values) + enemy.power;
+      for (const inner of effect.effects) if (inner.kind === 'damage') damage += amountOf(inner.amount, values) + (readsPower(inner.amount) ? 0 : enemy.power);
       radius = effect.radius;
       continue;
     }
     if (effect.kind === 'advance') advance += amountOf(effect.amount, values);
-    if (effect.kind === 'damage') damage += amountOf(effect.amount, values) + enemy.power;
+    if (effect.kind === 'damage') damage += amountOf(effect.amount, values) + (readsPower(effect.amount) ? 0 : enemy.power);
   }
   if (!damage) return 0;
   return cellDistance(cellOf(enemy), at) <= advance + card.range + radius ? damage : 0;

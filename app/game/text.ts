@@ -33,7 +33,7 @@
 
 import {
   type Amount, amountOf, type AmountValues, describeAmount, type Effect, isArea, isBoon, isLater, isScaled, isSummon, isTerrain, isTrail,
-  markEffects, stepValues,
+  markEffects, readsPower, stepValues,
 } from './effects';
 import type { StatKey } from './stats';
 
@@ -139,10 +139,13 @@ function liveNumbers(effects: readonly Effect[], start: AmountValues, bonuses: B
   const found = new Map<string, number>();
   effects.forEach((effect, i) => {
     const key = String(i + 1);
-    const inside = (list: readonly { kind: string; amount: Amount }[], hit = 0) =>
+    // `hit` is what a burst adds to each blow: power (unless the blow was
+    // worked out from it — power counts once) and the damage bonus.
+    const inside = (list: readonly { kind: string; amount: Amount }[], hit?: { power: number; bonus: number }) =>
       list.forEach((inner, j) => {
         const n = amountOf(inner.amount, values);
-        found.set(`${key}.${j + 1}`, inner.kind === 'damage' ? n + hit : n);
+        const extra = hit ? hit.bonus + (readsPower(inner.amount) ? 0 : hit.power) : 0;
+        found.set(`${key}.${j + 1}`, inner.kind === 'damage' ? n + extra : n);
       });
     if (isTerrain(effect)) {
       found.set(key, amountOf(effect.rounds, values));
@@ -152,7 +155,7 @@ function liveNumbers(effects: readonly Effect[], start: AmountValues, bonuses: B
       inside(effect.effects);
     } else if (isArea(effect)) {
       found.set(key, effect.radius);
-      inside(effect.effects, values.power + bonuses.damage);
+      inside(effect.effects, { power: values.power, bonus: bonuses.damage });
     } else if (isSummon(effect)) {
       found.set(key, amountOf(effect.amount, values));
     } else if (isBoon(effect)) {
@@ -162,7 +165,8 @@ function liveNumbers(effects: readonly Effect[], start: AmountValues, bonuses: B
       inside(markEffects(effect.mark));
     } else {
       const n = amountOf(effect.amount, values);
-      const total = effect.kind === 'damage' ? n + values.power + bonuses.damage
+      const power = readsPower(effect.amount) ? 0 : values.power;
+      const total = effect.kind === 'damage' ? n + power + bonuses.damage
         : effect.kind === 'block' ? n + bonuses.block
           : n;
       found.set(key, total);

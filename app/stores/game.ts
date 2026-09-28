@@ -42,7 +42,7 @@ import {
   tick,
 } from '~/game/actions';
 import { cardDef, cardMovement } from '~/game/cards/definitions';
-import { describeMark, describeTileEffect, nowText, type TileEffect } from '~/game/effects';
+import { describeMark, describeTileEffect, nowText, readsPower, type TileEffect } from '~/game/effects';
 import { joinText, mentions, type TextPart } from '~/game/text';
 import { cuesSince } from '~/game/cues';
 import { intentDef } from '~/game/cards/intents';
@@ -541,7 +541,7 @@ export const useGameStore = defineStore('game', () => {
     const intent = foe.intent ? intentDef(foe.intent.cardId) : null;
     // The card says what it does; power it has built up hits on top of that
     // — which its text already counts if it shows its damage as {1}.
-    const empowered = intent?.effects.some((effect) => effect.kind === 'damage') && foe.power > 0
+    const empowered = intent?.effects.some((effect) => effect.kind === 'damage' && !readsPower(effect.amount)) && foe.power > 0
       && !mentions(intent.text, intent.effects, 'damage');
     // Its block falls as it starts to act, so work "based on" amounts out
     // from there, as resolving the card will.

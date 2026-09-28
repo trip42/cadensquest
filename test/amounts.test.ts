@@ -266,3 +266,36 @@ describe('X in content', () => {
     expect(warnings).toContainEqual(expect.objectContaining({ id: 'strike', field: 'effects[0].amount' }));
   });
 });
+
+describe('power is counted once', () => {
+  it('Power Strike deals three times your power, as its text says', () => {
+    const game = quiet();
+    const foe = adjacentFoe(game);
+    foe.hp = foe.maxHp = 99;
+    player(game.state).power = 2;
+    play(game, 'power_strike', entityCell(foe));
+    expect(foe.hp).toBe(99 - 3 * 2);
+  });
+
+  it('while any other blow still adds power on top', () => {
+    const game = quiet();
+    const foe = adjacentFoe(game);
+    foe.hp = foe.maxHp = 99;
+    player(game.state).power = 2;
+    play(game, define({ id: 'from_block', targeting: 'enemy', range: 1, effects: [{ kind: 'damage', amount: { of: 'block' } }] }), entityCell(foe));
+    expect(foe.hp).toBe(99 - (player(game.state).block + 2));
+  });
+
+  it('and a burst worked out from power adds none either', () => {
+    const game = quiet();
+    const foe = adjacentFoe(game);
+    foe.hp = foe.maxHp = 99;
+    player(game.state).power = 3;
+    const id = define({
+      id: 'power_burst', targeting: 'enemy', range: 1,
+      effects: [{ kind: 'area', radius: 0, colour: '#feae34', affects: 'foes', effects: [{ kind: 'damage', amount: { of: 'power' } }] }],
+    });
+    play(game, id, entityCell(foe));
+    expect(foe.hp).toBe(96);
+  });
+});

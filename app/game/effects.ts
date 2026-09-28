@@ -258,6 +258,10 @@ export type AmountValues = Record<AmountSource, number>;
 
 export const isScaled = (amount: Amount): amount is ScaledAmount => typeof amount === 'object';
 
+/** Is this amount worked out from power? Then a blow of it does not add
+ *  power again as a bonus: power is counted once. */
+export const readsPower = (amount: Amount): boolean => isScaled(amount) && amount.of === 'power';
+
 /** An amount's value for these values: rounded down, never negative. */
 export function amountOf(amount: Amount, values: AmountValues): number {
   if (!isScaled(amount)) return amount;
