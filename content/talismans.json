@@ -112,5 +112,70 @@
         ]
       }
     ]
+  },
+  {
+    "id": "brimstone",
+    "name": "Brimstone",
+    "enabled": false,
+    "text": "Every fire burns 1 hotter: yours and theirs.",
+    "icon": "flame",
+    "modifiers": [
+      {
+        "stat": "fireDamage",
+        "add": 1
+      }
+    ]
+  },
+  {
+    "id": "tinderbox",
+    "name": "Tinderbox",
+    "enabled": false,
+    "text": "Every fire lasts a round longer: yours and theirs.",
+    "icon": "flame",
+    "modifiers": [
+      {
+        "stat": "fireRounds",
+        "add": 1
+      }
+    ]
+  },
+  {
+    "id": "salamander_scale",
+    "name": "Salamander Scale",
+    "enabled": false,
+    "text": "Fire does not hurt you.",
+    "icon": "shield",
+    "modifiers": [
+      {
+        "stat": "fireWard",
+        "add": 1
+      }
+    ]
+  },
+  {
+    "id": "beast_whistle",
+    "name": "Beast Whistle",
+    "enabled": false,
+    "text": "One more ally can fight beside you.",
+    "icon": "eye",
+    "modifiers": [
+      {
+        "stat": "maxAllies",
+        "add": 1
+      }
+    ]
+  },
+  {
+    "id": "iron_knuckles",
+    "name": "Iron Knuckles",
+    "enabled": false,
+    "text": "Knockback slams deal 2 more damage.",
+    "icon": "push",
+    "modifiers": [
+      {
+        "stat": "slamDamage",
+        "add": 2
+      }
+    ]
   }
 ]

@@ -37,5 +37,26 @@
         "amount": 1
       }
     ]
+  },
+  {
+    "id": "cinder",
+    "name": "Cinder",
+    "enabled": false,
+    "colour": "#e43b44",
+    "text": "Sets the target's tile burning: 2 damage for 2 rounds.",
+    "effects": [
+      {
+        "kind": "terrain",
+        "rounds": 2,
+        "colour": "#e43b44",
+        "effects": [
+          {
+            "kind": "damage",
+            "amount": 2
+          }
+        ],
+        "element": "fire"
+      }
+    ]
   }
 ]

@@ -789,5 +789,383 @@
         "amount": 5
       }
     ]
+  },
+  {
+    "id": "kindle",
+    "name": "Kindle",
+    "enabled": false,
+    "rarity": "normal",
+    "art": "flame",
+    "cost": 1,
+    "targeting": "enemy",
+    "range": 3,
+    "text": "Deal {1} damage to an enemy within 3 and set its tile burning: {2.1} damage for {2} rounds.",
+    "effects": [
+      {
+        "kind": "damage",
+        "amount": 3
+      },
+      {
+        "kind": "terrain",
+        "rounds": 2,
+        "colour": "#e43b44",
+        "effects": [
+          {
+            "kind": "damage",
+            "amount": 2
+          }
+        ],
+        "element": "fire"
+      }
+    ]
+  },
+  {
+    "id": "stoke",
+    "name": "Stoke",
+    "enabled": false,
+    "rarity": "normal",
+    "art": "flame",
+    "cost": 1,
+    "targeting": "self",
+    "range": 0,
+    "text": "For 2 rounds, every fire deals {1} more damage. Draw a card.",
+    "effects": [
+      {
+        "kind": "boon",
+        "stat": "fireDamage",
+        "add": 2,
+        "rounds": 2
+      },
+      {
+        "kind": "draw",
+        "amount": 1
+      }
+    ]
+  },
+  {
+    "id": "inferno",
+    "name": "Inferno",
+    "enabled": false,
+    "rarity": "mythic",
+    "art": "flame",
+    "cost": 2,
+    "targeting": "self",
+    "range": 0,
+    "text": "For 2 rounds, every fire deals double damage.",
+    "effects": [
+      {
+        "kind": "boon",
+        "stat": "fireMultiplier",
+        "mul": 2,
+        "rounds": 2
+      }
+    ]
+  },
+  {
+    "id": "reignite",
+    "name": "Reignite",
+    "enabled": false,
+    "rarity": "rare",
+    "art": "flame",
+    "cost": "X",
+    "targeting": "self",
+    "range": 0,
+    "text": "Every fire burns {1} rounds longer.",
+    "effects": [
+      {
+        "kind": "rekindle",
+        "amount": {
+          "of": "x"
+        }
+      }
+    ]
+  },
+  {
+    "id": "flashpoint",
+    "name": "Flashpoint",
+    "enabled": false,
+    "rarity": "rare",
+    "art": "flame",
+    "cost": 0,
+    "targeting": "self",
+    "range": 0,
+    "text": "Every fire flares: whoever stands in one is burned again now.",
+    "effects": [
+      {
+        "kind": "flare",
+        "amount": 0
+      }
+    ]
+  },
+  {
+    "id": "flame_trail",
+    "name": "Flame Trail",
+    "enabled": false,
+    "rarity": "rare",
+    "art": "flame",
+    "cost": 1,
+    "targeting": "self",
+    "range": 0,
+    "text": "For {1} rounds, every tile you leave catches fire: {1.1} damage for 2 rounds.",
+    "effects": [
+      {
+        "kind": "trail",
+        "rounds": 3,
+        "mark": {
+          "kind": "terrain",
+          "rounds": 2,
+          "colour": "#e43b44",
+          "effects": [
+            {
+              "kind": "damage",
+              "amount": 1
+            }
+          ],
+          "element": "fire"
+        }
+      }
+    ]
+  },
+  {
+    "id": "heat_shield",
+    "name": "Heat Shield",
+    "enabled": false,
+    "rarity": "normal",
+    "art": "shield",
+    "cost": 1,
+    "targeting": "self",
+    "range": 0,
+    "text": "Gain 2 block for each burning tile within 3.",
+    "effects": [
+      {
+        "kind": "block",
+        "amount": {
+          "of": "fires",
+          "times": 2
+        }
+      }
+    ]
+  },
+  {
+    "id": "brand",
+    "name": "Brand",
+    "enabled": false,
+    "rarity": "rare",
+    "art": "push",
+    "cost": 1,
+    "targeting": "enemy",
+    "range": 1,
+    "text": "Knock an adjacent enemy back {1} and set the tile it lands on burning: {2.1} damage for {2} rounds.",
+    "effects": [
+      {
+        "kind": "push",
+        "amount": 2
+      },
+      {
+        "kind": "terrain",
+        "rounds": 2,
+        "colour": "#e43b44",
+        "effects": [
+          {
+            "kind": "damage",
+            "amount": 3
+          }
+        ],
+        "element": "fire"
+      }
+    ]
+  },
+  {
+    "id": "focus",
+    "name": "Focus",
+    "enabled": false,
+    "rarity": "normal",
+    "art": "blade",
+    "cost": 0,
+    "targeting": "self",
+    "range": 0,
+    "text": "Deal {1} more damage for {2} rounds. Draw a card.",
+    "effects": [
+      {
+        "kind": "power",
+        "amount": 1
+      },
+      {
+        "kind": "later",
+        "rounds": 2,
+        "effects": [
+          {
+            "kind": "losePower",
+            "amount": 1
+          }
+        ]
+      },
+      {
+        "kind": "draw",
+        "amount": 1
+      }
+    ]
+  },
+  {
+    "id": "twin_fangs",
+    "name": "Twin Fangs",
+    "enabled": false,
+    "rarity": "normal",
+    "art": "slash",
+    "cost": 1,
+    "targeting": "enemy",
+    "range": 1,
+    "text": "Hit an adjacent enemy twice for {1}.",
+    "effects": [
+      {
+        "kind": "damage",
+        "amount": 3
+      },
+      {
+        "kind": "damage",
+        "amount": 3
+      }
+    ]
+  },
+  {
+    "id": "unleash",
+    "name": "Unleash",
+    "enabled": false,
+    "rarity": "rare",
+    "art": "blade",
+    "cost": 1,
+    "targeting": "enemy",
+    "range": 1,
+    "text": "Deal 3 times your power to an adjacent enemy, then lose all of it.",
+    "effects": [
+      {
+        "kind": "damage",
+        "amount": {
+          "of": "power",
+          "times": 3
+        }
+      },
+      {
+        "kind": "losePower",
+        "amount": {
+          "of": "power"
+        }
+      }
+    ]
+  },
+  {
+    "id": "decoys",
+    "name": "Decoys",
+    "enabled": false,
+    "rarity": "normal",
+    "art": "eye",
+    "cost": 1,
+    "targeting": "cell",
+    "range": 2,
+    "text": "Summon 2 Chickens onto a tile within 2, with {1} health for 2 rounds.",
+    "effects": [
+      {
+        "kind": "summon",
+        "entity": "chicken",
+        "amount": 4,
+        "rounds": 2
+      },
+      {
+        "kind": "summon",
+        "entity": "chicken",
+        "amount": 4,
+        "rounds": 2
+      }
+    ]
+  },
+  {
+    "id": "salamander",
+    "name": "Salamander",
+    "enabled": false,
+    "rarity": "rare",
+    "art": "flame",
+    "cost": 2,
+    "targeting": "cell",
+    "range": 2,
+    "text": "Summon an Ember Whelp onto a tile within 2, with {1} health for 3 rounds.",
+    "effects": [
+      {
+        "kind": "summon",
+        "entity": "whelp",
+        "amount": 8,
+        "rounds": 3
+      }
+    ]
+  },
+  {
+    "id": "pack_tactics",
+    "name": "Pack Tactics",
+    "enabled": false,
+    "rarity": "rare",
+    "art": "slash",
+    "cost": 1,
+    "targeting": "enemy",
+    "range": 1,
+    "text": "Deal 3 damage to an adjacent enemy, plus 3 for each ally.",
+    "effects": [
+      {
+        "kind": "damage",
+        "amount": {
+          "of": "allies",
+          "times": 3,
+          "plus": 3
+        }
+      }
+    ]
+  },
+  {
+    "id": "juggernaut",
+    "name": "Juggernaut",
+    "enabled": false,
+    "rarity": "rare",
+    "art": "push",
+    "cost": 1,
+    "targeting": "self",
+    "range": 0,
+    "text": "For 2 rounds, knockback slams hit twice as hard. Draw a card.",
+    "effects": [
+      {
+        "kind": "boon",
+        "stat": "slamDamage",
+        "mul": 2,
+        "rounds": 2
+      },
+      {
+        "kind": "draw",
+        "amount": 1
+      }
+    ]
+  },
+  {
+    "id": "haste",
+    "name": "Haste",
+    "enabled": false,
+    "rarity": "normal",
+    "art": "boot",
+    "cost": 0,
+    "targeting": "self",
+    "range": 0,
+    "text": "Gain {1} movement now and {2.1} next turn.",
+    "effects": [
+      {
+        "kind": "movement",
+        "amount": 2
+      },
+      {
+        "kind": "later",
+        "rounds": 1,
+        "effects": [
+          {
+            "kind": "movement",
+            "amount": 2
+          }
+        ]
+      }
+    ]
   }
 ]
