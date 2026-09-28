@@ -184,13 +184,13 @@ export function value(game: Game): number {
       else if (effect.kind === 'draw' || effect.kind === 'energy') v += effect.amount * 0.6;
     }
   }
-  // Boons still running: worth a little for each round left, more for the
-  // stats that add damage. The heat on fires already burning is counted
-  // below, through the same helper the rules use.
+  // Boons still running on the stats a blow reads: worth a little for each
+  // round left. Fire boons are not counted here: their heat on the fires
+  // actually burning near enemies is, below, through the same helper the
+  // rules use — a fire boon with no fire to heat is worth nothing.
   for (const boon of state.boons) {
-    const damage = boon.stat === 'fireDamage' || boon.stat === 'damageBonus' || boon.stat === 'slamDamage';
-    const size = (boon.add ?? 0) + (boon.mul ? (boon.mul - 1) * 3 : 0);
-    v += size * boon.rounds * (damage ? 0.6 : 0.3);
+    if (boon.stat !== 'damageBonus' && boon.stat !== 'slamDamage') continue;
+    v += ((boon.add ?? 0) + (boon.mul ? (boon.mul - 1) * 2 : 0)) * boon.rounds * 0.5;
   }
   v += state.hand.length * (state.energy > 0 ? 0.8 : 0.2) + state.energy * 0.2 + state.movement * 0.25;
   if (state.descending) v += 40;
@@ -232,7 +232,8 @@ export function cloneGame(game: Game): Game {
 /** Let whatever is moving finish moving. */
 export function settle(game: Game): void {
   const { state } = game;
-  for (let i = 0; i < 400 && isBusy(state) && state.phase === 'player'; i += 1) tick(game, STEP);
+  // An ally acting at the player's command plays out in his phase, too.
+  for (let i = 0; i < 400 && (isBusy(state) || state.queue.length) && state.phase === 'player'; i += 1) tick(game, STEP);
   // A won reward is brought up by the clock once things are quiet.
   if (state.phase === 'player' && !state.activeReward && state.pendingRewards.length) tick(game, 0.01);
   state.events.length = 0;
@@ -285,8 +286,9 @@ function candidatePlays(game: Game): Play[] {
    what it does alone (the default, so earlier scorecards stay comparable);
    2 scores the best few first plays by the best follow-up this turn too, so
    a setup card — Stoke before Fire — is seen for what it leads to
-   (SIM_LOOKAHEAD, for experiments). */
-const LOOKAHEAD = Number(process.env.SIM_LOOKAHEAD ?? 1);
+   (SIM_LOOKAHEAD, for experiments; read as it plays, so an experiment can
+   set it for itself). */
+const lookahead = (): number => Number(process.env.SIM_LOOKAHEAD ?? 1);
 /** How many of the best first plays get a follow-up looked for. */
 const FIRST_PLAYS = 4;
 
@@ -308,7 +310,7 @@ function tryPlays(game: Game): Array<{ play: Play; gain: number; trial: Game }> 
 function bestPlay(game: Game, hooks: BotHooks): Play | null {
   const tried = tryPlays(game);
   if (!tried.length) return null;
-  if (LOOKAHEAD >= 2) {
+  if (lookahead() >= 2) {
     for (const item of tried.slice(0, FIRST_PLAYS)) {
       const next = tryPlays(item.trial)[0];
       if (next && next.gain > 0) item.gain += next.gain;
