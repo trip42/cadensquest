@@ -8,7 +8,7 @@ import { type AmountValues, type Effect, isArea } from '~/game/effects';
 import { entityCell } from '~/game/entities/types';
 import { cellDistance, reachable } from '~/game/map/navigation';
 import { createGame, type Game, makeCard, makeEntity, player, resetUids, syncStats } from '~/game/state';
-import { joinText, liveText, printedText, tokenProblems } from '~/game/text';
+import { joinText, liveText, printedParts, printedText, tokenProblems } from '~/game/text';
 import { readContentFiles } from './setup';
 
 const VALUES: AmountValues = { block: 0, health: 30, missingHealth: 10, energy: 0, hand: 3, power: 0, x: 0 };
@@ -34,7 +34,7 @@ describe('numbers in rules text', () => {
     expect(joinText(parts)).toBe('Deal 9 damage.');
     expect(parts.find((part) => part.text === '9')?.change).toBe('up');
     // Nothing added: a plain number, not marked.
-    expect(live('Deal {1} damage.', [{ kind: 'damage', amount: 5 }])).toEqual([{ text: 'Deal ' }, { text: '5' }, { text: ' damage.' }]);
+    expect(live('Deal {1} damage.', [{ kind: 'damage', amount: 5 }])).toEqual([{ text: 'Deal ' }, { text: '5', unit: 'damage' }, { text: ' damage.' }]);
   });
 
   it('counts the block bonus on block, and nothing on heals or draws', () => {
@@ -54,6 +54,15 @@ describe('numbers in rules text', () => {
       { kind: 'later', rounds: 2, effects: [{ kind: 'damage', amount: 8 }] },
     ];
     expect(joinText(live('{1.1} / {2.1} / {3.1}', effects, { power: 2 }, 1))).toBe('7 / 3 / 8');
+  });
+
+  it('says what each number measures, so the screen can colour it', () => {
+    const effects: Effect[] = [
+      { kind: 'damage', amount: 5 }, { kind: 'heal', amount: 2 }, { kind: 'block', amount: 3 }, { kind: 'push', amount: 2 },
+      { kind: 'later', rounds: 2, effects: [{ kind: 'losePower', amount: 1 }] }, { kind: 'draw', amount: 1 },
+    ];
+    const units = printedParts('{1} {2} {3} {4} {5} {5.1} {6}', effects).filter((part) => part.unit).map((part) => part.unit);
+    expect(units).toEqual(['damage', 'health', 'block', 'movement', 'plain', 'power', 'plain']);
   });
 
   it('works out X from what the card would spend', () => {

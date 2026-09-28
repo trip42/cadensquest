@@ -13,7 +13,7 @@ import {
   TRIGGER_INFO, type TriggerPoint,
 } from '~/game/effects';
 import type { GemDefinition } from '~/game/gems';
-import { printedText } from '~/game/text';
+import { printedParts, printedText } from '~/game/text';
 import { ZONES } from '~/game/map/tiles';
 import { describeModifier, type StatModifier } from '~/game/stats';
 import { glyph } from '~/render/glyphs';
@@ -221,7 +221,7 @@ watch(() => [card.value?.name, card.value?.text, cardNow.value], measure);
     <!-- An enemy card, and who plays it. -->
     <template v-else-if="move">
       <div class="stage">
-        <GameCard :def="asEnemyCard(move)" :text="[{ text: printedText(move.text, move.effects as Effect[], 'its') }]" />
+        <GameCard :def="asEnemyCard(move)" :text="printedParts(move.text, move.effects as Effect[], 'its')" />
       </div>
       <template v-if="bursts.length">
         <div class="panel note">

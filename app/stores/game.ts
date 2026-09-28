@@ -125,7 +125,11 @@ export interface EnemyTipView {
   hp: number;
   maxHp: number;
   intent: string | null;
-  intentText: string | null;
+  /** What its card does, numbers coloured as on a card. */
+  intentParts: TextPart[] | null;
+  /** Anything the text leaves out: power it does not show, "based on"
+   *  amounts worked out. */
+  intentNote: string | null;
   reward: string;
   rewardTint: string;
   /** Coins it drops when it falls. */
@@ -525,16 +529,15 @@ export const useGameStore = defineStore('game', () => {
     // Its block falls as it starts to act, so work "based on" amounts out
     // from there, as resolving the card will.
     const now = intent ? nowText(intent.effects, { ...amountValues(game.state, foe), block: 0 }) : null;
-    const intentText = intent
-      ? [joinText(intentParts(game.state, foe, intent)), empowered ? `(+${foe.power} power)` : '', now ? `(now: ${now})` : ''].filter(Boolean).join(' ')
-      : null;
+    const intentNote = [empowered ? `(+${foe.power} power)` : '', now ? `(now: ${now})` : ''].filter(Boolean).join(' ') || null;
     const next: EnemyTipView = {
       id: foe.id,
       name: def.name,
       hp: foe.hp,
       maxHp: foe.maxHp,
       intent: foe.intent?.label ?? null,
-      intentText,
+      intentParts: intent ? intentParts(game.state, foe, intent) : null,
+      intentNote,
       reward: foe.reward ? rewardLabel(foe.reward) : 'NOTHING',
       coins: foe.summonedBy ? 0 : def.coins ?? 0,
       guardian: !!def.guardian,
@@ -553,6 +556,7 @@ export const useGameStore = defineStore('game', () => {
     const old = enemyTip.value;
     if (!old || old.id !== next.id || old.x !== next.x || old.y !== next.y
       || old.hp !== next.hp || old.intent !== next.intent
+      || joinText(old.intentParts ?? []) !== joinText(next.intentParts ?? []) || old.intentNote !== next.intentNote
       || JSON.stringify(old.ground) !== JSON.stringify(next.ground)) {
       enemyTip.value = next;
     }

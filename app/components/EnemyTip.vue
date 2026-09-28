@@ -4,6 +4,7 @@
    tracks the enemy as the camera moves. */
 
 import { useGameStore } from '~/stores/game';
+import RulesText from './RulesText.vue';
 
 const store = useGameStore();
 </script>
@@ -33,7 +34,7 @@ const store = useGameStore();
     </p>
     <p v-if="store.enemyTip.intent" class="intent">
       <span class="px-tag">NEXT</span>
-      {{ store.enemyTip.intent }}<span v-if="store.enemyTip.intentText">: {{ store.enemyTip.intentText }}</span>
+      {{ store.enemyTip.intent }}<span v-if="store.enemyTip.intentParts">: <RulesText :parts="store.enemyTip.intentParts" /><template v-if="store.enemyTip.intentNote"> {{ store.enemyTip.intentNote }}</template></span>
     </p>
     <p v-if="!store.enemyTip.ally" class="drop">
       <span class="px-tag" :style="{ background: store.enemyTip.rewardTint }">DROPS</span>

@@ -34,9 +34,30 @@ import {
   markEffects, stepValues,
 } from './effects';
 
+/** What a number measures, so the screen can colour it the way the rest
+ *  of the game does — damage red, health green, block blue, power and
+ *  energy yellow, movement cyan — and leave the rest (cards drawn, rounds,
+ *  reach) plain. */
+export type Unit = 'damage' | 'health' | 'block' | 'power' | 'energy' | 'movement' | 'plain';
+
+const UNITS: Record<string, Unit> = {
+  damage: 'damage',
+  heal: 'health', mend: 'health', tame: 'health', health: 'health',
+  block: 'block', loseBlock: 'block',
+  power: 'power', losePower: 'power',
+  energy: 'energy',
+  movement: 'movement', advance: 'movement', push: 'movement', pull: 'movement', step: 'movement',
+};
+
+/** The unit of a verb's number: "heal" and "mend" are health, "push" is
+ *  movement. A mark's rounds, a burst's radius and a draw are plain. */
+export const unitOf = (kind: string): Unit => UNITS[kind] ?? 'plain';
+
 /** A run of rules text: plain words, or a number that was worked out. */
 export interface TextPart {
   text: string;
+  /** Set on a number from a token: what it measures. */
+  unit?: Unit;
   /** A live number against the printed one: raised or lowered by bonuses. */
   change?: 'up' | 'down';
 }
@@ -138,13 +159,14 @@ function render(text: string, effects: readonly Effect[], owner: string, live?: 
     // A token pointing at nothing is left as written; the validator says so.
     if (!entry) continue;
     if (match.index > at) parts.push({ text: text.slice(at, match.index) });
+    const unit = unitOf(entry.kind);
     const now = live?.get(key);
     if (now === undefined) {
-      parts.push({ text: isScaled(entry.amount) ? describeAmount(entry.amount, owner) : String(entry.amount) });
+      parts.push({ text: isScaled(entry.amount) ? describeAmount(entry.amount, owner) : String(entry.amount), unit });
     } else {
       const printed = isScaled(entry.amount) ? null : entry.amount;
       const change = printed === null || now === printed ? undefined : now > printed ? 'up' : 'down';
-      parts.push(change ? { text: String(now), change } : { text: String(now) });
+      parts.push(change ? { text: String(now), unit, change } : { text: String(now), unit });
     }
     at = match.index + match[0].length;
   }
@@ -157,8 +179,12 @@ export const joinText = (parts: readonly TextPart[]): string => parts.map((part)
 
 /** Text as printed: each token the card's own number. `owner` is whose
  *  values a scaled amount means — "your" for a card, "its" for an enemy's. */
+export const printedParts = (text: string, effects: readonly Effect[], owner = 'your'): TextPart[] =>
+  render(text, effects, owner);
+
+/** The same, as one plain string. */
 export const printedText = (text: string, effects: readonly Effect[], owner = 'your'): string =>
-  joinText(render(text, effects, owner));
+  joinText(printedParts(text, effects, owner));
 
 /** Text as it would come out now, from these values and bonuses. */
 export const liveText = (

@@ -408,9 +408,15 @@ evaluated. `game/text.ts` does it:
 - **Live in hand** (`handText` in actions.ts, via the store's `CardView.text`):
   what playing it now comes to. Damage adds power and `damageBonus`, block
   adds `blockBonus`, X is what it would spend, and power gained earlier on
-  the card counts — the same bonuses `resolveEffect` adds. A number above
-  the printed one is green, below it red. High ground is left out; it
-  depends on the target.
+  the card counts — the same bonuses `resolveEffect` adds. High ground is
+  left out; it depends on the target.
+- **Coloured by what it measures** (`unitOf`, drawn by `RulesText.vue` on
+  the card, its tooltip and the enemy tooltip): damage red, health green,
+  block blue, power and energy yellow, movement cyan, the rest plain white
+  — the colours the HUD and the floating numbers already use. A number the
+  hand has raised is bold instead of recoloured, and only on the card:
+  Silkscreen has no bold loaded, so `font-synthesis: none` keeps a fake one
+  from smearing it.
 - **Enemy tooltips** read intents live with the enemy's power
   (`intentText`), and drop the "(+N power)" note once the text shows its
   damage as a token.
