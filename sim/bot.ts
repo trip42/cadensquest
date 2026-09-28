@@ -184,6 +184,14 @@ export function value(game: Game): number {
       else if (effect.kind === 'draw' || effect.kind === 'energy') v += effect.amount * 0.6;
     }
   }
+  // Boons still running: worth a little for each round left, more for the
+  // stats that add damage. The heat on fires already burning is counted
+  // below, through the same helper the rules use.
+  for (const boon of state.boons) {
+    const damage = boon.stat === 'fireDamage' || boon.stat === 'damageBonus' || boon.stat === 'slamDamage';
+    const size = (boon.add ?? 0) + (boon.mul ? (boon.mul - 1) * 3 : 0);
+    v += size * boon.rounds * (damage ? 0.6 : 0.3);
+  }
   v += state.hand.length * (state.energy > 0 ? 0.8 : 0.2) + state.energy * 0.2 + state.movement * 0.25;
   if (state.descending) v += 40;
 
@@ -273,18 +281,40 @@ function candidatePlays(game: Game): Play[] {
   return plays;
 }
 
-/** The best card to play now, if any is worth playing, and how the choice
- *  looked — for the decision metrics. */
-function bestPlay(game: Game, hooks: BotHooks): Play | null {
-  const plays = candidatePlays(game);
-  if (!plays.length) return null;
+/* How far ahead the bot looks when choosing a card: 1 plays each card for
+   what it does alone (the default, so earlier scorecards stay comparable);
+   2 scores the best few first plays by the best follow-up this turn too, so
+   a setup card — Stoke before Fire — is seen for what it leads to
+   (SIM_LOOKAHEAD, for experiments). */
+const LOOKAHEAD = Number(process.env.SIM_LOOKAHEAD ?? 1);
+/** How many of the best first plays get a follow-up looked for. */
+const FIRST_PLAYS = 4;
+
+/** Every sensible play from here, each tried on a copy and scored by how
+ *  much better it leaves the board. */
+function tryPlays(game: Game): Array<{ play: Play; gain: number; trial: Game }> {
   const before = value(game);
-  const scored = plays.map((play) => {
+  return candidatePlays(game).map((play) => {
     const trial = cloneGame(game);
     playCard(trial, play.uid, play.target);
     settle(trial);
-    return { play, gain: value(trial) - before };
+    return { play, gain: value(trial) - before, trial };
   }).sort((a, b) => b.gain - a.gain);
+}
+
+/** The best card to play now, if any is worth playing, and how the choice
+ *  looked — for the decision metrics. With lookahead on, the metrics see
+ *  the choice as the bot does, follow-ups included. */
+function bestPlay(game: Game, hooks: BotHooks): Play | null {
+  const tried = tryPlays(game);
+  if (!tried.length) return null;
+  if (LOOKAHEAD >= 2) {
+    for (const item of tried.slice(0, FIRST_PLAYS)) {
+      const next = tryPlays(item.trial)[0];
+      if (next && next.gain > 0) item.gain += next.gain;
+    }
+  }
+  const scored = tried.map(({ play, gain }) => ({ play, gain })).sort((a, b) => b.gain - a.gain);
   const best = scored[0]!;
   const positive = scored.filter((item) => item.gain > 0.25);
   // Distinct cards among the good options: two targets for one card are not
