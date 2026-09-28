@@ -120,6 +120,8 @@ export interface GameState {
   movement: number;
   /** Tiles walked this turn — momentum, for cards that read it. */
   moved: number;
+  /** Cards still to come this turn that happen twice: Echo. */
+  echo: number;
 
   hand: CardInstance[];
   drawPile: CardInstance[];
@@ -265,6 +267,7 @@ export function createGame(seed: number): Game {
     energy: 0,
     movement: 0,
     moved: 0,
+    echo: 0,
     hand: [],
     drawPile: shuffle(rng, STARTING_DECK.map(makeCard)),
     discardPile: [],

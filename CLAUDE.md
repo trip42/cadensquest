@@ -494,7 +494,7 @@ card is data; a new verb or shape is code (checklists at the end).
 **Seven shapes.** A **simple** effect is `{ kind, amount }` with a verb
 from `EFFECT_INFO`: `damage`, `block`, `loseBlock`, `heal`, `power`,
 `losePower`, `movement`, `energy`, `draw`, `step` (Leap), `advance`, `tame`,
-`mend`, `push` (Knockback), `pull`, `rekindle`, `flare`.
+`mend`, `push` (Knockback), `pull`, `rekindle`, `flare`, `echo`.
 **Terrain** is `{ kind: "terrain", rounds, colour, effects: [simple...],
 enter?, exit?, radius? }`.
 **Summon** is `{ kind: "summon", entity, amount, rounds? }`. **Area** is
@@ -625,6 +625,12 @@ actor, `pull` drags it in, a tile at a time (`shove`), for either side.
 - **Ranged or not** is judged by distance when the blow lands, so a far
   card played on something adjacent — or just pulled in — swings rather
   than throws.
+
+**Echo.** `echo` N (the player's only) makes the next N cards he plays
+this turn each happen twice (`state.echo`, cleared by the refresh). In
+`playCard` the whole card resolves twice, its gems too; X is spent once and
+both times read the same X; `cardPlayed` triggers fire once. The hand's
+live numbers do not show the doubling.
 
 **Later, and power that lasts.** A Later's effects land on whoever played
 it `rounds` rounds from now, as if it played them on itself then. It goes

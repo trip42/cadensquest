@@ -1076,6 +1076,9 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
     case 'rekindle':
       rekindle(game, actor, amount);
       break;
+    case 'echo':
+      if (isPlayer) state.echo += amount;
+      break;
     case 'flare':
       flare(game, actor, amount);
       break;
@@ -1338,15 +1341,25 @@ export function playCard(game: Game, uid: string, target: Cell | null = null): b
     if (def.targeting === 'enemy') setAnimation(self, def.range > 1 ? 'ranged' : 'attack');
   }
 
+  // Echo: this card happens twice — taken before it resolves, so an Echo
+  // echoed hands on two more rather than using up its own.
+  const times = state.echo > 0 ? 2 : 1;
+  if (times > 1) {
+    state.echo -= 1;
+    note(state, `${def.name} echoes.`);
+  }
+  // X was spent once, above, and both times read the same X.
   const play: Play = { actor: self, target, range: def.range, x: spent };
-  for (const effect of def.effects) resolveEffect(game, effect, play);
-  // Gems are socketed into this instance, so only this copy carries them.
-  // A gem's mark needs the card's target: on a card with none it would set
-  // the player's own tile alight, so there it does nothing.
-  for (const gemId of gemsOf(card)) {
-    for (const effect of gemDef(gemId).effects) {
-      if (isTerrain(effect) && !target) continue;
-      resolveEffect(game, effect, play);
+  for (let n = 0; n < times; n += 1) {
+    for (const effect of def.effects) resolveEffect(game, effect, play);
+    // Gems are socketed into this instance, so only this copy carries them.
+    // A gem's mark needs the card's target: on a card with none it would set
+    // the player's own tile alight, so there it does nothing.
+    for (const gemId of gemsOf(card)) {
+      for (const effect of gemDef(gemId).effects) {
+        if (isTerrain(effect) && !target) continue;
+        resolveEffect(game, effect, play);
+      }
     }
   }
   fire(game, 'cardPlayed');
@@ -1597,6 +1610,7 @@ export function beginTurn(game: Game): void {
   // stat table; discarding a card buys a step more when it runs short.
   state.movement = stat(state, 'movePerTurn');
   state.moved = 0;
+  state.echo = 0;
 
   // Cards not played or thrown away are kept: the hand is topped up to its
   // size, not replaced, so a combo can be held until its partner arrives.

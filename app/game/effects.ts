@@ -49,7 +49,10 @@ export type EffectKind =
   | 'rekindle'
   /** Every fire hits whoever stands in it now, for its damage plus this
    *  much, without using up that tile's hit for the round. */
-  | 'flare';
+  | 'flare'
+  /** The next this-many cards the player plays this turn each happen
+   *  twice: effects and gems, with X spent and read once. */
+  | 'echo';
 
 /* How much. Either a fixed number, or worked out from something about the
    actor at the moment the effect happens: `{ of: 'block' }` is "as much as
@@ -342,6 +345,7 @@ const NOW_SHORT: Partial<Record<EffectKind, (n: number) => string>> = {
   pull: (n) => `PULL ${n}`,
   rekindle: (n) => `FIRE +${n} RND`,
   flare: (n) => `FLARE +${n}`,
+  echo: (n) => `ECHO ${n}`,
 };
 
 const NOW_LABELS: Partial<Record<EffectKind, (n: number) => string>> = {
@@ -361,6 +365,7 @@ const NOW_LABELS: Partial<Record<EffectKind, (n: number) => string>> = {
   pull: (n) => `pulls in ${n}`,
   rekindle: (n) => `every fire +${n} rounds`,
   flare: (n) => `every fire flares +${n}`,
+  echo: (n) => `next ${n} card${n === 1 ? '' : 's'} twice`,
 };
 
 /** What the effects that depend on the moment come to right now — "8
@@ -460,6 +465,7 @@ export const EFFECT_INFO: Record<EffectKind, { label: string; help: string; play
   pull: { label: 'Pull', help: 'Drag the target up to this many tiles toward you, stopping beside you. Guardians hold their ground.', player: true, enemy: true, tile: false },
   rekindle: { label: 'Rekindle', help: 'Every fire on the floor burns this many rounds longer — whoever lit it.', player: true, enemy: true, tile: false },
   flare: { label: 'Flare', help: 'Every fire on the floor hits whoever stands in it now, for its damage plus this much — whoever lit it. It does not use up that fire\'s hit for the round.', player: true, enemy: true, tile: false },
+  echo: { label: 'Echo', help: 'The next this-many cards you play this turn each happen twice — their gems too. X is spent and read once.', player: true, enemy: false, tile: false },
 };
 
 export const EFFECT_KINDS = Object.keys(EFFECT_INFO) as EffectKind[];
@@ -620,6 +626,7 @@ export function describeEffect(effect: Effect): string {
     case 'push': return scaled ? `knock the target back equal to ${n}` : `knock the target back ${n}`;
     case 'pull': return scaled ? `pull the target in equal to ${n}` : `pull the target in ${n}`;
     case 'rekindle': return scaled ? `every fire burns longer by ${n} rounds` : `every fire burns ${n} rounds longer`;
+    case 'echo': return `the next ${n} card${n === '1' ? '' : 's'} played this turn happen twice`;
     case 'flare': return scaled ? `every fire flares, ${n} hotter` : `every fire flares${n === '0' ? '' : `, ${n} hotter`}`;
   }
 }

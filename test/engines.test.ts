@@ -9,6 +9,7 @@ import type { Effect } from '~/game/effects';
 import { entityCell } from '~/game/entities/types';
 import { type Cell, reachable } from '~/game/map/navigation';
 import { createGame, entityAt, type Game, makeCard, makeEntity, player, resetUids } from '~/game/state';
+import { GEMS } from '~/game/gems';
 import { TALISMANS } from '~/game/talismans';
 import { readContentFiles } from './setup';
 
@@ -93,5 +94,40 @@ describe('triggers aim where an enemy fell', () => {
     expect(foe.dead).toBe(true);
     expect(terrainAt(game.state, cell).map((layer) => layer.element)).toEqual(['fire']);
     expect(terrainAt(game.state, here)).toEqual([]);
+  });
+});
+
+describe('Echo', () => {
+  it('makes the next card happen twice, gems and all, and only the next', () => {
+    const game = quiet();
+    const self = player(game.state);
+    self.block = 0;
+    GEMS.test_gem = { id: 'test_gem', name: 'Gem', colour: '#ffffff', text: '', effects: [{ kind: 'block', amount: 1 }] };
+    play(game, define('echo_t', [{ kind: 'echo', amount: 1 }]));
+    const guard = makeCard(define('guard_t', [{ kind: 'block', amount: 3 }]));
+    guard.gems = ['test_gem'];
+    game.state.hand.push(guard);
+    playCard(game, guard.uid, null);
+    expect(self.block).toBe(8);
+    play(game, 'guard_t');
+    expect(self.block).toBe(11);
+  });
+
+  it('spends X once and reads it twice', () => {
+    const game = quiet();
+    const self = player(game.state);
+    self.block = 0;
+    game.state.energy = 3;
+    play(game, define('echo_t', [{ kind: 'echo', amount: 1 }]));
+    play(game, define('guard_x', [{ kind: 'block', amount: { of: 'x' } }], { cost: 'X' }));
+    expect(game.state.energy).toBe(0);
+    expect(self.block).toBe(6);
+  });
+
+  it('is gone at the end of the turn', () => {
+    const game = quiet();
+    play(game, define('echo_t', [{ kind: 'echo', amount: 1 }]));
+    nextTurn(game);
+    expect(game.state.echo).toBe(0);
   });
 });
