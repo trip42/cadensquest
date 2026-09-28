@@ -61,7 +61,11 @@ export type EffectKind =
    Deliberately a small data shape rather than a formula string: content
    may one day come from a server, and a string that is evaluated is code.
    This can be validated field by field, and cannot do anything else. */
-export type AmountSource = 'block' | 'health' | 'missingHealth' | 'energy' | 'hand' | 'power' | 'x';
+export type AmountSource = 'block' | 'health' | 'missingHealth' | 'energy' | 'hand' | 'power' | 'x' | 'fires' | 'allies';
+
+/** How far `fires` looks: burning tiles within this many steps of the
+ *  actor count. A dial — too far, and it counts fires long left behind. */
+export const FIRES_WITHIN = 3;
 
 export interface ScaledAmount {
   of: AmountSource;
@@ -227,6 +231,10 @@ export const AMOUNT_SOURCES: Record<AmountSource, { label: string; phrase: strin
   /* The energy an X card spent. Not "energy": by the time a card's effects
      happen its cost is paid, so an X card always leaves you on 0. */
   x: { label: 'X (energy spent)', phrase: 'X', enemy: false },
+  /* Burning tiles near the actor, whoever lit them: fire has no side. */
+  fires: { label: `Fires within ${FIRES_WITHIN}`, phrase: `burning tiles within ${FIRES_WITHIN}`, enemy: true },
+  /* The player's living allies, tamed or summoned. */
+  allies: { label: 'Allies', phrase: 'allies', enemy: false },
 };
 
 export const AMOUNT_SOURCE_KEYS = Object.keys(AMOUNT_SOURCES) as AmountSource[];
@@ -481,7 +489,8 @@ export function describeAmount(amount: Amount, owner = 'your'): string {
     const x = times === 1 ? 'X' : `${times}X`;
     return plus > 0 ? `${x} + ${plus}` : plus < 0 ? `${x} − ${-plus}` : x;
   }
-  const base = `${owner} ${AMOUNT_SOURCES[amount.of].phrase}`;
+  // Fire has no side: they are nobody's fires, just the ones nearby.
+  const base = amount.of === 'fires' ? `the ${AMOUNT_SOURCES.fires.phrase}` : `${owner} ${AMOUNT_SOURCES[amount.of].phrase}`;
   const scaled = times === 1 ? base : times === 0.5 ? `half ${base}` : times === 2 ? `twice ${base}` : `${times} × ${base}`;
   return plus > 0 ? `${scaled} + ${plus}` : plus < 0 ? `${scaled} − ${-plus}` : scaled;
 }

@@ -16,7 +16,8 @@ import { cardDef, cardMovement, energySpent, minimumCost } from './cards/definit
 import { intentDef } from './cards/intents';
 import type { CardDefinition, CardInstance } from './cards/types';
 import {
-  amountOf, type AmountValues, type AreaEffect, type BoonEffect, type Effect, isArea, isBoon, isLater, isSummon, isTerrain,
+  amountOf, type AmountValues, type AreaEffect, type BoonEffect, type Effect, FIRES_WITHIN, isArea, isBoon, isLater, isSummon,
+  isTerrain,
   type LaterEffect,
   type SummonEffect, type TerrainEffect, type TileEffect, type TriggerPoint,
 } from './effects';
@@ -389,7 +390,20 @@ export function amountValues(state: GameState, actor: Entity, x = 0): AmountValu
     power: actor.power,
     energy: isPlayer ? state.energy : 0,
     hand: isPlayer ? state.hand.length : 0,
+    fires: firesNear(state, entityCell(actor)),
+    allies: isPlayer ? allies(state).length : 0,
   };
+}
+
+/** Burning tiles within `FIRES_WITHIN` steps, whoever lit them. */
+function firesNear(state: GameState, here: Cell): number {
+  let count = 0;
+  for (const [key, layers] of Object.entries(state.terrain)) {
+    if (!layers.some((layer) => layer.element === 'fire')) continue;
+    const [row, col] = key.split(',').map(Number);
+    if (cellDistance({ row: row!, col: col! }, here) <= FIRES_WITHIN) count += 1;
+  }
+  return count;
 }
 
 /** The player's values as a card's effects will read them: after paying

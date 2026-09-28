@@ -48,7 +48,7 @@ const card = computed(() => (props.file === 'cards' ? asCard(props.item as CardD
 
 /* A "based on" amount has no number until it is played, so the preview
    plays it against a sample moment and says which. */
-const SAMPLE: AmountValues = { block: 8, health: 30, missingHealth: 10, energy: 3, hand: 4, power: 0, x: 0 };
+const SAMPLE: AmountValues = { block: 8, health: 30, missingHealth: 10, energy: 3, hand: 4, power: 0, x: 0, fires: 2, allies: 1 };
 /** As if played from there: its cost paid — for an X card, all 3 energy. */
 const cardSample = computed((): AmountValues => {
   const cost = card.value?.cost ?? 0;
@@ -56,7 +56,7 @@ const cardSample = computed((): AmountValues => {
   return { ...SAMPLE, energy: SAMPLE.energy - spent, x: cost === 'X' ? spent : 0 };
 });
 const SAMPLE_TEXT = computed(() =>
-  `8 block, 30/40 health, 3 energy${card.value?.cost === 'X' ? ' (so X is 3)' : ''}, 4 cards in hand`);
+  `8 block, 30/40 health, 3 energy${card.value?.cost === 'X' ? ' (so X is 3)' : ''}, 4 cards in hand, 2 fires near, 1 ally`);
 const cardNow = computed(() => (card.value ? nowText(card.value.effects, cardSample.value) : null));
 const cardNowShort = computed(() => (card.value ? nowText(card.value.effects, cardSample.value, 'short') : null));
 

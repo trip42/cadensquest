@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { beginTurn, endPlayerPhase, layerEffects, playCard, terrainAt, tick } from '~/game/actions';
+import { amountValues, beginTurn, endPlayerPhase, layerEffects, playCard, terrainAt, tick } from '~/game/actions';
 import { CARDS } from '~/game/cards/definitions';
 import { INTENTS } from '~/game/cards/intents';
 import type { CardDefinition } from '~/game/cards/types';
@@ -204,5 +204,33 @@ describe('Rekindle and Flare', () => {
     define('flare_t', [{ kind: 'flare', amount: 0 }], { targeting: 'self', range: 0 });
     play(game, 'flare_t');
     expect(self.hp).toBe(hp);
+  });
+});
+
+describe('counting fires and allies', () => {
+  it('fires counts burning tiles within 3, whoever lit them, and nothing else', () => {
+    const game = quiet();
+    const self = player(game.state);
+    define('fire_t', [fire(3)]);
+    define('spring_t', [{ kind: 'terrain', rounds: 2, colour: '#63c74d', effects: [{ kind: 'heal', amount: 1 }] }]);
+    play(game, 'fire_t', cellAt(game, 1));
+    play(game, 'fire_t', cellAt(game, 3));
+    play(game, 'spring_t', cellAt(game, 2));
+    // Far off: out of reach.
+    game.state.terrain[`${self.row + 9},${self.col}`] = [{ ...terrainAt(game.state, cellAt(game, 1))[0]!, id: 'far' }];
+    define('shield_t', [{ kind: 'block', amount: { of: 'fires', times: 2 } }], { targeting: 'self', range: 0 });
+    self.block = 0;
+    play(game, 'shield_t');
+    expect(self.block).toBe(4);
+  });
+
+  it('allies counts the player\'s living allies, and is 0 for an enemy', () => {
+    const game = quiet();
+    const self = player(game.state);
+    const friend = dummy(game, cellAt(game, 1));
+    friend.faction = 'ally';
+    const foe = dummy(game, cellAt(game, 2));
+    expect(amountValues(game.state, self).allies).toBe(1);
+    expect(amountValues(game.state, foe).allies).toBe(0);
   });
 });

@@ -515,7 +515,9 @@ belongs to the verb (Block gains, Lose block spends), which is why there is
 no negative block. Deliberately data, not a formula string — content may
 come from a server one day, and an evaluated string is code; a test pins
 that a string is refused. Sources: `block`, `health`, `missingHealth`,
-`power`, `energy`, `hand`, `x`. For a played card, `energy` and `hand` are
+`power`, `energy`, `hand`, `x`, `fires` (burning tiles within
+`FIRES_WITHIN`, 3, of the actor, whoever lit them) and `allies` (the
+player's living allies; 0 for anyone else). For a played card, `energy` and `hand` are
 *after* paying for it and removing it from the hand. An enemy has no energy
 or hand (always 0), and its block falls as it starts to act, so "its block"
 is only what that card gave it — the validator warns about both. Bonuses:
