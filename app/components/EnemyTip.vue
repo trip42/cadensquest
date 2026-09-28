@@ -72,6 +72,10 @@ const store = useGameStore();
 .bar { display: block; height: 7px; margin-top: 5px; padding: 1px; background: var(--px-ink); }
 .bar i { display: block; height: 100%; background: var(--px-red); }
 .intent { margin-top: 8px; color: var(--px-soft); }
+/* Numbers in its card's text keep their colour and shadow but not the
+   card's bold: Silkscreen's real bold fills in the counter of its 4, which
+   then reads as a blob. */
+.intent :deep(.rules-num) { font-weight: 400; }
 .guard { margin-top: 8px; color: var(--px-soft); }
 .drop { margin-top: 6px; color: var(--px-soft); }
 .px-tag.is-red { background: var(--px-red); color: var(--px-text); }

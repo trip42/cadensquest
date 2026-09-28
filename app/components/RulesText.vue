@@ -5,11 +5,11 @@
    yellow, movement cyan — and anything else (cards drawn, rounds, reach)
    is simply brighter than the words around it.
 
-   A number the hand has worked out differently from the printed one —
-   power or a bonus raising it — is bold. Colour already says what it is,
-   so it cannot also say "raised". Bold only where the face has a real bold
-   (Georgia on the card); the pixel face in the HUD has no bold loaded, and
-   a synthesised one smears its pixels, so there it stays as it is.
+   Every number is bold, with a hard one-pixel drop like every shadow in
+   the HUD. Only ever a real bold, which Georgia on the card has. The HUD's
+   pixel face has none loaded, and one the browser fakes smears its pixels,
+   so `font-synthesis` is off; the enemy tooltip sets it back to regular
+   in any case (see there).
 
    On the card, in its tooltip and in the enemy tooltip, so a number reads
    the same everywhere. */
@@ -23,12 +23,16 @@ defineProps<{ parts: readonly TextPart[] }>();
 </template>
 
 <style scoped>
-.rules-num { color: var(--px-text); }
+.rules-num {
+  color: var(--px-text);
+  font-weight: 700;
+  font-synthesis: none;
+  text-shadow: 1px 1px 0 var(--px-ink);
+}
 .rules-num.is-damage { color: var(--px-red); }
 .rules-num.is-health { color: var(--px-green); }
 .rules-num.is-block { color: var(--px-blue); }
 .rules-num.is-power,
 .rules-num.is-energy { color: var(--px-yellow); }
 .rules-num.is-movement { color: var(--px-cyan); }
-.rules-num.is-changed { font-weight: 700; font-synthesis: none; }
 </style>

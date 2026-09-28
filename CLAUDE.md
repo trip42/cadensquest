@@ -413,10 +413,13 @@ evaluated. `game/text.ts` does it:
 - **Coloured by what it measures** (`unitOf`, drawn by `RulesText.vue` on
   the card, its tooltip and the enemy tooltip): damage red, health green,
   block blue, power and energy yellow, movement cyan, the rest plain white
-  — the colours the HUD and the floating numbers already use. A number the
-  hand has raised is bold instead of recoloured, and only on the card:
-  Silkscreen has no bold loaded, so `font-synthesis: none` keeps a fake one
-  from smearing it.
+  — the colours the HUD and the floating numbers already use — bold, with
+  a hard 1px ink drop shadow. Colour says what a number is, so nothing
+  marks one the hand has raised (the part still carries `change`). The
+  enemy tooltip keeps them regular: Silkscreen's real bold (`@fontsource`
+  700) fills in the 4, and a faked one smears, hence `font-synthesis:
+  none`. Don't load Silkscreen 700 as "Silkscreen": every `<strong>` and
+  heading in the HUD would change with it.
 - **Enemy tooltips** read intents live with the enemy's power
   (`intentText`), and drop the "(+N power)" note once the text shows its
   damage as a token.
