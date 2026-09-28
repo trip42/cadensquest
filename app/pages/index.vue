@@ -2,6 +2,10 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { parseTrial } from '~/game/sandbox';
 import { useGameStore } from '~/stores/game';
+// Imported by hand, unlike the page's other components: a dev server started
+// before ShopModal existed never registered it for auto-import, rendered an
+// empty tag, and left play held by a shop nobody could see.
+import ShopModal from '~/components/ShopModal.vue';
 
 const store = useGameStore();
 const route = useRoute();

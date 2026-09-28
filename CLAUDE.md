@@ -1131,6 +1131,13 @@ game.
   setup. One that read a `const` declared further down threw (temporal
   dead zone) and silently took the whole component with it — the editor's
   preview disappeared. Put watchers after everything they read.
+- **A new component is invisible to a dev server started before it
+  existed.** Auto-import never registered `ShopModal`, so the page rendered
+  an empty `<shopmodal>` tag (a "Failed to resolve component" warning) and
+  the rules held play for a shop nobody could see. A fresh server — like
+  the one a browser check starts — hides this. Import a new component the
+  page depends on by hand, or check the console of the user's running
+  server (port 3000).
 - **The first page load after adding a dependency can fail** with "Failed
   to fetch dynamically imported module": Vite re-optimises deps and
   invalidates the page mid-load. Reload; it is not a code error.
