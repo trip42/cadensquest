@@ -8,6 +8,7 @@ import type { Effect } from '~/game/effects';
 import { entityCell } from '~/game/entities/types';
 import { type Cell, reachable } from '~/game/map/navigation';
 import { createGame, type Game, makeCard, makeEntity, player, resetUids } from '~/game/state';
+import { GEMS } from '~/game/gems';
 import { type TalismanDefinition, TALISMANS } from '~/game/talismans';
 import { readContentFiles } from './setup';
 
@@ -232,5 +233,24 @@ describe('counting fires and allies', () => {
     const foe = dummy(game, cellAt(game, 2));
     expect(amountValues(game.state, self).allies).toBe(1);
     expect(amountValues(game.state, foe).allies).toBe(0);
+  });
+});
+
+describe('a gem that marks', () => {
+  it('marks the card\'s target, and does nothing on a card with no target', () => {
+    const game = quiet();
+    const self = player(game.state);
+    GEMS.test_cinder = { id: 'test_cinder', name: 'Cinder', colour: '#e43b44', text: '', effects: [fire(2, 2)] };
+    const enemy = dummy(game, cellAt(game, 1));
+    define('hit_t', [{ kind: 'damage', amount: 1 }], { targeting: 'enemy', range: 1 });
+    define('guard_t', [{ kind: 'block', amount: 1 }], { targeting: 'self', range: 0 });
+    for (const [id, target] of [['hit_t', entityCell(enemy)], ['guard_t', null]] as const) {
+      const card = makeCard(id);
+      card.gems = ['test_cinder'];
+      game.state.hand.push(card);
+      expect(playCard(game, card.uid, target)).toBe(true);
+    }
+    expect(terrainAt(game.state, entityCell(enemy)).map((layer) => layer.element)).toEqual(['fire']);
+    expect(terrainAt(game.state, entityCell(self))).toEqual([]);
   });
 });

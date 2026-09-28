@@ -1325,8 +1325,13 @@ export function playCard(game: Game, uid: string, target: Cell | null = null): b
   const play: Play = { actor: self, target, range: def.range, x: spent };
   for (const effect of def.effects) resolveEffect(game, effect, play);
   // Gems are socketed into this instance, so only this copy carries them.
+  // A gem's mark needs the card's target: on a card with none it would set
+  // the player's own tile alight, so there it does nothing.
   for (const gemId of gemsOf(card)) {
-    for (const effect of gemDef(gemId).effects) resolveEffect(game, effect, play);
+    for (const effect of gemDef(gemId).effects) {
+      if (isTerrain(effect) && !target) continue;
+      resolveEffect(game, effect, play);
+    }
   }
   fire(game, 'cardPlayed');
   return true;
