@@ -457,6 +457,23 @@ the choices are to switch fire off again, make the fire cards stronger than
 what they displace (bigger numbers, or fire that spares its lighter), or
 make the run easier elsewhere.
 
+**Stronger gems and a full heal on each floor brought it back** (the run
+made easier elsewhere). Gems now change the card they sit in (Sapphire −1
+cost, Ruby ×1.5 damage, Diamond ×2 block) or heal 5 (Emerald), and going
+down a floor heals the player to full:
+
+| Scorecard | Score | Win | Most deaths on one floor | Deaths by floor |
+|---|---|---|---|---|
+| lookahead, before | 8 | 22% | 72% | 11 / 72 / 17 |
+| lookahead, after | 9 | **61%** | **80%** ✗ | 4 / 80 / 16 |
+| `final` (300 runs), before | 7 | 19% | 74% | 13 / 74 / 14 |
+| `final` (300 runs), after | 8 | **49%** | **77%** ✗ | 11 / 77 / 11 |
+
+The win rate is back inside 35–65%. What is left is the shape: four deaths
+in five are on floor 2 (the Marsh and its Wyrm), floor 1 barely kills, and
+with a full heal floor 3 is rarely where a run ends. The next dial is per
+floor, not overall: ease floor 2, stiffen floor 3.
+
 ---
 
 ## What is still wrong
