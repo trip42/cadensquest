@@ -97,27 +97,10 @@
     ]
   },
   {
-    "id": "scout",
-    "name": "Scout",
-    "enabled": true,
-    "rarity": "normal",
-    "art": "eye",
-    "cost": 0,
-    "targeting": "self",
-    "range": 0,
-    "text": "Draw a card.",
-    "effects": [
-      {
-        "kind": "draw",
-        "amount": 1
-      }
-    ]
-  },
-  {
     "id": "cleave",
     "name": "Cleave",
     "enabled": true,
-    "rarity": "rare",
+    "rarity": "normal",
     "art": "slash",
     "cost": 2,
     "targeting": "self",
@@ -144,14 +127,44 @@
     "enabled": true,
     "rarity": "normal",
     "art": "heart",
-    "cost": 1,
+    "cost": 2,
     "targeting": "self",
     "range": 0,
-    "text": "Heal {1}.",
+    "text": "Heal {1} this round and one less each round after",
     "effects": [
       {
         "kind": "heal",
-        "amount": 5
+        "amount": 4
+      },
+      {
+        "kind": "later",
+        "rounds": 1,
+        "effects": [
+          {
+            "kind": "power",
+            "amount": 3
+          }
+        ]
+      },
+      {
+        "kind": "later",
+        "rounds": 2,
+        "effects": [
+          {
+            "kind": "heal",
+            "amount": 2
+          }
+        ]
+      },
+      {
+        "kind": "later",
+        "rounds": 2,
+        "effects": [
+          {
+            "kind": "heal",
+            "amount": 1
+          }
+        ]
       }
     ]
   },
@@ -201,7 +214,7 @@
     "id": "bulwark",
     "name": "Bulwark",
     "enabled": true,
-    "rarity": "mythic",
+    "rarity": "rare",
     "art": "shield",
     "cost": 2,
     "targeting": "self",
@@ -222,12 +235,24 @@
     "art": "arc",
     "cost": 1,
     "targeting": "cell",
-    "range": 3,
-    "text": "Leap to a cell within 3.",
+    "range": 5,
+    "text": "Leap up to 5 spaces and deal {2.1} damage to all adjacent foes.",
     "effects": [
       {
         "kind": "step",
         "amount": 0
+      },
+      {
+        "kind": "area",
+        "radius": 2,
+        "colour": "#feae34",
+        "affects": "foes",
+        "effects": [
+          {
+            "kind": "damage",
+            "amount": 8
+          }
+        ]
       }
     ]
   },
@@ -648,7 +673,7 @@
         "effects": [
           {
             "kind": "damage",
-            "amount": 8
+            "amount": 15
           }
         ]
       }
@@ -1320,7 +1345,7 @@
       {
         "kind": "boon",
         "stat": "keepBlock",
-        "add": 1,
+        "add": 8,
         "rounds": 2
       }
     ]
