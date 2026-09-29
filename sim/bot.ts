@@ -21,7 +21,7 @@ import { cardDef, cardMovement } from '../app/game/cards/definitions';
 import { intentDef } from '../app/game/cards/intents';
 import { amountOf, isArea, isSummon, isTerrain, readsPower } from '../app/game/effects';
 import type { Entity } from '../app/game/entities/types';
-import { GEM_SLOTS, gemDef } from '../app/game/gems';
+import { GEM_SLOTS, gemDef, gemmedDef } from '../app/game/gems';
 import { type Cell, cellDistance, reachable } from '../app/game/map/navigation';
 import { gateRowOf } from '../app/game/map/tiles';
 import { resolveStat } from '../app/game/stats';
@@ -514,9 +514,22 @@ function claim(game: Game, random: () => number): void {
     // Into the card played most, or failing that any card with room. A gem
     // that marks a tile only works on a card aimed somewhere.
     const played = state.tally.cardsPlayed;
-    const marks = gemDef(active.reward.gemId).effects.some(isTerrain);
-    const room = gemTargets(state).filter((card) => gemsOf(card).length < GEM_SLOTS
-      && (!marks || ['enemy', 'cell'].includes(cardDef(card.defId).targeting)));
+    // A gem that changes the card only goes where it has something to
+    // change: a Ruby into a card that deals damage, a Diamond into one that
+    // blocks, a Sapphire into one that costs something.
+    const gem = gemDef(active.reward.gemId);
+    const marks = gem.effects.some(isTerrain);
+    const has = (card: typeof state.hand[number], kind: string) => cardDef(card.defId).effects
+      .some((effect) => effect.kind === kind || (isArea(effect) && effect.effects.some((inner) => inner.kind === kind)));
+    const fits = (card: typeof state.hand[number]) => {
+      const def = cardDef(card.defId);
+      if (marks && !['enemy', 'cell'].includes(def.targeting)) return false;
+      if ((gem.damage ?? 1) !== 1 && !has(card, 'damage')) return false;
+      if ((gem.block ?? 1) !== 1 && !has(card, 'block')) return false;
+      if (gem.cost && (def.cost === 'X' || gemmedDef(def, card).cost === 0)) return false;
+      return true;
+    };
+    const room = gemTargets(state).filter((card) => gemsOf(card).length < GEM_SLOTS && fits(card));
     const target = room.sort((a, b) => (played[b.defId] ?? 0) - (played[a.defId] ?? 0))[0];
     if (target) socketGemReward(game, target.uid);
     else skipReward(game);

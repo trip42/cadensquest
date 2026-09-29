@@ -176,7 +176,15 @@ export const gemSchema = z.strictObject({
   enabled: z.boolean(),
   colour: colourSchema,
   text: z.string(),
-  effects: z.array(effectSchema).min(1, 'needs at least one effect'),
+  /** What happens after the card's own effects; may be empty for a gem that
+   *  only changes the card. The validator wants it to do something. */
+  effects: z.array(effectSchema),
+  /** Added to the card's energy cost, never below 0. */
+  cost: z.number().int('must be a whole number').min(-3).max(3).optional(),
+  /** Multiplies the card's damage. */
+  damage: z.number().positive('must be more than 0').max(5).optional(),
+  /** Multiplies the card's block. */
+  block: z.number().positive('must be more than 0').max(5).optional(),
 });
 
 export const talismanSchema = z.strictObject({

@@ -764,7 +764,14 @@ union changes — follow its errors.
 - **Gems** (`game/gems.ts`) socket into a `CardInstance`, not a definition —
   `card.gems`, capped at `GEM_SLOTS`. Playing a card resolves its own
   effects and then each gem's, so one gemmed Strike leaves the other three
-  plain. Test asserts exactly that. A gem's mark lands on the card's
+  plain. Test asserts exactly that. A gem may also change the card itself
+  (`cost`, `damage`, `block` on the gem): `gemmedDef` gives the card at the
+  cost its gems make it, never below 0 and never for X, and everything that
+  asks what a card in hand costs — `canPlay`, `playCard`, the store's
+  `describeCard` — goes through it; `gemMods` multiplies, and `playCard`
+  carries the multipliers on the `Play` to every blow, burst, block and
+  mark the card makes, rounded down (`scaled`). `liveNumbers` takes them as
+  `damageMul`/`blockMul`, so the hand shows what lands. A gem's mark lands on the card's
   target, and does nothing on a card with none — an untargeted mark would
   land under the player (a rule in `playCard`).
 - **Talismans** (`game/talismans.ts`) carry `modifiers` (permanent, via the

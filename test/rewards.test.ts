@@ -3,6 +3,7 @@ import {
   beginTurn,
   chooseCardReward,
   endPlayerPhase,
+  handText,
   isBusy,
   playCard,
   socketGemReward,
@@ -10,7 +11,8 @@ import {
   tick,
 } from '~/game/actions';
 import { cardDef, REWARD_POOL } from '~/game/cards/definitions';
-import { GEM_SLOTS } from '~/game/gems';
+import { GEM_SLOTS, gemmedDef } from '~/game/gems';
+import { reachable } from '~/game/map/navigation';
 import {
   DEFAULT_REWARD_CONFIG,
   rewardConfig,
@@ -27,6 +29,7 @@ import {
   type Game,
   gemsOf,
   makeCard,
+  makeEntity,
   player,
   resetUids,
   stat,
@@ -208,23 +211,60 @@ describe('gems change the instance that carries them', () => {
     const game = createGame(77);
     beginTurn(game);
     const self = player(game.state);
-    self.hp = self.maxHp - 5;
+    self.hp = self.maxHp - 8;
 
     const plain = makeCard('guard');
     const gemmed = makeCard('guard');
-    gemmed.gems = ['ruby', 'emerald'];
+    gemmed.gems = ['emerald'];
     game.state.hand = [plain, gemmed];
     game.state.energy = 3;
 
     playCard(game, plain.uid);
-    expect(self.hp).toBe(self.maxHp - 5);
+    expect(self.hp).toBe(self.maxHp - 8);
 
-    const energyBefore = game.state.energy;
     playCard(game, gemmed.uid);
-    expect(self.hp).toBe(self.maxHp - 4);           // ruby healed 1
-    expect(game.state.energy).toBe(energyBefore);   // emerald refunded the cost
+    expect(self.hp).toBe(self.maxHp - 3);           // emerald healed 5
+  });
+
+  it('changes the card it is set into: Sapphire its cost, Ruby its damage, Diamond its block', () => {
+    const game = createGame(77);
+    beginTurn(game);
+    const self = player(game.state);
+    game.state.entities = [self];
+    const here = { row: self.row, col: self.col };
+    const cell = [...reachable(game.world, here, 1).values()].find((entry) => entry.cost === 1)!.cell;
+    const foe = makeEntity('bug', cell.row, cell.col);
+    foe.hp = foe.maxHp = 99;
+    game.state.entities.push(foe);
+    game.state.energy = 3;
+
+    // Sapphire: a 1-cost Guard for nothing, and it never goes below 0.
+    const cheap = makeCard('guard');
+    cheap.gems = ['sapphire', 'sapphire'];
+    game.state.hand = [cheap];
+    expect(gemmedDef(cardDef('guard'), cheap).cost).toBe(0);
+    playCard(game, cheap.uid);
+    expect(game.state.energy).toBe(3);
+
+    // Diamond: double block, bonus included.
+    self.block = 0;
+    const thick = makeCard('guard');
+    thick.gems = ['diamond'];
+    game.state.hand = [thick];
+    playCard(game, thick.uid);
+    expect(self.block).toBe(amountOfGuard() * 2);
+
+    // Ruby: half as much damage again, rounded down.
+    const hard = makeCard('strike');
+    hard.gems = ['ruby'];
+    game.state.hand = [hard];
+    playCard(game, hard.uid, cell);
+    expect(foe.hp).toBe(99 - Math.floor(amountOfStrike() * 1.5));
   });
 });
+
+const amountOfGuard = () => cardDef('guard').effects[0]!.kind === 'block' ? (cardDef('guard').effects[0] as { amount: number }).amount : 0;
+const amountOfStrike = () => (cardDef('strike').effects[0] as { amount: number }).amount;
 
 describe('talismans', () => {
   beforeEach(() => resetUids());
@@ -331,5 +371,20 @@ describe('a drop', () => {
     for (let i = 0; i < 4000; i += 1) if (rollDrop(rng, { chance: 0.5 })) carried += 1;
     expect(carried / 4000).toBeGreaterThan(0.45);
     expect(carried / 4000).toBeLessThan(0.55);
+  });
+});
+
+describe('a gemmed card in hand', () => {
+  it('shows the damage and block its gems make', () => {
+    const game = createGame(77);
+    beginTurn(game);
+    const strike = makeCard('strike');
+    strike.gems = ['ruby'];
+    const guard = makeCard('guard');
+    guard.gems = ['diamond'];
+    const numbers = (card: ReturnType<typeof makeCard>) =>
+      handText(game.state, cardDef(card.defId), card).filter((part) => part.unit).map((part) => Number(part.text));
+    expect(numbers(strike)).toContain(Math.floor(amountOfStrike() * 1.5));
+    expect(numbers(guard)).toContain(amountOfGuard() * 2);
   });
 });

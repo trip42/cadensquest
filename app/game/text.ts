@@ -83,7 +83,14 @@ export interface Bonuses {
   damage: number;
   /** Added to block the actor gains: `blockBonus`. */
   block: number;
+  /** What the card's gems multiply its damage and block by, after the
+   *  bonuses; rounded down. 1 when left out. */
+  damageMul?: number;
+  blockMul?: number;
 }
+
+/** Times a gem's multiplier, rounded down, as `resolveEffect` does. */
+const times = (n: number, mul = 1): number => (mul === 1 ? n : Math.floor(n * mul + 1e-9));
 
 /** An enemy's only bonus is its power, which its values already carry. */
 export const NO_BONUSES: Bonuses = { damage: 0, block: 0 };
@@ -146,18 +153,23 @@ function liveNumbers(effects: readonly Effect[], start: AmountValues, bonuses: B
     const key = String(i + 1);
     // `hit` is what a burst adds to each blow: power (unless the blow was
     // worked out from it — power counts once) and the damage bonus.
-    const inside = (list: readonly { kind: string; amount: Amount }[], hit?: { power: number; bonus: number }) =>
+    // A gem's multiplier reaches a burst's damage and block and a mark's
+    // damage; a Later lands on the player, and is left alone.
+    const inside = (list: readonly { kind: string; amount: Amount }[], hit?: { power: number; bonus: number }, gemmed = true) =>
       list.forEach((inner, j) => {
         const n = amountOf(inner.amount, values);
         const extra = hit ? hit.bonus + (readsPower(inner.amount) ? 0 : hit.power) : 0;
-        found.set(`${key}.${j + 1}`, inner.kind === 'damage' ? n + extra : n);
+        const value = inner.kind === 'damage' ? times(n + extra, gemmed ? bonuses.damageMul : 1)
+          : inner.kind === 'block' && hit ? times(n, gemmed ? bonuses.blockMul : 1)
+            : n;
+        found.set(`${key}.${j + 1}`, value);
       });
     if (isTerrain(effect)) {
       found.set(key, amountOf(effect.rounds, values));
       inside(markEffects(effect));
     } else if (isLater(effect)) {
       found.set(key, amountOf(effect.rounds, values));
-      inside(effect.effects);
+      inside(effect.effects, undefined, false);
     } else if (isArea(effect)) {
       found.set(key, effect.radius);
       inside(effect.effects.map(roundsOfLater), { power: values.power, bonus: bonuses.damage });
@@ -171,8 +183,8 @@ function liveNumbers(effects: readonly Effect[], start: AmountValues, bonuses: B
     } else {
       const n = amountOf(effect.amount, values);
       const power = readsPower(effect.amount) ? 0 : values.power;
-      const total = effect.kind === 'damage' ? n + power + bonuses.damage
-        : effect.kind === 'block' ? n + bonuses.block
+      const total = effect.kind === 'damage' ? times(n + power + bonuses.damage, bonuses.damageMul)
+        : effect.kind === 'block' ? times(n + bonuses.block, bonuses.blockMul)
           : n;
       found.set(key, total);
       stepValues(values, effect.kind, effect.kind === 'block' ? total : n);

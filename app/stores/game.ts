@@ -48,7 +48,7 @@ import { cuesSince } from '~/game/cues';
 import { intentDef } from '~/game/cards/intents';
 import { applyTrial, type Trial, trialText } from '~/game/sandbox';
 import type { CardDefinition, CardInstance } from '~/game/cards/types';
-import { GEM_SLOTS, gemDef, type GemDefinition } from '~/game/gems';
+import { GEM_SLOTS, gemDef, type GemDefinition, gemmedDef } from '~/game/gems';
 import { talismanDef, type TalismanDefinition } from '~/game/talismans';
 import { entityDef } from '~/game/entities/definitions';
 import { rewardLabel } from '~/game/rewards';
@@ -266,7 +266,7 @@ export const useGameStore = defineStore('game', () => {
         playable: canPlay(current, card.uid),
         now: nowOf(state, card, 'full'),
         nowShort: nowOf(state, card, 'short'),
-        text: handText(state, cardDef(card.defId)),
+        text: handText(state, cardDef(card.defId), card),
       })),
       handMovement: handMovementValue(state),
       log: state.log.slice(-6).reverse(),
@@ -301,15 +301,16 @@ export const useGameStore = defineStore('game', () => {
    *  then it has left the hand and its cost is paid, and its gems resolve
    *  after it — so the preview starts from there too. */
   function nowOf(state: GameState, card: CardInstance, style: 'full' | 'short'): string | null {
-    const def = cardDef(card.defId);
+    const def = gemmedDef(cardDef(card.defId), card);
     const effects = [...def.effects, ...gemsOf(card).flatMap((id) => gemDef(id).effects)];
     return nowText(effects, playValues(state, def), style);
   }
 
   /** A card as every screen shows it. */
+  /** A card as every screen shows it — at the cost its gems make it. */
   const describeCard = (card: CardInstance): CardView => ({
     uid: card.uid,
-    def: cardDef(card.defId),
+    def: gemmedDef(cardDef(card.defId), card),
     gems: gemsOf(card).map(gemDef),
     movement: cardMovement(cardDef(card.defId)),
     full: gemsOf(card).length >= GEM_SLOTS,

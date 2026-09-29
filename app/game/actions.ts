@@ -21,7 +21,7 @@ import {
   type LaterEffect,
   type SimpleEffect, type SummonEffect, type TerrainEffect, type TileEffect, type TriggerPoint,
 } from './effects';
-import { GEM_SLOTS, gemDef } from './gems';
+import { GEM_SLOTS, gemDef, gemmedDef, gemMods } from './gems';
 import { ENEMY_IDS, ENTITIES, entityDef, GUARDIAN_IDS } from './entities/definitions';
 import {
   advanceAnimation,
@@ -142,7 +142,7 @@ export function movementRange(game: Game): Map<string, { cell: Cell; cost: numbe
 export function canPlay(game: Game, uid: string): boolean {
   const card = handCard(game.state, uid);
   if (!card || game.state.phase !== 'player' || holding(game.state)) return false;
-  return minimumCost(cardDef(card.defId)) <= game.state.energy;
+  return minimumCost(gemmedDef(cardDef(card.defId), card)) <= game.state.energy;
 }
 
 /** Is this a legal target for that card? Drives the drag-onto-the-map UI. */
@@ -377,7 +377,10 @@ function startTrail(game: Game, effect: TrailEffect, play: Play): void {
   const values = amountValues(state, play.actor, play.x);
   const rounds = amountOf(effect.rounds, values);
   if (rounds <= 0) return;
-  const fix = (list: TerrainEffect['effects']) => list.map((tile) => ({ kind: tile.kind, amount: amountOf(tile.amount, values) }));
+  const fix = (list: TerrainEffect['effects']) => list.map((tile) => {
+    const amount = amountOf(tile.amount, values);
+    return { kind: tile.kind, amount: tile.kind === 'damage' ? scaled(amount, play.damageMul) : amount };
+  });
   const { radius: _, ...mark } = effect.mark;
   state.trails.push({
     id: nextUid('trail'),
@@ -424,7 +427,15 @@ interface Play {
   /** Whom an enemy or ally walks toward: its foe, or for an ally with
    *  nobody to fight, the player it follows. */
   goal?: Entity | null;
+  /** What the card's gems multiply its damage and its block by (Ruby,
+   *  Diamond). 1 when left out. */
+  damageMul?: number;
+  blockMul?: number;
 }
+
+/** A card's damage, and its block, as its gems multiply them: rounded down,
+ *  bonuses included. */
+export const scaled = (n: number, mul = 1): number => (mul === 1 ? n : Math.floor(n * mul + 1e-9));
 
 /** What a scaled amount can be worked out from, for this actor, right now.
  *  An enemy has no energy or hand, so those read as zero for it. */
@@ -466,10 +477,11 @@ export function playValues(state: GameState, def: CardDefinition): AmountValues 
 /** A card in hand: its rules text with every number as playing it now
  *  would make it — power and the stat bonuses included, as `resolveEffect`
  *  adds them. */
-export const handText = (state: GameState, def: CardDefinition): TextPart[] =>
-  liveText(def.text, def.effects, playValues(state, def), {
+export const handText = (state: GameState, def: CardDefinition, card?: CardInstance): TextPart[] =>
+  liveText(def.text, def.effects, playValues(state, card ? gemmedDef(def, card) : def), {
     damage: stat(state, 'damageBonus'),
     block: stat(state, 'blockBonus'),
+    ...(card ? { damageMul: gemMods(card).damage, blockMul: gemMods(card).block } : {}),
   });
 
 /** An enemy's or ally's telegraphed card, as it would come out now. Its
@@ -647,7 +659,11 @@ function markTile(game: Game, effect: TerrainEffect, play: Play): void {
   // Every fire lit burns `fireRounds` longer, whoever lights it.
   const rounds = amountOf(effect.rounds, values) + (effect.element === 'fire' ? stat(state, 'fireRounds') : 0);
   if (rounds <= 0) return;
-  const fix = (list: TerrainEffect['effects']) => list.map((tile) => ({ kind: tile.kind, amount: amountOf(tile.amount, values) }));
+  // A gem's multiplier reaches the fire the card lights, too.
+  const fix = (list: TerrainEffect['effects']) => list.map((tile) => {
+    const amount = amountOf(tile.amount, values);
+    return { kind: tile.kind, amount: tile.kind === 'damage' ? scaled(amount, play.damageMul) : amount };
+  });
   const effects = fix(effect.effects);
   const enter = effect.enter?.length ? fix(effect.enter) : undefined;
   const exit = effect.exit?.length ? fix(effect.exit) : undefined;
@@ -868,7 +884,8 @@ function burst(game: Game, effect: AreaEffect, play: Play): void {
   const effects = effect.effects.map((inner): TileEffect | { later: true; rounds: number; effects: TileEffect[] } => {
     if (isLater(inner)) return { later: true, rounds: amountOf(inner.rounds, values), effects: inner.effects.map(fix) };
     const amount = amountOf(inner.amount, values);
-    return { kind: inner.kind, amount: inner.kind === 'damage' ? amount + bonus + (readsPower(inner.amount) ? 0 : actor.power) : amount };
+    if (inner.kind === 'block') return { kind: inner.kind, amount: scaled(amount, play.blockMul) };
+    return { kind: inner.kind, amount: inner.kind === 'damage' ? scaled(amount + bonus + (readsPower(inner.amount) ? 0 : actor.power), play.damageMul) : amount };
   });
 
   // Who is caught is decided before anything lands, so a creature killed
@@ -1038,11 +1055,11 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
       // Ranged only if it has somewhere to fly: a far-reaching card played on
       // something adjacent — or just pulled in — lands like a swing.
       const ranged = range > 1 && cellDistance(entityCell(actor), entityCell(victim)) > 1;
-      dealDamage(game, victim, amount + bonus, { source: actor, via: 'blow', ranged });
+      dealDamage(game, victim, scaled(amount + bonus, play.damageMul), { source: actor, via: 'blow', ranged });
       break;
     }
     case 'block':
-      gainBlock(state, actor, amount + (isPlayer ? stat(state, 'blockBonus') : 0));
+      gainBlock(state, actor, scaled(amount + (isPlayer ? stat(state, 'blockBonus') : 0), play.blockMul));
       if (!isPlayer) noteNear(state, actor, `${entityDef(actor.defId).name} braces.`);
       break;
     case 'loseBlock':
@@ -1366,7 +1383,8 @@ export function playCard(game: Game, uid: string, target: Cell | null = null): b
   if (!canPlay(game, uid)) return false;
 
   const card = handCard(state, uid)!;
-  const def = cardDef(card.defId);
+  // What this copy costs: its gems may have changed it.
+  const def = gemmedDef(cardDef(card.defId), card);
   if ((def.targeting === 'cell' || def.targeting === 'enemy')) {
     if (!target || !isValidTarget(game, uid, target)) return false;
   }
@@ -1397,7 +1415,8 @@ export function playCard(game: Game, uid: string, target: Cell | null = null): b
     note(state, `${def.name} echoes.`);
   }
   // X was spent once, above, and both times read the same X.
-  const play: Play = { actor: self, target, range: def.range, x: spent };
+  const mods = gemMods(card);
+  const play: Play = { actor: self, target, range: def.range, x: spent, damageMul: mods.damage, blockMul: mods.block };
   for (let n = 0; n < times; n += 1) {
     for (const effect of def.effects) resolveEffect(game, effect, play);
     // Gems are socketed into this instance, so only this copy carries them.

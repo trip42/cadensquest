@@ -380,6 +380,11 @@ function crossCheck(content: Content): ContentIssue[] {
     }
   }
   if (!content.gems.some((gem) => gem.enabled)) warn('gems', undefined, 'no enabled gems — gem rewards turn into cards');
+  for (const gem of content.gems) {
+    if (!gem.effects.length && !gem.cost && (gem.damage ?? 1) === 1 && (gem.block ?? 1) === 1) {
+      error('gems', gem.id, 'a gem needs an effect, or to change the card\'s cost, damage or block', 'effects');
+    }
+  }
 
   return issues;
 }
