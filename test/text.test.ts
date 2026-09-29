@@ -133,7 +133,15 @@ describe('what a card shows in hand', () => {
       const { game, foeCell } = arena();
       const self = player(game.state);
       const aimed = def.targeting === 'enemy' || def.targeting === 'cell';
-      const centre = aimed ? foeCell : entityCell(self);
+      // A leap needs an empty tile to land on: beside the enemy, not on it.
+      const leaps = def.effects.some((effect) => effect.kind === 'step');
+      const landing = leaps
+        ? [...reachable(game.world, foeCell, 1).values()].map((entry) => entry.cell)
+          .find((cell) => cellDistance(cell, foeCell) === 1 && cellDistance(cell, entityCell(self)) > 0
+            && cellDistance(cell, entityCell(self)) <= def.range)
+        : undefined;
+      const aim = landing ?? foeCell;
+      const centre = aimed ? aim : entityCell(self);
 
       // A token for each number that lands on the enemy as a blow or a burst.
       const keys = def.effects.flatMap((effect, i): string[] => {
@@ -149,7 +157,7 @@ describe('what a card shows in hand', () => {
       const card = makeCard(def.id);
       game.state.hand.push(card);
       const before = game.state.cueSeq;
-      const played = playCard(game, card.uid, aimed ? foeCell : null);
+      const played = playCard(game, card.uid, aimed ? aim : null);
       const foe = game.state.entities.find((entity) => entity.faction === 'enemy')!;
       const dealt = cuesSince(game.state, before)
         .filter((item) => item.type === 'hit' && item.target === foe.id && (item.via === 'blow' || item.via === 'burst'))

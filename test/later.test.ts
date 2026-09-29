@@ -71,7 +71,10 @@ describe('a Later', () => {
     beginTurn(game);
     expect(self.hp).toBe(hp);
     beginTurn(game);
-    expect(self.hp).toBe(hp - 8);
+    // What the card says it costs, whatever that is tuned to.
+    const bill = CARDS.blood_pact!.effects.flatMap((effect) => (effect.kind === 'later' ? effect.effects : []))
+      .find((effect) => effect.kind === 'damage')!.amount as number;
+    expect(self.hp).toBe(hp - bill);
     expect(self.power).toBe(3);
   });
 
