@@ -103,7 +103,8 @@ app/game/            the simulation — no Vue, no DOM (see the rule above)
   cards/               registries CARDS (player) and INTENTS (enemy cards),
                        types (Cost, Targeting, Rarity), energySpent
   entities/            the player's definition, the ENTITIES registry, clips
-  gems.ts talismans.ts rewards.ts   registries and reward rolling
+  gems.ts talismans.ts rewards.ts   registries and reward rolling; gems.ts
+                       also gemMods/gemmedDef (a gem changing its card)
   shop.ts              a floor's shop: stock (rollStock), SHOP_PRICES
   telemetry.ts         GameEvent, record(), the run tally
   cues.ts              what just happened, for the screen and speakers: cue()
@@ -111,7 +112,9 @@ app/game/            the simulation — no Vue, no DOM (see the rule above)
   text.ts              numbers in rules text: {1}, {2.1} (see "Content")
   content/             schema.ts (zod), validate.ts, install.ts
   map/
-    tiles.ts           tile letters, zones (terrain + palette), ZONE_ROWS
+    tiles.ts           tile letters, zones (terrain + palette, spawn
+                       tables filled from content), ZONE_ROWS,
+                       CHUNKS_PER_FLOOR
     generate.ts        seeded chunk generator — the braid invariants live here
     world.ts           chunk cache, bounded to the current floor; stackAt()
                        is the single read path
@@ -137,9 +140,14 @@ app/pages/index.vue  the game screen: full-bleed map, HUD floating over it
 app/pages/editor.vue the content editor (dev only)
 app/pages/sounds.vue the sound board (dev only)
 app/components/      MapStage (canvas), GameCard, HandBar, RewardModal,
-                     ShopModal, TalismanRail, EnemyTip, TileTip, GroundLines
+                     ShopModal, TalismanRail (left edge), AllyRail (right
+                     edge: allies, look at one, release it), EnemyTip,
+                     TileTip, GroundLines
 app/components/editor/  the editor's forms (Form*), EffectList (nested for
-                     terrain), AmountInput, DeckBuilder, pickers, Preview
+                     terrain), AmountInput, DeckBuilder (counts: the
+                     starting deck, zone rosters), DeckSequence (an
+                     enemy's deck, in order), pickers, Preview, Sprite
+                     (also the ally rail's portraits)
 app/components/dev/  SoundScope (a sound's waveform and spectrogram)
 app/plugins/         content.ts (loads content before anything starts),
                      posthog.ts (analytics sink), audio.ts (first press
@@ -149,7 +157,8 @@ app/utils/           analytics.ts, contentText.ts ("Write it from the
 content/             the game's content as JSON — see "Content"
 server/api/content.put.ts  the editor's save endpoint (dev only)
 test/                runs in Node; setup.ts installs content/ first
-sim/                 the fun simulator: bot, recorder, scorecard, experiments
+sim/                 the fun simulator: bot (and synergy.ts, how it prices
+                     a card for its deck), recorder, scorecard, experiments
                      (see "Simulator"); reports/ is generated, not committed
 docs/                ART_SPEC.md (the brief for an artist), MARKETING.md
                      (the plan for finding an audience), FUN.md (research,
@@ -220,6 +229,10 @@ with the shop and guardian): `enemies` join the random mix there only, and
 where there is room, with no dice — for sub-bosses. An enemy marked
 `unique` spawns at most once a run (`state.uniques`), however it is
 chosen.
+
+The densities are 6 / 9 / 12 for the three floors (up from 4 / 6 / 8 when
+enemies began waiting to be approached, which made runs easier; see
+**Simulator**).
 `ensureSpawns` populates a chunk once, when it lies on the current floor, so
 a chunk straddling two floors would leave part of the second one empty.
 
@@ -289,9 +302,11 @@ a floor that no longer exists.
 1. **refresh** (`beginTurn`) — a new round: terrain marks and summon
    lifetimes count down (`ageTerrain`, `ageSummons`); block clears, energy
    and movement reset, the hand is topped up to `handSize` (cards left over
-   are kept, not discarded); the player is hit by any marked
-   tile he starts on; every enemy **and ally** draws a card from its own
-   deck and telegraphs it. Synchronous; not a state you wait in.
+   are kept, not discarded); boons and trails count down (`ageBoons`,
+   `ageTrails`); the player is hit by any marked tile he starts on; every
+   ally, and every enemy whose fight has begun, telegraphs the next card of
+   its deck, in order (see **Enemy decks**) — an enemy not yet approached
+   shows nothing. Synchronous; not a state you wait in.
 2. **player** — play cards, discard cards for movement, walk.
 3. **enemy** (`endPlayerPhase`, then `tick`) — anything standing on a
    marked tile is hit; then allies, then enemies, play the card they drew,
@@ -1391,6 +1406,13 @@ game.
   `() => [store.run, store.view?.floor]` is a new array each time the view
   changes, and Vue calls back for any new value, so the floor banner was
   re-shown, and its timer reset, for ever. Compare the values inside it.
+- **The simulator runs today's code on HEAD's content.** `sim/content.ts`
+  reads content with `git show HEAD`, but the code is the working tree. To
+  compare a code change against the code before it, `git archive HEAD` into
+  a scratch directory, symlink `node_modules` and `.nuxt`, and run the same
+  experiment there with `SIM_CONTENT=working` (the files there are HEAD's).
+  To find which half of a change moved a number, gate it behind a
+  temporary env var, run both, and put the file back.
 - **The log only reports what nearby creatures do.** `noteNear` drops lines
   about enemies and allies more than `ENGAGE_RADIUS` from the player; hits
   and falls are always logged. Use it for any new creature line, or distant
@@ -1431,10 +1453,11 @@ minutes); `npm run sim -- sim/final.sim.ts` runs one. Reports land in
     and a setup with payoffs waiting is worth more. It goes for rewards,
     the shop, and a marking gem only onto a card aimed somewhere. It lifted
     the committed game from 45% to 51% of runs won (with lookahead).
-  - **The combo study** (`sim/combo*.sim.ts`) sets it for itself, and
-    switches content on per variant (`enable`). The COMBOS.md cards are
-    enabled; its gem and talismans are not. FUN.md, section 9, has what it
-    found: with the cards on, `final` scores 7 of 11 and 19% won.
+  - **The combo study** (`sim/combo*.sim.ts`, and `combo-family-*` for one
+    family at a time) sets it for itself, and switches content on per
+    variant (`enable`). The COMBOS.md cards are enabled; its gem and
+    talismans are not. FUN.md, section 9, has what it found; the fire
+    family was most of the cost of turning the cards on.
   - **It throws its leftover hand away** before ending a turn
     (`tidyHand`; `SIM_KEEP=none`, the default). The game keeps unspent
     cards now, but a bot that kept them, even only its rares, lost about 12
@@ -1464,19 +1487,25 @@ minutes); `npm run sim -- sim/final.sim.ts` runs one. Reports land in
   the same seeds (`seeds()`), so differences come from the variant, not the
   dice. 150 runs give about ±8% on a win rate; `final` (the committed
   game's scorecard, the number to beat) uses 300.
-- **Where balance stood on 2026-09-27.** Before shops (`0e81628`), `final`
-  scored 7 of 11, with 26% of runs won against a 35–65% target and 75% of
-  deaths on floor 2 against a limit of 60%. With shops (`1cbc4de`), the
-  same seeds win 34%; the full scorecard has not been re-run since. Since
-  FUN.md's last write-up (10 of 11, 50%) three things moved it:
-  - Rallying Ground and the Second Wind trim, about 16 points together.
-    Second Wind was trimmed after testing it as two extra copies in the
-    deck; as an ordinary reward it matters more, so heal 8 / draw 2 is
-    worth trying again.
-  - Guardians waking and closing in, the Wyrm most of all.
-  - Shops then gave back about 8 points.
+- **Where balance stands on 2026-09-29** (`final`, 300 seeds, no
+  lookahead): **56% of runs won**, deaths 0% / 76% / 24% by floor. How it
+  got there, each measured on the same seeds:
+  - Turning on the 24 COMBOS.md cards: down to 19%, mostly the fire family.
+  - Stronger gems and a full heal on each floor: back to 49%.
+  - The user's card rebalance (Scout out, Mend, Vault, Blood Pact): 56%.
+  - Enemies playing their decks in order: 48% alone. Waiting until they
+    are approached: 67%, because far-off enemies had been powering up
+    every turn before they were met.
+  - Densities 6 / 9 / 12, to make up for the waiting: 56%.
 
-  FUN.md does not have these numbers yet.
+  What is still off: floor 1 kills almost nobody, and floor 2 takes three
+  deaths in four against a limit of 60%. The existing enemy decks were
+  written as shuffled multisets and now play in the order listed; giving
+  them real patterns, and floors some sub-bosses (`chunks.placed`), is
+  the obvious next lever. Second Wind was trimmed after testing it as two
+  extra copies in the deck; as an ordinary reward it matters more, so heal
+  8 / draw 2 is worth trying again. FUN.md has sections 1–9 of the
+  history; these last steps are only here.
 
 ## Verifying UI work
 
