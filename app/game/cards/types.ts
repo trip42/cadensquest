@@ -41,6 +41,9 @@ export interface CardDefinition {
   /** Key for the card's artwork. The render layer resolves it, and falls
    *  back to a drawn placeholder while there is no art. */
   art?: string;
+  /** Enemy cards only: played once, then gone from that creature's deck
+   *  for good — the big attack it builds up to, or a one-off. */
+  lost?: boolean;
   /** Off means it stays defined — anything already holding it still works —
    *  but nothing new offers it: rewards skip it and the starting deck may
    *  not include it. Missing counts as on. */

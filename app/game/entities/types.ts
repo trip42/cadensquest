@@ -141,8 +141,15 @@ export interface Entity {
   path: Cell[];
   /** The enemy's telegraphed action for the coming phase. */
   intent: { cardId: string; label: string } | null;
-  /** Cards left to draw from its deck before it reshuffles. */
-  drawPile: string[];
+  /** Where it is in its deck: the position of the next card it plays. A
+   *  deck plays in order and loops. */
+  deckAt: number;
+  /** Positions in its deck of lost cards it has played: skipped from now on. */
+  spent: number[];
+  /** Has its fight begun? An enemy starts its deck from the top the first
+   *  time a foe comes near (a guardian, once it wakes); until then it waits
+   *  and shows nothing. Allies are always engaged. */
+  engaged: boolean;
   /** What it drops when it falls, decided when it was spawned. */
   reward: Reward | null;
   dead: boolean;

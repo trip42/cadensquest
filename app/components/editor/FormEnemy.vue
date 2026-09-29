@@ -14,7 +14,9 @@ const props = defineProps<{ item: EnemyData; issues: ContentIssue[]; content: Co
 const at = (field: string) => problemsAt(props.issues, field);
 
 const deckOptions = computed(() =>
-  props.content['enemy-cards'].map((card) => ({ id: card.id, name: card.name, enabled: card.enabled, detail: printedText(card.text, card.effects as Effect[], 'its') })),
+  props.content['enemy-cards'].map((card) => ({
+    id: card.id, name: card.name, enabled: card.enabled, lost: !!card.lost, detail: printedText(card.text, card.effects as Effect[], 'its'),
+  })),
 );
 
 const hasReward = computed(() => props.item.reward !== undefined);
@@ -81,8 +83,8 @@ function setCoins(raw: string): void {
     </EditorField>
   </div>
 
-  <EditorField group label="Deck" hint="One card is drawn each turn and shown above its head. Repeats make a card more likely." :problems="at('deck')">
-    <EditorDeckBuilder :deck="item.deck" :options="deckOptions" />
+  <EditorField group label="Deck" hint="Played in this order, one card a turn, then round again from the top — starting the first turn a foe comes near. The card it is about to play is shown above its head." :problems="at('deck')">
+    <EditorDeckSequence :deck="item.deck" :options="deckOptions" />
   </EditorField>
 
   <fieldset class="group">

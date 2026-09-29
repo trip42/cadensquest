@@ -603,6 +603,8 @@ function summon(game: Game, effect: SummonEffect, play: Play): void {
   creature.expires = rounds;
   creature.facing = actor.facing;
   creature.reward = null;
+  // Called into a fight: it begins at once.
+  creature.engaged = true;
   state.entities.push(creature);
   cue(state, { type: 'summon', target: creature.id, side, cell });
 
@@ -1124,7 +1126,7 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
       // straight away, so it acts for you this very round.
       victim.faction = 'ally';
       victim.reward = null;
-      victim.drawPile = [];
+      victim.engaged = true;
       const cardId = drawIntent(state, victim);
       victim.intent = cardId ? { cardId, label: intentDef(cardId).name } : null;
       record(state, { type: 'enemy_tamed', enemy: victim.defId, health: victim.hp, row: victim.row });
@@ -1719,9 +1721,10 @@ export function beginTurn(game: Game): void {
   watchGates(game);
 
   // Enemies and allies telegraph what they will do, so the player can plan
-  // around it.
+  // around it — an enemy only once its fight has begun: until then it
+  // waits, and its deck waits at the top.
   for (const enemy of [...allies(state), ...enemies(state)]) {
-    const intentId = drawIntent(state, enemy);
+    const intentId = engage(state, enemy) ? drawIntent(state, enemy) : null;
     enemy.intent = intentId ? { cardId: intentId, label: intentDef(intentId).name } : null;
   }
 
@@ -1748,12 +1751,48 @@ export function endPlayerPhase(game: Game): void {
   });
 }
 
-/* Each enemy plays from its own deck, the way the player does: draw the
-   top card, and when the pile runs dry shuffle the whole deck back in. So
-   a deck of two lunges and two circles never lunges three turns running. */
-function drawIntent(state: GameState, enemy: Entity): string | null {
-  if (!enemy.drawPile.length) enemy.drawPile = shuffle(state.rng, [...entityDef(enemy.defId).deck]);
-  return enemy.drawPile.pop() ?? null;
+/* Each enemy plays its deck in order, a card a turn, and loops back to the
+   top — so a deck is a pattern the player can read and plan around: a
+   buff, then block, then the big hit. A lost card is played once and
+   skipped from then on; a deck of nothing but lost cards runs out, and
+   then the creature does nothing. The card is spent as it is drawn, since
+   it is shown and played that same round. */
+export function drawIntent(state: GameState, enemy: Entity): string | null {
+  const deck = entityDef(enemy.defId).deck;
+  for (let i = 0; i < deck.length; i += 1) {
+    const at = (enemy.deckAt + i) % deck.length;
+    if (enemy.spent.includes(at)) continue;
+    enemy.deckAt = (at + 1) % deck.length;
+    if (intentDef(deck[at]!).lost) enemy.spent.push(at);
+    return deck[at]!;
+  }
+  return null;
+}
+
+/** The cards it will play after the one it is showing, in order — for the
+ *  tooltip, so a build-up can be seen coming. Draws nothing. */
+export function upcomingIntents(enemy: Entity, count: number): string[] {
+  const deck = entityDef(enemy.defId).deck;
+  const spent = new Set(enemy.spent);
+  const coming: string[] = [];
+  for (let i = 0; i < deck.length && coming.length < count; i += 1) {
+    const at = (enemy.deckAt + i) % deck.length;
+    if (!spent.has(at)) coming.push(deck[at]!);
+  }
+  // A short deck loops within the preview too.
+  while (coming.length && coming.length < count) coming.push(...coming.slice(0, count - coming.length));
+  return coming.slice(0, count);
+}
+
+/* Is its fight beginning? A foe within ENGAGE_RADIUS, and for a guardian,
+   awake. Once begun it goes on, however far the player runs. */
+function engage(state: GameState, enemy: Entity): boolean {
+  if (enemy.engaged) return true;
+  if (enemy.faction === 'ally') return (enemy.engaged = true);
+  if (asleep(state, enemy)) return false;
+  const here = entityCell(enemy);
+  const near = [player(state), ...allies(state)].some((foe) => !foe.dead && cellDistance(entityCell(foe), here) <= ENGAGE_RADIUS);
+  return (enemy.engaged = near);
 }
 
 /* Resolve one effect of the card an enemy telegraphed. Its target is

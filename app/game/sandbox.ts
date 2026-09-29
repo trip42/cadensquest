@@ -8,7 +8,7 @@
    A trial is written `kind:id`, which is how it travels in the URL; several
    go comma-separated, `card:stoke,card:fire`, to try a combo. */
 
-import { amountValues } from './actions';
+import { amountValues, drawIntent } from './actions';
 import { CARDS, energySpent } from './cards/definitions';
 import { amountOf } from './effects';
 import { INTENTS } from './cards/intents';
@@ -17,7 +17,6 @@ import { type Entity, entityCell } from './entities/types';
 import { GEM_SLOTS, GEMS } from './gems';
 import { cellDistance, reachable } from './map/navigation';
 import { rollReward } from './rewards';
-import { shuffle } from './rng';
 import { entityAt, type Game, makeCard, makeEntity, note, player, syncStats } from './state';
 import { TALISMANS } from './talismans';
 
@@ -76,12 +75,11 @@ function spawnNearby(game: Game, defId: string, distance = TRIAL_DISTANCE, clear
   return enemy;
 }
 
-/** Telegraph straight away, as if it had been there when the turn began. */
+/** Telegraph straight away, as if it had been there when the turn began:
+ *  its fight begun, and its deck from the top. */
 function telegraph(game: Game, enemy: Entity, cardId?: string): void {
-  if (!cardId) {
-    enemy.drawPile = shuffle(game.state.rng, [...ENTITIES[enemy.defId]!.deck]);
-    cardId = enemy.drawPile.pop();
-  }
+  enemy.engaged = true;
+  cardId ??= drawIntent(game.state, enemy) ?? undefined;
   const card = cardId ? INTENTS[cardId] : undefined;
   enemy.intent = card ? { cardId: card.id, label: card.name } : null;
 }

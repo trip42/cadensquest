@@ -439,10 +439,27 @@ the validator on the server.
 ## Enemy decks
 
 An enemy's behaviour is data: `deck` on its entry in `content/enemies.json`
-lists card ids from `content/enemy-cards.json`. It draws from its own
-`drawPile`, reshuffling the whole deck when it runs dry, so a deck of two
-lunges and two circles never lunges three turns running. There are no enemy
-stats for speed, reach or damage — each card carries them:
+lists card ids from `content/enemy-cards.json`. **It plays them in order,
+one a turn, and loops** (`drawIntent`, `Entity.deckAt`), so a deck is a
+pattern the player can read — a buff, then block, then the big hit — and
+the tooltip shows the next two after the one it is showing
+(`upcomingIntents`). The editor edits it as numbered turns
+(`DeckSequence`).
+
+- **Its fight begins when a foe first comes within `ENGAGE_RADIUS` (8)**
+  (`engage`, `Entity.engaged`; a guardian not until it wakes). Until then
+  it shows and plays nothing, and its deck waits at the top, so "turn one"
+  is the first turn of the fight. Summoned and tamed creatures begin at
+  once. This matters for balance: enemies used to play every turn from
+  anywhere, and a far-off Spider stacked power before it was ever met.
+  Waiting made runs easier (56% to 67% won on `final`); playing in order
+  alone made them a little harder (48%).
+- **A lost card** (`"lost": true` on an enemy card) is played once and
+  skipped from then on (`Entity.spent`, positions in the deck). A deck of
+  nothing but lost cards runs out and the creature stands idle; the
+  validator warns.
+
+There are no enemy stats for speed, reach or damage — each card carries them:
 
 - `advance n` walks up to n tiles toward its foe, stopping as soon as the
   card's `range` reaches — a spitter does not walk into melee.

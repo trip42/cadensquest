@@ -18,6 +18,16 @@ const nameOf = (id: string) => editorStore.draft?.enemies.find((enemy) => enemy.
     <EditorField label="Reach" hint="Advance stops once the player is this close; damage only lands within it." :problems="at('range')">
       <input v-model.number="item.range" type="number" min="0" max="12">
     </EditorField>
+    <EditorField label="Lost" hint="Played once, then gone from that creature's deck for good — a big attack it builds up to." :problems="at('lost')">
+      <span class="inline">
+        <input
+          type="checkbox"
+          :checked="!!item.lost"
+          @change="($event.target as HTMLInputElement).checked ? (item.lost = true) : delete item.lost"
+        >
+        <span>Lost after it is played</span>
+      </span>
+    </EditorField>
   </div>
 
   <EditorField group label="What it does" hint="Played in order: an Advance before a Damage walks in, then hits." :problems="problemsOn(issues, 'effects')">

@@ -135,6 +135,8 @@ export const enemyCardSchema = z.strictObject({
   range: count(0, 12),
   text: z.string(),
   effects: z.array(effectSchema).min(1, 'needs at least one effect'),
+  /** Played once, then gone from that creature's deck for good. */
+  lost: z.boolean().optional(),
 });
 
 const weightTable = <K extends string>(keys: readonly K[]) =>

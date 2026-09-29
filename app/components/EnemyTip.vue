@@ -34,7 +34,16 @@ const store = useGameStore();
     </p>
     <p v-if="store.enemyTip.intent" class="intent">
       <span class="px-tag">NEXT</span>
-      {{ store.enemyTip.intent }}<span v-if="store.enemyTip.intentParts">: <RulesText :parts="store.enemyTip.intentParts" /><template v-if="store.enemyTip.intentNote"> {{ store.enemyTip.intentNote }}</template></span>
+      {{ store.enemyTip.intent }}<span v-if="store.enemyTip.intentLost" class="lost">(ONCE)</span><span v-if="store.enemyTip.intentParts">: <RulesText :parts="store.enemyTip.intentParts" /><template v-if="store.enemyTip.intentNote"> {{ store.enemyTip.intentNote }}</template></span>
+    </p>
+    <p v-if="store.enemyTip.then.length" class="then">
+      <span class="px-tag is-then">THEN</span>{{ ' ' }}
+      <template v-for="(card, i) in store.enemyTip.then" :key="i">
+        <span v-if="i" class="arrow"> → </span>{{ card.name }}<span v-if="card.lost" class="lost">(ONCE)</span>
+      </template>
+    </p>
+    <p v-else-if="store.enemyTip.waiting && !store.enemyTip.ally" class="then">
+      <span class="px-tag is-then">WAITING</span> Starts its moves when you come near.
     </p>
     <p v-if="!store.enemyTip.ally" class="drop">
       <span class="px-tag" :style="{ background: store.enemyTip.rewardTint }">DROPS</span>
@@ -84,4 +93,8 @@ const store = useGameStore();
 .px-tag.is-summoned.is-enemy { color: var(--px-red); outline-color: var(--px-red); }
 .standing { margin-top: 8px; display: flex; flex-direction: column; gap: 5px; }
 .px-tag.is-ground { align-self: flex-start; background: var(--px-soft); }
+.then { margin-top: 4px; color: var(--px-soft); }
+.lost { margin-left: 4px; color: var(--px-red); }
+.arrow { color: var(--px-muted); }
+.px-tag.is-then { background: var(--px-panel); color: var(--px-soft); box-shadow: inset 0 0 0 2px var(--px-rim); }
 </style>

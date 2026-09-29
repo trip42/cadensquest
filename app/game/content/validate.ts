@@ -309,6 +309,11 @@ function crossCheck(content: Content): ContentIssue[] {
         error('enemies', enemy.id, `its deck uses "${cardId}", which is disabled`, `deck[${i}]`);
       }
     });
+    // A deck plays in order and loops; lost cards drop out as they are
+    // played. All lost, it runs out — then the creature stands idle.
+    if (enemy.deck.length && enemy.deck.every((cardId) => enemyCards.get(cardId)?.lost)) {
+      warn('enemies', enemy.id, `every card in its deck is lost, so after ${enemy.deck.length} turn${enemy.deck.length === 1 ? '' : 's'} it does nothing`, 'deck');
+    }
     // Setting fire under the player counts as an attack too.
     const attacks = enemy.deck.some((cardId) => enemyCards.get(cardId)?.effects.some((effect) =>
       effect.kind === 'damage'

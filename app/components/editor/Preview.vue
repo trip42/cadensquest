@@ -130,7 +130,6 @@ const movePlayers = computed(() => {
 });
 
 const foe = computed(() => (props.file === 'enemies' ? (props.item as EnemyData) : null));
-const foeDeck = computed(() => (foe.value ? tally(foe.value.deck) : []));
 const foeFirstMove = computed(() => (foe.value ? enemyCard(foe.value.deck[0] ?? '') : undefined));
 const foeZones = computed(() =>
   foe.value ? props.content.zones.filter((zone) => zone.enemies.includes(foe.value!.id) || zone.guardian === foe.value!.id) : [],
@@ -284,10 +283,9 @@ watch(() => [card.value?.name, card.value?.text, cardNow.value], measure);
         </p>
       </div>
       <div class="panel note">
-        <p class="note-title">Deck — one card a turn, reshuffled when empty</p>
-        <p v-for="entry in foeDeck" :key="entry.id">
-          {{ entry.count }} × {{ enemyCard(entry.id)?.name ?? entry.id }}
-          <span v-if="enemyCard(entry.id)" class="muted">{{ printedText(enemyCard(entry.id)!.text, enemyCard(entry.id)!.effects as Effect[], 'its') }}</span>
+        <p class="note-title">Deck — one card a turn, in this order, then round again</p>
+        <p v-for="(id, index) in foe.deck" :key="`${index}-${id}`">
+          {{ index + 1 }}. {{ enemyCard(id)?.name ?? id }}{{ enemyCard(id)?.lost ? ' (lost)' : '' }}{{ ' ' }}<span v-if="enemyCard(id)" class="muted">{{ printedText(enemyCard(id)!.text, enemyCard(id)!.effects as Effect[], 'its') }}</span>
         </p>
       </div>
       <div class="panel note">

@@ -41,6 +41,7 @@ import {
   socketGemReward,
   takeTalismanReward,
   tick,
+  upcomingIntents,
 } from '~/game/actions';
 import { cardDef, cardMovement } from '~/game/cards/definitions';
 import { describeMark, describeTileEffect, nowText, readsPower, type TileEffect } from '~/game/effects';
@@ -135,6 +136,14 @@ export interface EnemyTipView {
   /** Anything the text leaves out: power it does not show, "based on"
    *  amounts worked out. */
   intentNote: string | null;
+  /** The card it is showing is lost: played once, then gone. */
+  intentLost: boolean;
+  /** What it plays after that, in order — its deck loops, so a build-up
+   *  can be read coming. Empty until its fight begins. */
+  then: Array<{ name: string; lost: boolean }>;
+  /** Its fight has not begun: it waits, showing nothing, until a foe
+   *  comes near. */
+  waiting: boolean;
   reward: string;
   rewardTint: string;
   /** Coins it drops when it falls. */
@@ -592,6 +601,11 @@ export const useGameStore = defineStore('game', () => {
       intent: foe.intent?.label ?? null,
       intentParts: intent ? intentParts(game.state, foe, intent) : null,
       intentNote,
+      intentLost: !!intent?.lost,
+      then: foe.engaged
+        ? upcomingIntents(foe, 2).map((id) => ({ name: intentDef(id).name, lost: !!intentDef(id).lost }))
+        : [],
+      waiting: !foe.engaged,
       reward: foe.reward ? rewardLabel(foe.reward) : 'NOTHING',
       coins: foe.summonedBy ? 0 : def.coins ?? 0,
       guardian: !!def.guardian,
@@ -611,6 +625,7 @@ export const useGameStore = defineStore('game', () => {
     if (!old || old.id !== next.id || old.x !== next.x || old.y !== next.y
       || old.hp !== next.hp || old.intent !== next.intent
       || joinText(old.intentParts ?? []) !== joinText(next.intentParts ?? []) || old.intentNote !== next.intentNote
+      || JSON.stringify(old.then) !== JSON.stringify(next.then) || old.waiting !== next.waiting
       || JSON.stringify(old.ground) !== JSON.stringify(next.ground)) {
       enemyTip.value = next;
     }

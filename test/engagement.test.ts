@@ -1,4 +1,6 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { loadContent } from '~/game/content';
+import { readContentFiles } from './setup';
 import {
   beginTurn,
   enterFloor,
@@ -8,11 +10,16 @@ import {
   movementRange,
   playerMoveOptions,
   tick,
+  upcomingIntents,
 } from '~/game/actions';
+import { intentDef, INTENTS } from '~/game/cards/intents';
+import { ENTITIES, entityDef } from '~/game/entities/definitions';
 import { entityCell } from '~/game/entities/types';
 import { type Cell, cellDistance, reachable } from '~/game/map/navigation';
 import { gateRowOf, ZONES } from '~/game/map/tiles';
 import { createGame, type Game, makeEntity, player, resetUids, stat } from '~/game/state';
+
+afterEach(() => loadContent(readContentFiles()));
 
 /** A board with only the player on it, so each test places its own enemies. */
 function quiet(seed: number): Game {
@@ -155,16 +162,62 @@ describe('enemies play their own cards', () => {
     expect(lost(angry) - lost(plain)).toBe(4);
   });
 
-  it('draws its whole deck before reshuffling', () => {
+  it('plays its deck in order and loops, from the top once its fight begins', () => {
     const game = quiet(4242);
-    const wolf = place(game, 'wolf', cellAt(game, 12));
+    const wolf = place(game, 'wolf', cellAt(game, 3));
     wolf.intent = null;
+    const deck = entityDef('wolf').deck;
     const drawn: string[] = [];
-    for (let turn = 0; turn < 4; turn += 1) {
+    for (let turn = 0; turn < deck.length + 2; turn += 1) {
       beginTurn(game);
       drawn.push(wolf.intent!.cardId);
     }
-    expect(drawn.sort()).toEqual(['wolf_circle', 'wolf_circle', 'wolf_lunge', 'wolf_lunge']);
+    expect(drawn).toEqual([...deck, ...deck.slice(0, 2)]);
+  });
+
+  it('waits, showing nothing, until a foe comes near — its deck still at the top', () => {
+    const game = quiet(4242);
+    const self = player(game.state);
+    const far = [...reachable(game.world, entityCell(self), 30).values()]
+      .find((entry) => cellDistance(entry.cell, entityCell(self)) > 10)!.cell;
+    const wolf = place(game, 'wolf', far);
+    wolf.intent = null;
+    beginTurn(game);
+    beginTurn(game);
+    expect(wolf.engaged).toBe(false);
+    expect(wolf.intent).toBeNull();
+    // Now it is near: the first card of its deck.
+    const near = cellAt(game, 3);
+    wolf.row = near.row;
+    wolf.col = near.col;
+    beginTurn(game);
+    expect(wolf.intent!.cardId).toBe(entityDef('wolf').deck[0]);
+  });
+
+  it('plays a lost card once, then skips it for good', () => {
+    const game = quiet(4242);
+    INTENTS.test_big = { ...intentDef('wolf_lunge'), id: 'test_big', name: 'Big', lost: true };
+    ENTITIES.test_brute = { ...entityDef('wolf'), id: 'test_brute', deck: ['wolf_circle', 'test_big', 'wolf_lunge'] };
+    const brute = place(game, 'test_brute', cellAt(game, 3));
+    brute.intent = null;
+    const drawn: string[] = [];
+    for (let turn = 0; turn < 6; turn += 1) {
+      beginTurn(game);
+      drawn.push(brute.intent!.cardId);
+    }
+    expect(drawn).toEqual(['wolf_circle', 'test_big', 'wolf_lunge', 'wolf_circle', 'wolf_lunge', 'wolf_circle']);
+    expect(upcomingIntents(brute, 3)).toEqual(['wolf_lunge', 'wolf_circle', 'wolf_lunge']);
+  });
+
+  it('runs out, and does nothing, when every card in it is lost', () => {
+    const game = quiet(4242);
+    INTENTS.test_once = { ...intentDef('wolf_lunge'), id: 'test_once', name: 'Once', lost: true };
+    ENTITIES.test_once = { ...entityDef('wolf'), id: 'test_once', deck: ['test_once'] };
+    const once = place(game, 'test_once', cellAt(game, 3));
+    beginTurn(game);
+    expect(once.intent!.cardId).toBe('test_once');
+    beginTurn(game);
+    expect(once.intent).toBeNull();
   });
 });
 
