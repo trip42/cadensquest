@@ -322,15 +322,16 @@ export const SOUNDS = {
     ],
     gain: 0.4,
   },
-  /** A reward coming up: a short fanfare arpeggio, D F# A D. */
+  /** A reward coming up: a soft two-note chime, A then D, sine over a
+   *  quiet triangle. It comes up after most fights, so it is gentle: no
+   *  square wave, no sparkle, a slow edge and well under the fight's
+   *  sounds. (It was a bright square-wave fanfare, and grated.) */
   reward: {
     layers: [
-      { wave: 'square', freq: 587, steps: [[0.07, 1.26], [0.14, 1.19], [0.21, 1.335]], duty: 0.25, attack: 0.005, hold: 0.25, decay: 0.3, curve: 1.5, lowpass: 4000, gain: 0.45 },
-      { wave: 'triangle', freq: 293, steps: [[0.07, 1.26], [0.14, 1.19], [0.21, 1.335]], attack: 0.005, hold: 0.25, decay: 0.3, gain: 0.4 },
-      { wave: 'noise', freq: 60000, at: 0.2, decay: 0.3, highpass: 5000, gain: 0.1 },
+      { wave: 'sine', freq: 440, steps: [[0.09, 1.335]], attack: 0.015, hold: 0.1, decay: 0.4, gain: 0.5 },
+      { wave: 'triangle', freq: 220, steps: [[0.09, 1.335]], attack: 0.02, hold: 0.08, decay: 0.3, lowpass: 1800, gain: 0.25 },
     ],
-    gain: 0.5,
-    seed: 18,
+    gain: 0.26,
   },
   /** Taking something: the old coin pickup, B then E. */
   pickup: {

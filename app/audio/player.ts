@@ -33,6 +33,8 @@ const MAX_VOICES = 24;
  *  creatures thuds once or twice, not five times on top of itself. */
 const MIN_GAP: Partial<Record<SoundName, number>> = {
   step: 0.07, hit: 0.035, smash: 0.05, clank: 0.05, card: 0.025, sizzle: 0.08, shatter: 0.05, hurt: 0.08,
+  // Rewards won together come up one after another: chime for the first.
+  reward: 1.5,
 };
 const DEFAULT_GAP = 0.02;
 /** Where the player's mute choice is remembered, in this browser only. */
