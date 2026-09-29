@@ -16,8 +16,8 @@
     },
     "deck": [
       "slime_ooze",
-      "slime_ooze",
       "slime_harden",
+      "slime_ooze",
       "slime_harden"
     ],
     "reward": {
@@ -138,10 +138,10 @@
         "gem": 20,
         "talisman": 0
       },
-      "cardChoices": 2,
+      "cardChoices": 3,
       "cardRarity": {
-        "normal": 95,
-        "rare": 5,
+        "normal": 90,
+        "rare": 10,
         "mythic": 0
       }
     },
@@ -195,8 +195,8 @@
     },
     "deck": [
       "warden_maul",
-      "warden_maul",
       "warden_stand",
+      "warden_maul",
       "warden_roar"
     ],
     "reward": {
@@ -257,9 +257,9 @@
       }
     },
     "deck": [
+      "whelp_hop",
       "whelp_scorch",
-      "whelp_scorch",
-      "whelp_hop"
+      "whelp_scorch"
     ],
     "coins": 5
   }
