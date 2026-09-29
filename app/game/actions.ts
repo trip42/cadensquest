@@ -1562,6 +1562,9 @@ function descend(game: Game): void {
   enterFloor(game, state.floor + 1);
   cue(state, { type: 'descend', floor: state.floor });
   note(state, `Down to ${ZONES[state.floor]!.name}.`);
+  // Each floor is begun at full health: the fight is the floor, not the
+  // wear the last one left.
+  heal(state, player(state), player(state).maxHp);
   // Recorded now, as he arrives: rows are counted as depth through the
   // whole run, so the new floor's first rows — and its zone — are progress.
   trackProgress(game);

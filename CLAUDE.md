@@ -257,7 +257,8 @@ of a dungeon. `state.floor` is the zone's index.
 - **`tick` carries him down** first thing after clearing the fallen.
   `descend` either wins the run (the `out` portal of the last floor — the
   only way to win; `checkEnding` only knows defeat) or calls
-  `enterFloor(next)`, records progress and calls `beginTurn`. That is a
+  `enterFloor(next)`, heals him to full, records progress and calls
+  `beginTurn`. That is a
   fresh turn: the unspent hand is kept and topped up like any other turn's,
   and the floor left behind gets no enemy phase.
 - **`enterFloor`** bounds the world, puts the player at `arrivalOn` (on the

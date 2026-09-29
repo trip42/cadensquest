@@ -120,18 +120,18 @@ describe('a floor', () => {
 });
 
 describe('going down', () => {
-  it('starts the next floor afresh: its first rows, a new turn, the old floor gone', () => {
+  it('starts the next floor afresh: its first rows, a new turn, full health, the old floor gone', () => {
     const game = nearTheEnd(0);
     const where = fell(game);
     const self = player(game.state);
-    const hp = self.hp;
+    self.hp = 7;
     const turn = game.state.turn;
 
     walkOnto(game, where);
 
     expect(game.state.floor).toBe(1);
     expect(self.row).toBe(floorRows(1).first + START_ROW);
-    expect(self.hp).toBe(hp);
+    expect(self.hp).toBe(self.maxHp);
     expect(game.state.turn).toBe(turn + 1);
     expect(game.state.phase).toBe('player');
     expect(game.world.contains(where.row)).toBe(false);
