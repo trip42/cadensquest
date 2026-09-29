@@ -65,6 +65,7 @@ export function installContent(content: Content): void {
       reward: enemy.reward,
       coins: enemy.coins,
       guardian: enemy.guardian,
+      unique: enemy.unique,
       enabled: enemy.enabled,
     };
   }
@@ -90,6 +91,7 @@ export function installContent(content: Content): void {
     const table = content.zones.find((item) => item.id === zone.id);
     zone.enemies = [...(table?.enemies ?? [])];
     zone.density = table?.density ?? 0;
+    zone.chunks = (table?.chunks ?? []).map((entry) => ({ chunk: entry.chunk, enemies: [...(entry.enemies ?? [])], placed: [...(entry.placed ?? [])] }));
     zone.guardian = table?.guardian;
   }
 }

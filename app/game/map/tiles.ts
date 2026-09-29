@@ -69,6 +69,15 @@ export interface ZoneGenParams {
   peakHeight: number;
 }
 
+export interface ZoneChunk {
+  /** Which chunk of the floor, counting from 1. */
+  chunk: number;
+  /** Join the zone's random mix in this chunk only. */
+  enemies: string[];
+  /** Each put in this chunk once, for certain, before the random ones. */
+  placed: string[];
+}
+
 export interface Zone {
   id: string;
   name: string;
@@ -80,6 +89,10 @@ export interface Zone {
   enemies: string[];
   /** Enemies per chunk. */
   density: number;
+  /** What changes chunk by chunk (1 is the floor's first): enemies that
+   *  join the random mix in that chunk only, and enemies `placed` there
+   *  once, for certain — a floor's sub-bosses. */
+  chunks: ZoneChunk[];
   /** Who holds the way out of this zone, standing on its last row. */
   guardian?: string;
   gen: ZoneGenParams;
@@ -92,6 +105,7 @@ export const ZONES: Zone[] = [
     // Who spawns here comes from content/zones.json.
     enemies: [],
     density: 0,
+    chunks: [],
     palette: {
       ground: {
         top: "#8fb063",
@@ -140,6 +154,7 @@ export const ZONES: Zone[] = [
     // Who spawns here comes from content/zones.json.
     enemies: [],
     density: 0,
+    chunks: [],
     palette: {
       ground: {
         top: "#6f8a56",
@@ -188,6 +203,7 @@ export const ZONES: Zone[] = [
     // Who spawns here comes from content/zones.json.
     enemies: [],
     density: 0,
+    chunks: [],
     palette: {
       ground: {
         top: "#a8b189",
@@ -237,6 +253,9 @@ export const ZONES: Zone[] = [
  *  floor, which is what lets a floor populate each of its chunks exactly
  *  once, as the player arrives. A test pins it. */
 export const ZONE_ROWS = 48;
+
+/** How many chunks a floor is: its rows over a chunk's (16). */
+export const CHUNKS_PER_FLOOR = 3;
 
 /** The map is finite: every zone once, in order, and then the far end. */
 export const MAP_ROWS = ZONES.length * ZONE_ROWS;

@@ -109,6 +109,9 @@ export interface EntityDefinition {
   /** Holds the crossing into the next zone. While it stands, nothing past
    *  its row can be entered. Placed by the zone, never spawned at random. */
   guardian?: boolean;
+  /** Spawns at most once a run, however often the dice pick it — for a
+   *  sub-boss that turns up in a zone's mix now and then. */
+  unique?: boolean;
   /** Off: never spawned, and a disabled guardian leaves its zone open. */
   enabled?: boolean;
 }

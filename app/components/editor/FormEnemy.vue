@@ -81,6 +81,16 @@ function setCoins(raw: string): void {
         <span>This is a guardian</span>
       </span>
     </EditorField>
+    <EditorField label="Unique" hint="Spawns at most once a run, however often the dice pick it — for a sub-boss.">
+      <span class="inline">
+        <input
+          type="checkbox"
+          :checked="!!item.unique"
+          @change="($event.target as HTMLInputElement).checked ? (item.unique = true) : delete item.unique"
+        >
+        <span>Only ever one</span>
+      </span>
+    </EditorField>
   </div>
 
   <EditorField group label="Deck" hint="Played in this order, one card a turn, then round again from the top — starting the first turn a foe comes near. The card it is about to play is shown above its head." :problems="at('deck')">

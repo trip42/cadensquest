@@ -149,6 +149,8 @@ export interface GameState {
 
   /** Chunks that have already had their enemies placed. */
   spawnedChunks: number[];
+  /** Unique enemies that have spawned this run: none of them spawns again. */
+  uniques: string[];
   /** Zone crossings and who holds them. */
   gates: Gate[];
   /** Marked tiles, by `row,col`. */
@@ -284,6 +286,7 @@ export function createGame(seed: number): Game {
     shopOpen: false,
     removalsBought: 0,
     spawnedChunks: [],
+    uniques: [],
     gates: [],
     terrain: {},
     terrainHits: {},

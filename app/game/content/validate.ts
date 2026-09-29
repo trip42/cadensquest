@@ -12,7 +12,7 @@
 
 import type { ZodError } from 'zod';
 import { AMOUNT_SOURCES, type AmountSource, BOON_INFO, EFFECT_INFO, type Effect, type EffectKind } from '../effects';
-import { ZONES } from '../map/tiles';
+import { CHUNKS_PER_FLOOR, ZONES } from '../map/tiles';
 import { tokenProblems } from '../text';
 import { type AmountData, CONTENT_FILES, type Content, type ContentFile, type EffectData, FILE_SCHEMAS } from './schema';
 
@@ -366,6 +366,25 @@ function crossCheck(content: Content): ContentIssue[] {
       if (!guardian) error('zones', table.id, `is guarded by "${table.guardian}", which does not exist`, 'guardian');
       else if (!guardian.guardian) error('zones', table.id, `"${table.guardian}" guards it, so it must be marked as a guardian`, 'guardian');
     }
+    // What is special chunk by chunk: a real chunk of the floor, once each,
+    // naming enemies that exist and are not guardians.
+    const seenChunks = new Set<number>();
+    table.chunks?.forEach((entry, c) => {
+      if (entry.chunk > CHUNKS_PER_FLOOR) {
+        error('zones', table.id, `a floor has only ${CHUNKS_PER_FLOOR} chunks, so there is no chunk ${entry.chunk}`, `chunks[${c}].chunk`);
+      }
+      if (seenChunks.has(entry.chunk)) error('zones', table.id, `chunk ${entry.chunk} is listed twice`, `chunks[${c}].chunk`);
+      seenChunks.add(entry.chunk);
+      for (const list of ['enemies', 'placed'] as const) {
+        entry[list]?.forEach((enemyId, i) => {
+          const enemy = enemies.get(enemyId);
+          const field = `chunks[${c}].${list}[${i}]`;
+          if (!enemy) error('zones', table.id, `chunk ${entry.chunk} names "${enemyId}", which does not exist`, field);
+          else if (enemy.guardian) error('zones', table.id, `"${enemyId}" is a guardian, which is placed by the zone, not in a chunk`, field);
+          else if (!enemy.enabled) warn('zones', table.id, `chunk ${entry.chunk} names "${enemyId}", which is disabled — it will not appear`, field);
+        });
+      }
+    });
     if (table.density > 0 && !table.enemies.some((enemyId) => enemies.get(enemyId)?.enabled)) {
       warn('zones', table.id, `every enemy ${zone.name} spawns is disabled — it will be empty`, 'enemies');
     }

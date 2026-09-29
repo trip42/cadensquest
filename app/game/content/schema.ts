@@ -157,6 +157,8 @@ export const enemySchema = z.strictObject({
   name: nameSchema,
   enabled: z.boolean(),
   guardian: z.boolean().optional(),
+  /** Spawns at most once a run. */
+  unique: z.boolean().optional(),
   maxHp: count(1, 999),
   sprite: z.strictObject({
     sheet: z.string().min(1),
@@ -212,11 +214,21 @@ export const talismanSchema = z.strictObject({
 
 /** Who lives in a zone. The zone itself — its terrain and palette — is
  *  code; this is matched to it by id. */
+/** A chunk of a zone's floor (1 is the first) and who is special there. */
+export const zoneChunkSchema = z.strictObject({
+  chunk: count(1, 9),
+  /** Join the zone's random mix in this chunk only. */
+  enemies: z.array(idSchema).optional(),
+  /** Each put in this chunk once, for certain. */
+  placed: z.array(idSchema).optional(),
+});
+
 export const zoneSchema = z.strictObject({
   id: idSchema,
   enemies: z.array(idSchema),
   guardian: idSchema.optional(),
   density: count(0, 12),
+  chunks: z.array(zoneChunkSchema).optional(),
 });
 
 export const runSchema = z.strictObject({

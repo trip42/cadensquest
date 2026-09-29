@@ -1635,6 +1635,16 @@ function placeGuardians(game: Game, chunkIndex: number): void {
   });
 }
 
+/** One enemy onto the floor, carrying what it rolled to drop. */
+function spawnEnemy(game: Game, id: string, spot: Cell): void {
+  const { state } = game;
+  const enemy = makeEntity(id, spot.row, spot.col);
+  enemy.facing = -1;
+  enemy.reward = rollDrop(state.rng, entityDef(id).reward);
+  state.entities.push(enemy);
+  if (entityDef(id).unique) state.uniques.push(id);
+}
+
 /** Populate chunks the player is walking into. Deterministic: the same seed
  *  puts the same enemies in the same places. */
 export function ensureSpawns(game: Game): void {
@@ -1661,9 +1671,26 @@ export function ensureSpawns(game: Game): void {
         if (world.walkable(row, col)) candidates.push({ row, col });
       }
     }
-    // Only enabled enemies spawn. With all of them on this is the zone's own
-    // list, so the draws — and every seed — come out as they always did.
-    const roster = chunk.zone.enemies.filter((id) => ENEMY_IDS.includes(id));
+    // What is special about this chunk of the floor, counting from 1.
+    const which = index - chunkIndexForRow(floorRows(state.floor).first) + 1;
+    const special = chunk.zone.chunks.find((entry) => entry.chunk === which);
+
+    // Sub-bosses first, for certain, each once: in the middle of the chunk,
+    // on the trail where there is room — no dice, so nothing else moves.
+    for (const id of special?.placed ?? []) {
+      if (!ENEMY_IDS.includes(id) || (entityDef(id).unique && state.uniques.includes(id))) continue;
+      const spot = [...candidates]
+        .filter((cell) => !entityAt(state, cell.row, cell.col) && !shopUnder(state, cell))
+        .sort((a, b) => Math.abs(a.row - index * CHUNK_ROWS - CHUNK_ROWS / 2) - Math.abs(b.row - index * CHUNK_ROWS - CHUNK_ROWS / 2)
+          || Number(surfaceKind(world.stackAt(b.row, b.col)) === 'trail') - Number(surfaceKind(world.stackAt(a.row, a.col)) === 'trail')
+          || Math.abs(a.col - world.width / 2) - Math.abs(b.col - world.width / 2))[0];
+      if (spot) spawnEnemy(game, id, spot);
+    }
+
+    // Only enabled enemies spawn. With all of them on, and nothing special
+    // in the chunk, this is the zone's own list, so the draws — and every
+    // seed — come out as they always did.
+    const roster = [...chunk.zone.enemies, ...(special?.enemies ?? [])].filter((id) => ENEMY_IDS.includes(id));
     if (!candidates.length || !roster.length) continue;
 
     for (let n = 0; n < chunk.zone.density; n += 1) {
@@ -1671,10 +1698,10 @@ export function ensureSpawns(game: Game): void {
       // Not on the shop: the way in stays clear. (The draw is still made, so
       // every other spawn lands where it did before there were shops.)
       if (entityAt(state, spot.row, spot.col) || shopUnder(state, spot)) continue;
-      const enemy = makeEntity(pick(state.rng, roster), spot.row, spot.col);
-      enemy.facing = -1;
-      enemy.reward = rollDrop(state.rng, entityDef(enemy.defId).reward);
-      state.entities.push(enemy);
+      const id = pick(state.rng, roster);
+      // A unique enemy that has already turned up this run is not drawn again.
+      if (entityDef(id).unique && state.uniques.includes(id)) continue;
+      spawnEnemy(game, id, spot);
     }
   }
 

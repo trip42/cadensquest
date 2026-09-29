@@ -209,7 +209,17 @@ into terrain that should not have existed. The generator itself is
 unbounded and does not need to know; the bound belongs to the `World`, which
 is why the chunk tests still work on raw `generateChunk` output.
 
-`ZONE_ROWS` must stay a multiple of `CHUNK_ROWS` (a test pins it).
+`ZONE_ROWS` must stay a multiple of `CHUNK_ROWS` (a test pins it), and
+`CHUNKS_PER_FLOOR` (3) is the one over the other (a test pins that too).
+
+**Spawning chunk by chunk.** A zone's `enemies` spawn at random in every
+chunk of its floor, `density` of them. Its optional `chunks` list says what
+is special in one chunk (1 is where the player arrives, 3 the last stretch
+with the shop and guardian): `enemies` join the random mix there only, and
+`placed` enemies are put there once, for certain — mid-chunk, on the trail
+where there is room, with no dice — for sub-bosses. An enemy marked
+`unique` spawns at most once a run (`state.uniques`), however it is
+chosen.
 `ensureSpawns` populates a chunk once, when it lies on the current floor, so
 a chunk straddling two floors would leave part of the second one empty.
 
