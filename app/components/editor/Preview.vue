@@ -268,12 +268,8 @@ watch(() => [card.value?.name, card.value?.text, cardNow.value], measure);
     <!-- An enemy, standing on a tile with its chips, its tooltip and its deck. -->
     <template v-else-if="foe">
       <div class="arena">
-        <div class="chips">
-          <span v-if="foeFirstMove" class="chip">{{ foeFirstMove.name }}</span>
-          <span class="hp-bar"><i /></span>
-        </div>
-        <EditorSprite :sprite="spriteOf(foe)" :scale="1.5" />
-        <span class="tile" />
+        <!-- Drawn as the map draws it: footprint, feet on the tile, nudge. -->
+        <EditorStanding :sprite="spriteOf(foe)" :chip="foeFirstMove?.name" :scale="1.5" />
       </div>
       <div class="panel foe-tip">
         <p class="tip-name">{{ foe.name }} <span class="hp">{{ foe.maxHp }}/{{ foe.maxHp }}</span></p>
@@ -399,18 +395,7 @@ watch(() => [card.value?.name, card.value?.text, cardNow.value], measure);
 .note p { margin: 2px 0; }
 .note-title { color: var(--px-yellow); }
 
-.arena { position: relative; display: flex; flex-direction: column; align-items: center; padding-top: 8px; }
-.arena canvas { position: relative; z-index: 1; margin-bottom: -18px; }
-.tile {
-  width: 150px; height: 75px;
-  background: #8fb063;
-  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
-  box-shadow: inset 0 -6px 0 #5f8046;
-}
-.chips { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-bottom: 6px; }
-.chip { padding: 1px 6px; background: var(--px-panel); border: 1px solid var(--px-ink); font-size: 8px; }
-.hp-bar { display: block; width: 50px; height: 6px; padding: 1px; background: var(--px-ink); }
-.hp-bar i { display: block; height: 100%; background: var(--px-red); }
+.arena { display: flex; justify-content: center; padding-top: 8px; }
 
 .foe-tip { width: 100%; }
 .foe-tip p { margin: 0; }
