@@ -17,9 +17,11 @@ import {
   DEFAULT_REWARD_CONFIG,
   rewardConfig,
   rollDrop,
+  REWARD_KINDS,
   rollReward,
   type RewardKind,
 } from '~/game/rewards';
+import { entityDef } from '~/game/entities/definitions';
 import { createRng } from '~/game/rng';
 import { BASE_STATS, resolveStat } from '~/game/stats';
 import {
@@ -136,9 +138,13 @@ describe('claiming rewards', () => {
   it('decides what an enemy carries when it spawns', () => {
     const game = createGame(2024);
     beginTurn(game);
-    for (const foe of enemies(game.state)) {
-      expect(foe.reward).not.toBeNull();
-      expect(['card', 'gem', 'talisman']).toContain(foe.reward!.kind);
+    const carrying = enemies(game.state).filter((foe) => foe.reward);
+    expect(carrying.length).toBeGreaterThan(0);
+    // Every kind there is — a removal too — and nothing else.
+    for (const foe of carrying) expect(REWARD_KINDS).toContain(foe.reward!.kind);
+    // Only one that might carry nothing (a chance under 1) carries nothing.
+    for (const foe of enemies(game.state).filter((item) => !item.reward)) {
+      expect(entityDef(foe.defId).reward?.chance ?? 1).toBeLessThan(1);
     }
   });
 
