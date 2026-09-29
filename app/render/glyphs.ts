@@ -21,6 +21,12 @@ export const GLYPHS: Record<string, string> = {
   blade: 'M5 19 L15 9 L19 5 L18 10 L9 19 Z M5 19 H9',
   wave: 'M2 9 C5 6 7 12 10 9 C13 6 15 12 18 9 C20 7.5 21 8 22 9 M2 15 C5 12 7 18 10 15 C13 12 15 18 18 15 C20 13.5 21 14 22 15',
   default: 'M12 4 L19 12 L12 20 L5 12 Z',
+  // Reward kinds, for the reward screen's banner: a card with a plus, a
+  // card crossed out, a cut gem, an amulet on its cord.
+  'reward-card': 'M6 3 H18 V21 H6 Z M12 8 V16 M8 12 H16',
+  'reward-removal': 'M6 3 H18 V21 H6 Z M9 9 L15 15 M15 9 L9 15',
+  'reward-gem': 'M7 4 H17 L21 9 L12 21 L3 9 Z M3 9 H21 M9 4 L7.5 9 L12 21 L16.5 9 L15 4',
+  'reward-talisman': 'M7 2 L12 9 L17 2 M12 9 A5 5 0 1 1 12 19 A5 5 0 1 1 12 9',
 };
 
 export const glyph = (key?: string): string => GLYPHS[key ?? 'default'] ?? GLYPHS.default!;

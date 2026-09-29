@@ -102,6 +102,7 @@ canvas:focus-visible { outline: 3px solid var(--px-yellow); outline-offset: 2px;
 }
 .px-button.is-yellow { --btn: var(--px-yellow); --btn-dark: #c47c1b; --btn-light: #ffd48a; }
 .px-button.is-green { --btn: var(--px-green); --btn-dark: #3e8948; --btn-light: #a4e38f; }
+.px-button.is-red { --btn: var(--px-red); --btn-dark: #9e2835; --btn-light: #f5808a; }
 .px-button.is-quiet {
   --btn: var(--px-panel);
   --btn-dark: var(--px-ink);

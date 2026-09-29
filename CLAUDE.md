@@ -804,6 +804,14 @@ when the player phase is idle — never mid-enemy-stride. While
 refuse, so the modal is not the only thing holding the board. The flip side:
 if the modal fails to render, play looks frozen (see the ShopModal gotcha).
 
+**The reward screen tells the kinds apart at a glance**, because players
+mixed up adding a card with removing one: each kind has its own colour —
+card green, removal red, talisman yellow, gem cyan (never the gem's own
+colour: a Ruby's red is removal's) — on the frame and a banner with an icon
+(`reward-*` glyphs) and a large verb ("ADD A CARD", "REMOVE A CARD"). The
+chosen card is stamped with what will happen to it, and the confirm button
+says it again ("✕ REMOVE STRIKE FOR GOOD", in red).
+
 Claiming: `chooseCardReward` (goes on **top** of the draw pile — `drawOne`
 pops from the end), `socketGemReward`, `takeTalismanReward`,
 `removeCardReward`.
