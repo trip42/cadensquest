@@ -15,13 +15,36 @@ import cadenSheet from '~/assets/spritesheets/caden.png';
 import enemiesGrid from '~/assets/spritesheets/enemies-grid.png';
 import type { AnimationClip, AnimationSet, SpriteStyle } from '../game/entities/types';
 
-/* Where each sheet lives, and the grid it is cut into. Cell size is derived
+/* Where each sheet lives, and the grid it is cut into. Cell width is derived
    from the image rather than written down: exports do not always land on
-   exact multiples, and 1277 across 8 columns should still be 8 columns. */
-export const SHEET_FILES: Record<string, { src: string; columns: number; rows: number }> = {
-  enemies: { src: enemiesGrid, columns: 3, rows: 6 },
+   exact multiples, and 1277 across 8 columns should still be 8 columns.
+
+   Height is given one of two ways. `rows` fixes the grid, for a sheet whose
+   layout is its animation (Caden's). `cellHeight` fixes the cell instead,
+   in the image's pixels, and the rows are however many fit — so the enemy
+   sheet can grow taller, a row of three new enemies at a time, and every
+   one of them is usable without touching this file. */
+export interface SheetFile {
+  src: string;
+  columns: number;
+  rows?: number;
+  cellHeight?: number;
+}
+
+export const SHEET_FILES: Record<string, SheetFile> = {
+  enemies: { src: enemiesGrid, columns: 3, cellHeight: 300 },
   caden: { src: cadenSheet, columns: 8, rows: 4 },
 };
+
+/** How many rows a sheet has, given its image's height in pixels. */
+export const sheetRows = (file: SheetFile, imageHeight: number): number =>
+  file.rows ?? Math.max(1, Math.floor(imageHeight / (file.cellHeight ?? imageHeight)));
+
+/** The rows of a loaded sheet, or null while it is still on the way. */
+export function loadedRows(key: string): number | null {
+  const ready = sheet(key);
+  return ready ? ready.rows : null;
+}
 
 export interface SourceFrame {
   image: CanvasImageSource;
@@ -48,6 +71,7 @@ interface LoadedSheet {
   image: HTMLImageElement;
   cellW: number;
   cellH: number;
+  rows: number;
   /** Bounds of the art inside a block of cells, worked out on demand. */
   bounds: Map<string, Rect>;
 }
@@ -73,10 +97,12 @@ function sheet(key: string): LoadedSheet | null {
   const image = new Image();
   image.onload = () => {
     pendingLoads.delete(key);
+    const rows = sheetRows(file, image.height);
     loaded.set(key, {
       image,
       cellW: image.width / file.columns,
-      cellH: image.height / file.rows,
+      cellH: file.cellHeight ?? image.height / rows,
+      rows,
       bounds: new Map(),
     });
   };

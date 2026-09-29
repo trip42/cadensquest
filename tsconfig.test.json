@@ -11,5 +11,5 @@
     "baseUrl": ".",
     "paths": { "~/*": ["./app/*"] }
   },
-  "include": ["test/**/*.ts", "vitest.config.ts", "sim/**/*.ts", "app/game/**/*.ts", "app/audio/**/*.ts", "app/render/juice.ts", "app/render/backdrops.ts", "app/utils/contentText.ts"]
+  "include": ["test/**/*.ts", "vitest.config.ts", "sim/**/*.ts", "app/game/**/*.ts", "app/audio/**/*.ts", "app/render/juice.ts", "app/render/backdrops.ts", "app/render/sprites.ts", "app/utils/contentText.ts"]
 }

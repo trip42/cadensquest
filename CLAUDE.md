@@ -1014,6 +1014,19 @@ itself.
 Cell size is computed from the image and the declared grid, not written
 down: Caden's sheet is 1277 wide, not the 1280 an 8x160 grid implies.
 
+**The enemy sheet grows by rows.** It declares `columns: 3` and
+`cellHeight: 300` rather than a row count, and its rows are however many
+whole 300px rows the image holds (`sheetRows`). Make
+`enemies-grid.png` taller, three enemies a row, and every new cell is
+usable — in the game and in the editor's picker, which counts them ("room
+for 18") — with no code changed. Caden's sheet keeps a fixed `rows`,
+since its layout is its animation.
+
+**The editor draws an enemy as the map does** (`editor/Standing.vue`):
+the art cropped and fitted to its footprint, its feet on the middle of
+the tile, `offsetY` applied, and the bar and chip above its head. If
+`drawEntity` changes how it stands a creature, change that to match.
+
 An animated block is drawn **without trimming** — the artist aligned the
 frames against each other and per-frame cropping throws that away. Only the
 block's overall extent is measured (compositing every frame into one scratch
