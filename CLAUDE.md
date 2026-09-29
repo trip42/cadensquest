@@ -713,6 +713,15 @@ holds play until it is empty. Entries carry `commanded`, so on its last
 effect the ally draws its next card for the enemy phase rather than
 standing idle.
 
+**Releasing an ally.** `releaseAlly` sends one away for good, in the
+player's own phase: it goes like a faded summon (a `fall` cue with
+`faded`), leaves nothing, frees its place, and records `ally_released`.
+The HUD lists allies down the right edge (`AllyRail`: portrait, health,
+rounds left, how far off). Picking one points the camera at it
+(`renderer.lookAt`, which follows it instead of Caden and skips
+`clampPan`, until he next moves, it goes, or he recentres) and offers
+RELEASE, which asks once more.
+
 **Summon.** Brings an enemy definition (never a guardian) into play on the
 summoner's side — an ally for the player, another enemy for an enemy.
 `amount` is its health; `rounds`, if given, its lifetime (`ageSummons`; at

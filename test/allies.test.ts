@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { beginTurn, endPlayerPhase, isValidTarget, nearestFoe, playCard, playerMoveOptions, tick } from '~/game/actions';
+import { beginTurn, endPlayerPhase, isValidTarget, nearestFoe, playCard, playerMoveOptions, releaseAlly, tick } from '~/game/actions';
 import { CARDS } from '~/game/cards/definitions';
 import { intentDef, INTENTS } from '~/game/cards/intents';
 import type { CardDefinition } from '~/game/cards/types';
@@ -232,5 +232,38 @@ describe('enemy card text', () => {
     expect(validateContent(content as never).issues).toContainEqual(
       expect.objectContaining({ level: 'warning', file: 'enemy-cards', field: 'text' }),
     );
+  });
+});
+
+describe('releasing an ally', () => {
+  it('sends it away at once, freeing its place, with nothing left behind', () => {
+    const game = quiet();
+    const [a, b] = cellsAt(game, 2);
+    const slime = place(game, 'slime', a!);
+    slime.faction = 'ally';
+    slime.reward = null;
+    expect(releaseAlly(game, slime.id)).toBe(true);
+    expect(slime.dead).toBe(true);
+    expect(allies(game.state)).toHaveLength(0);
+    expect(game.state.pendingRewards).toEqual([]);
+    expect(game.state.events.some((event) => event.type === 'ally_released' && event.ally === 'slime')).toBe(true);
+    // Its place is free again: a tame lands.
+    const bug = place(game, 'bug', b!);
+    bug.hp = 1;
+    play(game, define('tame_r', [TAME]), entityCell(bug));
+    expect(bug.faction).toBe('ally');
+  });
+
+  it('only frees allies, and only in the player\'s own phase', () => {
+    const game = quiet();
+    const [a, b] = cellsAt(game, 2);
+    const foe = place(game, 'bug', a!);
+    expect(releaseAlly(game, foe.id)).toBe(false);
+    expect(releaseAlly(game, player(game.state).id)).toBe(false);
+    const friend = place(game, 'bug', b!);
+    friend.faction = 'ally';
+    endPlayerPhase(game);
+    expect(releaseAlly(game, friend.id)).toBe(false);
+    expect(friend.dead).toBe(false);
   });
 });

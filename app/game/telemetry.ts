@@ -32,6 +32,8 @@ export type GameEvent =
   | { type: 'summon_faded'; entity: string; side: 'ally' | 'enemy' }
   | { type: 'enemy_tamed'; enemy: string; health: number; row: number }
   | { type: 'ally_fell'; ally: string; row: number }
+  /** The player sent an ally away, to make room or because it lagged. */
+  | { type: 'ally_released'; ally: string; distance: number; summoned: boolean }
   | { type: 'player_died'; row: number; zone: string; killedBy: string | null; turn: number }
   | { type: 'run_won'; turn: number }
   | { type: 'run_ended'; outcome: 'died' | 'won'; summary: RunTally & { deckSize: number } };

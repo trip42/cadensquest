@@ -110,6 +110,9 @@ export class MapRenderer implements Stage {
   /* Set once the player walks: the view slides back onto him, undoing
      whatever the last drag was looking at. */
   private recentring = false;
+  /* Someone other than Caden the camera is following for now — an ally
+     picked from the HUD's list. Dropped as soon as he moves, or it goes. */
+  private looking: string | null = null;
   private scale = 1;
   private raf = 0;
   private last = 0;
@@ -211,7 +214,7 @@ export class MapRenderer implements Stage {
     this.ctx.setTransform(dpr * this.scale, 0, 0, dpr * this.scale, 0, 0);
 
     this.view = { width: rect.width / this.scale, height: rect.height / this.scale };
-    this.clampPan();
+    if (!this.looking) this.clampPan();
   }
 
   /* ------------------------------ input -------------------------------- */
@@ -237,7 +240,9 @@ export class MapRenderer implements Stage {
     this.recentring = false;
     this.camera.panX += dx / this.scale;
     this.camera.panY += dy / this.scale;
-    this.clampPan();
+    // Looking at an ally, the drag looks around it; he need not be on
+    // screen. Coming back to him clamps again.
+    if (!this.looking) this.clampPan();
   }
 
   /* Looking around is allowed; losing him is not. The pan is held to
@@ -283,6 +288,21 @@ export class MapRenderer implements Stage {
     this.camera.panX = 0;
     this.camera.panY = 0;
     this.recentring = false;
+    this.looking = null;
+  }
+
+  /** Follow this creature instead of Caden until he next moves, or null to
+   *  come back to him. Any drag is dropped: the view goes to it. */
+  lookAt(id: string | null): void {
+    this.looking = id;
+    this.camera.panX = 0;
+    this.camera.panY = 0;
+    this.recentring = false;
+  }
+
+  /** Whom the camera is following instead of Caden, if anyone. */
+  get lookingAt(): string | null {
+    return this.looking;
   }
 
   /** Screen point to a cell, respecting height: a tall stack covers the
@@ -315,6 +335,27 @@ export class MapRenderer implements Stage {
     const { state } = this.game;
     const self = state.entities.find((entity) => entity.id === state.playerId);
     if (!self) return;
+
+    // Looking at someone else until he moves, or it is gone.
+    if (this.looking) {
+      const other = state.entities.find((entity) => entity.id === this.looking && !entity.dead);
+      if (!other || self.motion || self.path.length) this.looking = null;
+    }
+    const followed = this.looking ? state.entities.find((entity) => entity.id === this.looking) : undefined;
+    if (followed) {
+      const target = visualCell(followed);
+      // Glide there, but jump if it is far: a long pan across the floor is
+      // slow to wait for and tells nothing.
+      if (Math.abs(target.row - this.camera.row) > 12) {
+        this.camera.row = target.row;
+        this.camera.col = target.col;
+      }
+      const k = 1 - Math.exp(-6 * dt);
+      this.camera.row += (target.row - this.camera.row) * k;
+      this.camera.col += (target.col - this.camera.col) * k;
+      // No clampPan: Caden may be well off screen while it is looked at.
+      return;
+    }
 
     const target = visualCell(self);
     // A new floor: jump straight there rather than gliding across the gap,

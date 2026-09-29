@@ -35,6 +35,7 @@ import {
   movePlayerTo,
   movementRange,
   playCard,
+  releaseAlly,
   removeCardReward,
   skipReward,
   socketGemReward,
@@ -52,10 +53,12 @@ import { GEM_SLOTS, gemDef, type GemDefinition, gemmedDef } from '~/game/gems';
 import { talismanDef, type TalismanDefinition } from '~/game/talismans';
 import { entityDef } from '~/game/entities/definitions';
 import { rewardLabel } from '~/game/rewards';
-import type { Cell } from '~/game/map/navigation';
+import { type Cell, cellDistance } from '~/game/map/navigation';
+import type { SpriteStyle } from '~/game/entities/types';
 import { FLOORS, floorRows, ZONES } from '~/game/map/tiles';
 import { describeModifier } from '~/game/stats';
 import {
+  allies,
   createGame,
   enemies,
   entityAt,
@@ -164,6 +167,19 @@ export interface TileTipView {
   y: number;
 }
 
+/** One of the player's allies, as the HUD's list shows it. */
+export interface AllyView {
+  id: string;
+  name: string;
+  hp: number;
+  maxHp: number;
+  /** Rounds left for a summon; null for one that stays until it falls. */
+  rounds: number | null;
+  /** Steps from the player, as the crow flies. */
+  distance: number;
+  sprite: SpriteStyle;
+}
+
 export interface GameView {
   seed: number;
   turn: number;
@@ -179,6 +195,8 @@ export interface GameView {
   power: number;
   /** The player's delayed effects still to come, soonest first. */
   upcoming: Array<{ rounds: number; text: string }>;
+  /** The creatures fighting beside him, in the order they joined. */
+  allies: AllyView[];
   /** What lasts a few rounds more: boons on his stats and trails he is
    *  laying, and how long. */
   lasting: Array<{ rounds: number; text: string }>;
@@ -248,6 +266,15 @@ export const useGameStore = defineStore('game', () => {
       upcoming: state.later
         .filter((entry) => entry.actorId === state.playerId)
         .map((entry) => ({ rounds: entry.due - state.turn, text: entry.effects.map(describeTileEffect).join(', ') })),
+      allies: allies(state).map((ally) => ({
+        id: ally.id,
+        name: entityDef(ally.defId).name,
+        hp: ally.hp,
+        maxHp: ally.maxHp,
+        rounds: ally.expires,
+        distance: cellDistance({ row: ally.row, col: ally.col }, { row: self.row, col: self.col }),
+        sprite: entityDef(ally.defId).sprite,
+      })),
       lasting: [
         ...state.boons.map((boon) => ({ rounds: boon.rounds, text: describeModifier(boon) })),
         ...state.trails
@@ -350,6 +377,7 @@ export const useGameStore = defineStore('game', () => {
       state.entities.length, enemies(state).length, state.log.length,
       state.later.map((entry) => `${entry.id}@${entry.due}`).join(','),
       state.boons.map((boon) => `${boon.id}@${boon.rounds}`).join(','),
+      allies(state).map((ally) => `${ally.id}:${ally.hp}:${ally.row},${ally.col}:${ally.expires}`).join(','),
       state.trails.map((trail) => `${trail.id}@${trail.rounds}`).join(','),
       isBusy(state) ? 1 : 0, selectedUid.value ?? '',
       state.talismans.join(','),
@@ -455,6 +483,7 @@ export const useGameStore = defineStore('game', () => {
     game = createGame(seed);
     heard = 0;
     announce.value = null;
+    looking.value = null;
     beginTurn(game);
     for (const trial of trials) {
       if (!applyTrial(game, trial)) console.warn(`[try] could not arrange ${trialText(trial)}`);
@@ -479,6 +508,8 @@ export const useGameStore = defineStore('game', () => {
     if (!game) return;
     tick(game, dt);
     sync();
+    // The renderer stops looking at an ally once he moves, or it is gone.
+    if (looking.value && renderer?.lookingAt !== looking.value) looking.value = null;
     trackEnemyTip();
     trackTileTip();
   }
@@ -710,6 +741,25 @@ export const useGameStore = defineStore('game', () => {
     if (game && takeTalismanReward(game)) sync(true);
   }
 
+  /* ------------------------------ allies ----------------------------- */
+
+  /** The ally the camera is following, picked from the HUD's list. */
+  const looking = ref<string | null>(null);
+
+  /** Look at this ally, or — picked again — come back to Caden. */
+  function lookAt(id: string | null): void {
+    const next = id && id !== looking.value ? id : null;
+    looking.value = next;
+    renderer?.lookAt(next);
+  }
+
+  /** Send an ally away for good. */
+  function release(id: string): void {
+    if (!game || !releaseAlly(game, id)) return;
+    if (looking.value === id) lookAt(null);
+    sync(true);
+  }
+
   /* ------------------------------ shop ------------------------------- */
 
   function buy(index: number): void {
@@ -759,6 +809,7 @@ export const useGameStore = defineStore('game', () => {
     start, attach, detach, frame,
     select, commitCell, hover, pickAt, discard, discardAll, endPhase,
     chooseCard, socketGem, removeCard, takeTalisman, skip, buy, leave, enterShop,
+    looking, lookAt, release,
     soundOn, toggleSound, howLeft,
     rawGame, entityDef,
   };

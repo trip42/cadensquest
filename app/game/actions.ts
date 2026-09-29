@@ -612,6 +612,30 @@ function summon(game: Game, effect: SummonEffect, play: Play): void {
   noteNear(state, actor, `${entityDef(actor.defId).name} summons a ${def.name}.`);
 }
 
+/* Release: the player sends an ally away — to make room for another, or
+   because it cannot keep up. It goes as a summon fades: gone at once,
+   nothing left behind, and a place among the allies free again. Only in
+   his own phase, like anything else he decides. */
+export function releaseAlly(game: Game, id: string): boolean {
+  const { state } = game;
+  if (state.phase !== 'player' || holding(state)) return false;
+  const ally = state.entities.find((entity) => entity.id === id && entity.faction === 'ally' && !entity.dead);
+  if (!ally) return false;
+  ally.hp = 0;
+  ally.dead = true;
+  ally.intent = null;
+  setAnimation(ally, 'die');
+  cue(state, { type: 'fall', target: ally.id, side: 'ally', cell: entityCell(ally), guardian: false, faded: true });
+  record(state, {
+    type: 'ally_released',
+    ally: ally.defId,
+    distance: cellDistance(entityCell(ally), entityCell(player(state))),
+    summoned: !!ally.summonedBy,
+  });
+  note(state, `The ${entityDef(ally.defId).name} goes its own way.`);
+  return true;
+}
+
 /** A new round: summons with a lifetime count down, and fade at the end of
  *  it — gone, with nothing left behind. */
 function ageSummons(state: GameState): void {

@@ -6,6 +6,7 @@ import { useGameStore } from '~/stores/game';
 // before ShopModal existed never registered it for auto-import, rendered an
 // empty tag, and left play held by a shop nobody could see.
 import ShopModal from '~/components/ShopModal.vue';
+import AllyRail from '~/components/AllyRail.vue';
 
 const store = useGameStore();
 const route = useRoute();
@@ -262,6 +263,7 @@ const energyCells = computed(() => {
     </Transition>
 
     <TalismanRail v-if="store.view" />
+    <AllyRail v-if="store.view" />
     <EnemyTip />
     <TileTip />
     <RewardModal />
