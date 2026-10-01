@@ -308,6 +308,11 @@ const energyCells = computed(() => {
   position: fixed;
   inset: 0;
   overflow: hidden;
+  /* A game, not a document: clicking, dragging the map or double-clicking
+     to recentre must never paint a text selection across the cards and
+     the HUD. Nothing here is text to copy. */
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .hud {

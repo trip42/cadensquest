@@ -338,6 +338,9 @@ onBeforeUnmount(hide);
 /* Teleported to <body>, so these cannot be scoped to the component's own
    subtree — hence :global. */
 :global(.tip) {
+  /* Teleported out of the game screen, so it says this again. */
+  -webkit-user-select: none;
+  user-select: none;
   position: fixed;
   z-index: 60;
   display: flex;
