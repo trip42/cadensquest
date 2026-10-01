@@ -28,7 +28,19 @@
         "rare": 15
       }
     },
-    "coins": 8
+    "coins": 8,
+    "onDeath": [
+      {
+        "kind": "summon",
+        "entity": "slimelet",
+        "amount": 5
+      },
+      {
+        "kind": "summon",
+        "entity": "slimelet",
+        "amount": 5
+      }
+    ]
   },
   {
     "id": "dragon",
@@ -429,5 +441,24 @@
       }
     },
     "coins": 15
+  },
+  {
+    "id": "slimelet",
+    "name": "Slimelet",
+    "enabled": true,
+    "maxHp": 5,
+    "sprite": {
+      "sheet": "enemies",
+      "col": 0,
+      "row": 0,
+      "faces": 1,
+      "footprint": {
+        "width": 38,
+        "height": 28
+      }
+    },
+    "deck": [
+      "slime_ooze"
+    ]
   }
 ]

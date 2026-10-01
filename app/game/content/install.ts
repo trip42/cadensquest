@@ -66,6 +66,7 @@ export function installContent(content: Content): void {
       coins: enemy.coins,
       guardian: enemy.guardian,
       unique: enemy.unique,
+      onDeath: enemy.onDeath as Effect[] | undefined,
       enabled: enemy.enabled,
     };
   }

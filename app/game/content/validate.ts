@@ -332,6 +332,22 @@ function crossCheck(content: Content): ContentIssue[] {
   }
 
   // Enemies: their decks, their rewards.
+  /** Everyone a creature's fall summons, and theirs in turn. */
+  const fallsInto = (id: string): Set<string> => {
+    const seen = new Set<string>();
+    const visit = (from: string) => {
+      const effects = enemies.get(from)?.onDeath ?? [];
+      const all = [...effects, ...insideLaters(effects).map(({ effect }) => effect)];
+      for (const effect of all) {
+        if (effect.kind !== 'summon' || seen.has(effect.entity)) continue;
+        seen.add(effect.entity);
+        visit(effect.entity);
+      }
+    };
+    visit(id);
+    return seen;
+  };
+
   for (const enemy of content.enemies) {
     enemy.deck.forEach((cardId, i) => {
       const card = enemyCards.get(cardId);
@@ -351,6 +367,26 @@ function crossCheck(content: Content): ContentIssue[] {
       || (effect.kind === 'area' && effect.effects.some((tile) => tile.kind === 'damage'))
       || (effect.kind === 'terrain' && [...effect.effects, ...(effect.enter ?? []), ...(effect.exit ?? [])].some((tile) => tile.kind === 'damage'))));
     if (!attacks) warn('enemies', enemy.id, 'nothing in its deck deals damage', 'deck');
+
+    // What it does as it falls: what a Later may hold, played from where it
+    // fell — and nothing that would land on itself, for it is gone.
+    if (enemy.onDeath) {
+      enemy.onDeath.forEach((effect, i) => {
+        const field = `onDeath[${i}].kind`;
+        if (!canGoInLater(effect.kind)) {
+          error('enemies', enemy.id, `${labelOf(effect.kind)} cannot happen as it falls — it lands with nothing aimed at`, field);
+        } else if (effect.kind === 'boon' || effect.kind === 'trail'
+          || ('amount' in effect && effect.kind !== 'summon' && EFFECT_INFO[effect.kind as EffectKind].tile)) {
+          warn('enemies', enemy.id, `${labelOf(effect.kind)} would land on the fallen creature itself, so it does nothing`, field);
+        }
+      });
+      checkTiles('enemies', enemy.id, enemy.onDeath, 'onDeath');
+      checkSummons('enemies', enemy.id, enemy.enabled, enemy.onDeath, 'onDeath');
+      // A split that splits into itself would never stop.
+      if (fallsInto(enemy.id).has(enemy.id)) {
+        error('enemies', enemy.id, 'as it falls it summons something that, sooner or later, summons it again — it would never stop', 'onDeath');
+      }
+    }
 
     for (const gemId of Object.keys(enemy.reward?.gemWeights ?? {})) {
       if (!gems.has(gemId)) error('enemies', enemy.id, `its rewards name the gem "${gemId}", which does not exist`, 'reward.gemWeights');

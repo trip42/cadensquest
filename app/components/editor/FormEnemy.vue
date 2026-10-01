@@ -97,6 +97,14 @@ function setCoins(raw: string): void {
     <EditorDeckSequence :deck="item.deck" :options="deckOptions" />
   </EditorField>
 
+  <EditorField group label="As it falls" hint="Played the moment it dies, from where it fell, aimed at nothing — what a Later can hold: summon beside the body, burst around it, mark the ground under it." :problems="at('onDeath')">
+    <EditorEffectList v-if="item.onDeath" :effects="item.onDeath" side="enemy" in-later :issues="issues" path="onDeath" />
+    <span class="inline">
+      <button v-if="!item.onDeath" type="button" class="btn small" @click="item.onDeath = [{ kind: 'summon', entity: 'bug', amount: 4 }]">+ Something as it falls</button>
+      <button v-else type="button" class="btn small" @click="delete item.onDeath">Nothing as it falls</button>
+    </span>
+  </EditorField>
+
   <fieldset class="group">
     <legend>Looks</legend>
     <div class="looks">

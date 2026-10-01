@@ -150,6 +150,9 @@ export interface EnemyTipView {
   coins: number;
   /** Struck back at an adjacent attacker, until its next turn. */
   thorns: number;
+  /** What it does as it falls, said plainly — "summon a slimelet with 5
+   *  health" — or null. */
+  onDeath: string | null;
   /** A guardian: `final` holds the floor's last row and the way down
    *  opens where it falls; `sub` is a sub-boss at the end of a chunk. */
   guardian: 'final' | 'sub' | null;
@@ -238,6 +241,14 @@ export interface GameView {
   atShop: boolean;
   /** The shop's stock, while he stands in it trading. */
   shop: ShopItemView[] | null;
+}
+
+/** A list read out with repeats counted: "summon a slimelet with 5 health
+ *  ×2". */
+function tallied(lines: string[]): string {
+  const counts = new Map<string, number>();
+  for (const line of lines) counts.set(line, (counts.get(line) ?? 0) + 1);
+  return [...counts].map(([line, n]) => (n > 1 ? `${line} ×${n}` : line)).join(', ');
 }
 
 /** Which kind of guardian a creature is, by the gate it holds. */
@@ -622,6 +633,7 @@ export const useGameStore = defineStore('game', () => {
       reward: foe.reward ? rewardLabel(foe.reward) : 'NOTHING',
       coins: foe.summonedBy ? 0 : def.coins ?? 0,
       thorns: foe.thorns,
+      onDeath: def.onDeath?.length ? tallied(def.onDeath.map(describeLanding)) : null,
       guardian: guardKind(game.state, foe, !!def.guardian),
       ground: groundOf({ row: foe.row, col: foe.col }),
       ally: foe.faction === 'ally',

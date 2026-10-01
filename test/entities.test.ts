@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { cardDef } from '~/game/cards/definitions';
-import { intentDef } from '~/game/cards/intents';
+import { intentDef, INTENTS } from '~/game/cards/intents';
 import { ENEMY_IDS, ENTITIES, entityDef, GUARDIAN_IDS } from '~/game/entities/definitions';
 import type { Effect } from '~/game/effects';
 import type { AnimationState } from '~/game/entities/types';
@@ -16,7 +16,7 @@ const rosterOf = (zone: Zone): string[] => zone.chunks.flatMap((chunk) => chunk.
 
 describe('entity definitions', () => {
   it('has the enemies from the sheet', () => {
-    expect(ENEMY_IDS.sort()).toEqual(['bug', 'chicken', 'dragon', 'slime', 'spider', 'tree', 'whelp', 'wolf']);
+    expect(ENEMY_IDS.sort()).toEqual(['bug', 'chicken', 'dragon', 'slime', 'slimelet', 'spider', 'tree', 'whelp', 'wolf']);
   });
 
   it('gives each creature its own cell of the sheet', () => {
@@ -56,8 +56,15 @@ describe('entity definitions', () => {
     }
   });
 
-  it('puts every enemy somewhere in the world', () => {
-    const placed = new Set(ZONES.flatMap(rosterOf));
+  it('puts every enemy somewhere in the world: in a zone, or summoned', () => {
+    // Summoned as a creature falls (a Slime's Slimelets) or by a card.
+    const summoned = (effects: readonly Effect[]): string[] => effects.flatMap((effect) =>
+      effect.kind === 'summon' ? [effect.entity] : effect.kind === 'later' ? summoned(effect.effects) : []);
+    const placed = new Set([
+      ...ZONES.flatMap(rosterOf),
+      ...Object.values(ENTITIES).flatMap((def) => summoned(def.onDeath ?? [])),
+      ...Object.values(INTENTS).flatMap((card) => summoned(card.effects)),
+    ]);
     expect([...placed].sort()).toEqual(ENEMY_IDS.sort());
   });
 

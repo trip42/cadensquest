@@ -23,6 +23,9 @@ const store = useGameStore();
     <p v-if="store.enemyTip.thorns" class="guard">
       <span class="px-tag is-red">THORNS {{ store.enemyTip.thorns }}</span> Strikes back at anything that hits it from beside it, this turn.
     </p>
+    <p v-if="store.enemyTip.onDeath" class="guard">
+      <span class="px-tag is-red">AS IT FALLS</span> {{ store.enemyTip.onDeath }}.
+    </p>
     <p v-if="store.enemyTip.ally" class="guard">
       <span class="px-tag is-ally">ALLY</span> Fights for you against the nearest enemy.
     </p>

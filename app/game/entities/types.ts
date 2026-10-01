@@ -7,6 +7,7 @@
 
 import type { Cell } from '../map/navigation';
 import type { Reward, RewardOverrides } from '../rewards';
+import type { Effect } from '../effects';
 
 /** `ally` fights on the player's side: an enemy tamed, or later summoned.
  *  It keeps its own deck and plays it against the nearest enemy. */
@@ -112,6 +113,9 @@ export interface EntityDefinition {
   /** Spawns at most once a run, however often the dice pick it — for a
    *  sub-boss that turns up in a zone's mix now and then. */
   unique?: boolean;
+  /** What happens as it falls, aimed at nothing: whatever a Later may
+   *  hold, played from where it fell — a Slime splitting into two. */
+  onDeath?: Effect[];
   /** Off: never spawned, and a disabled guardian leaves its zone open. */
   enabled?: boolean;
 }

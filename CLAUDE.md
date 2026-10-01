@@ -736,6 +736,23 @@ checked by the validator and offered by the editor's `in-later` list):
 
 The Broodmother's Lay Eggs is the example: in 2 rounds, two Bugs hatch.
 
+**As a creature falls (`onDeath`).** An enemy's definition may carry
+`onDeath`: effects played the moment it dies, from where it fell, aimed at
+nothing — the same contents and the same `landOn` as a Later (`dying`), with
+amounts worked out from the fallen creature as it falls. A summon stands
+beside the body, a burst goes off around it (friends too, unless `affects`
+says), a mark goes under it. Verbs that would land on the creature itself
+do nothing, and the validator warns; a boon or a trail likewise. It is on
+the definition, not a Later with a "death" timing, on purpose: a Later is
+something *played*, and a Slime killed before its first turn would never
+have played its split. It fires from `dealDamage`, for any side (a tamed
+Slime splits for the player, within `maxAllies`), and not when a summon
+fades or an ally is released. The validator refuses a fall that summons
+something that, sooner or later, summons it again (`fallsInto`): that is
+why the Slime splits into Slimelets, which do not split. The enemy tooltip
+says what happens AS IT FALLS; the editor's "As it falls" list is an
+`in-later` effect list.
+
 - **Amounts and rounds are fixed when played** — every amount in every
   shape, nested ones too (`fixAmounts`) — and stored whole in
   `state.later`, as `LaterEntry`s. "Gain X power; in 2 rounds lose X power"

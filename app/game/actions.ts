@@ -259,6 +259,12 @@ function dealDamage(game: Game, target: Entity, amount: number, blow: Blow): voi
       if (state.gates.some((gate) => gate.guardianId === target.id && gate.final)) openPortal(game, entityCell(target));
       fire(game, 'enemyDefeated', entityCell(target));
     }
+    // Its last act: a Slime splits, a bomb goes off — whichever side it is on.
+    const last = entityDef(target.defId).onDeath;
+    if (last?.length) {
+      const values = amountValues(state, target);
+      landOn(game, target, last.map((effect) => fixAmounts(effect, values)), true);
+    }
   } else {
     setAnimation(target, 'hurt');
   }
@@ -355,11 +361,17 @@ function scheduleOn(game: Game, actor: Entity, rounds: number, effects: Effect[]
    effect of a card with no target and no reach: a summon stands beside it,
    a mark goes under it, a burst goes off around it; a boon, a trail, a
    rekindle or a flare need no aim; and a Later inside is scheduled from
-   now. Its amounts were fixed when it was played. */
-function landOn(game: Game, actor: Entity, effects: readonly Effect[]): void {
+   now. Its amounts were fixed when it was played.
+
+   It is also what a creature's `onDeath` goes through, `dying`, as it
+   falls: the same rules, from the tile it fell on — a summon beside the
+   body, a burst around it, a mark under it — with nothing left to land on
+   the creature itself. */
+function landOn(game: Game, actor: Entity, effects: readonly Effect[], dying = false): void {
   for (const effect of effects) {
-    if (actor.dead) return;
+    if (actor.dead && !dying) return;
     if (isSimple(effect) && EFFECT_INFO[effect.kind].tile) {
+      if (dying) continue;
       // Fixed when played, so already a number.
       applyTo(game, actor, [{ kind: effect.kind, amount: effect.amount as number }], 'later', actor);
       continue;

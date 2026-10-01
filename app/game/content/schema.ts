@@ -176,6 +176,9 @@ export const enemySchema = z.strictObject({
   reward: rewardSchema.optional(),
   /** Coins it drops when it falls, to spend in shops. */
   coins: count(0, 999).optional(),
+  /** What happens as it falls, aimed at nothing — what a Later may hold:
+   *  summons beside it, a burst around it, a mark under it. */
+  onDeath: z.array(effectSchema).optional(),
 });
 
 export const gemSchema = z.strictObject({
