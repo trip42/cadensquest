@@ -771,6 +771,11 @@ export const useGameStore = defineStore('game', () => {
       if (done) {
         departed.set(uid, 'played');
         selectedUid.value = null;
+      } else if (ready) {
+        // Not a target it can take: put the card back down, so the map
+        // offers movement again. (Not while something is still playing
+        // out — that click was early, not wrong.)
+        selectedUid.value = null;
       }
     } else {
       done = own || movePlayerTo(game, cell);
