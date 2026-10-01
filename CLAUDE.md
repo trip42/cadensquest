@@ -317,6 +317,29 @@ n/N beside it. The renderer snaps the camera rather than easing it when the
 player moves more than 12 rows at once — otherwise the arrival swept across
 a floor that no longer exists.
 
+## Title screen
+
+A plain visit to `/` opens on the title (`store.screen === 'title'`): the
+logo (`assets/attract/logo.png`) and START over a world of its own. Any
+`?seed=` or `?try=` skips it and goes straight into play, so the editor's
+Try it and bug-report links work as before.
+
+- **The world behind it** (`nextTitleZone`) is a throwaway game: a random
+  floor on a random seed, `enterFloor` then `ensureSpawns` down every chunk.
+  No turn ever begins (it stays in `refresh`), so the clock only animates
+  it; `frame` returns before `sync`, so there is no view, no HUD and no
+  analytics, and its `run_started` and spawn events are thrown away.
+- **The renderer's `tour`** drifts the camera down that floor from a few
+  rows before one of its enemies (`TOUR_SPEED`, 0.7 rows a second). While it
+  is set, Caden is not drawn, neither are the bars and chips, and `pick`
+  returns nothing.
+- **Every 8 seconds** the page fades to dark and swaps in another floor.
+  Each world is a new `store.run`, so `MapStage` remounts.
+- **START** is `store.start()`: a fresh run on the first floor.
+- **The map waits for a world:** `MapStage` mounts before its page does, so
+  it is shown only once `store.run > 0` — the title once broke with "game
+  not started" for exactly that.
+
 ## Turn loop
 
 1. **refresh** (`beginTurn`) — a new round: terrain marks and summon

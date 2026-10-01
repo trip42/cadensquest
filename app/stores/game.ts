@@ -18,6 +18,8 @@ import {
   areaPreview,
   terrainAt,
   beginTurn,
+  enterFloor,
+  ensureSpawns,
   canPlay,
   chooseCardReward,
   discardAllForMovement,
@@ -513,6 +515,8 @@ export const useGameStore = defineStore('game', () => {
   function start(seed: number = Math.floor(Math.random() * 0xffffffff), trials: Trial[] = []): void {
     runId = crypto.randomUUID();
     run.value += 1;
+    screen.value = 'play';
+    tour = null;
     game = createGame(seed);
     heard = 0;
     dwellShort = false;
@@ -532,8 +536,58 @@ export const useGameStore = defineStore('game', () => {
     sync(true);
   }
 
+  /* ------------------------------ title ------------------------------ */
+
+  /* The title screen: the logo over a world of its own, a random floor on a
+     random seed with its enemies spawned and nobody to fight them, the
+     camera drifting slowly down it from near one of them. It is never
+     played — no turn begins, the clock only animates it — and its events
+     are thrown away, so nothing reaches analytics. `nextTitleZone` swaps
+     in another floor; START begins a real run on the first. */
+  const screen = ref<'title' | 'play'>('title');
+  let tour: { row: number; col: number; speed: number } | null = null;
+  let titleFloor = -1;
+
+  /** How fast the title's camera drifts down the floor, in rows a second. */
+  const TOUR_SPEED = 0.7;
+
+  function showTitle(): void {
+    screen.value = 'title';
+    nextTitleZone();
+  }
+
+  function nextTitleZone(): void {
+    const floors = LAYOUT.floors;
+    let floor = Math.floor(Math.random() * floors);
+    if (floors > 1 && floor === titleFloor) floor = (floor + 1) % floors;
+    titleFloor = floor;
+
+    run.value += 1;
+    const world = createGame(Math.floor(Math.random() * 0xffffffff));
+    enterFloor(world, floor);
+    // Spawn the whole floor, as a run walking down it would.
+    const self = player(world.state);
+    const { first, last } = floorRows(floor);
+    for (let row = first; row <= last; row += 16) {
+      self.row = row;
+      ensureSpawns(world);
+    }
+    world.state.events.length = 0;
+
+    // Start a few rows before one of its enemies, so there is someone to see.
+    const foes = enemies(world.state).filter((foe) => !entityDef(foe.defId).guardian);
+    const near = foes[Math.floor(Math.random() * foes.length)];
+    const startRow = Math.max(first + 2, Math.min(last - 10, (near?.row ?? first + 8) - 4));
+    tour = { row: startRow, col: 4.5, speed: TOUR_SPEED };
+    game = world;
+    view.value = null;
+    signature = '';
+    selectedUid.value = null;
+  }
+
   function attach(instance: MapRenderer): void {
     renderer = instance;
+    if (screen.value === 'title') renderer.tour = tour;
     applyShorten();
     pushHighlights();
   }
@@ -547,6 +601,8 @@ export const useGameStore = defineStore('game', () => {
   function frame(dt: number): void {
     if (!game) return;
     tick(game, dt);
+    // The title's world only animates: no turns, no HUD, no analytics.
+    if (screen.value === 'title') return;
     sync();
     // The renderer stops looking at an ally once he moves, or it is gone.
     if (looking.value && renderer?.lookingAt !== looking.value) looking.value = null;
@@ -923,7 +979,7 @@ export const useGameStore = defineStore('game', () => {
   };
 
   return {
-    view, selected, selectedUid, hoverCell, enemyTip, tileTip, run, announce,
+    view, selected, selectedUid, hoverCell, enemyTip, tileTip, run, announce, screen, showTitle, nextTitleZone,
     start, attach, detach, frame,
     select, commitCell, hover, pickAt, discard, discardAll, endPhase,
     chooseCard, socketGem, removeCard, takeTalisman, skip, buy, leave, enterShop,

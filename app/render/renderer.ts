@@ -129,6 +129,11 @@ export class MapRenderer implements Stage {
      only reads them. */
   private burstStarts = new Map<number, number>();
   private hover: Cell | null = null;
+  /** The title screen's slow drift down a floor: the camera follows this
+   *  point instead of Caden, who is not drawn, and neither are the bars and
+   *  chips over the creatures — the land and its enemies alone. Clicks pick
+   *  nothing. Null in play. */
+  tour: { row: number; col: number; speed: number } | null = null;
   /** Held down (F): every stack drawn one layer high, its surface only —
    *  the board laid flat, to read a position past the peaks. */
   flatten = false;
@@ -317,6 +322,7 @@ export class MapRenderer implements Stage {
   /** Screen point to a cell, respecting height: a tall stack covers the
    *  ground behind it, so test top faces and keep the nearest hit. */
   pick(clientX: number, clientY: number): Cell | null {
+    if (this.tour) return null;
     const rect = this.canvas.getBoundingClientRect();
     const px = (clientX - rect.left) / this.scale;
     const py = (clientY - rect.top) / this.scale;
@@ -344,6 +350,13 @@ export class MapRenderer implements Stage {
     const { state } = this.game;
     const self = state.entities.find((entity) => entity.id === state.playerId);
     if (!self) return;
+
+    if (this.tour) {
+      this.tour.row += this.tour.speed * dt;
+      this.camera.row = this.tour.row;
+      this.camera.col = this.tour.col;
+      return;
+    }
 
     // Looking at someone else until he moves, or it is gone.
     if (this.looking) {
@@ -461,6 +474,8 @@ export class MapRenderer implements Stage {
 
     // Characters join the same depth order, by where they are right now.
     const cast = state.entities
+      // On the title screen, the land and its enemies alone.
+      .filter((entity) => !(this.tour && entity.id === state.playerId))
       .map((entity) => ({ entity, pos: visualCell(entity) }))
       .map((item) => ({ ...item, depth: item.pos.row + item.pos.col }))
       .sort((a, b) => a.depth - b.depth);
@@ -497,6 +512,7 @@ export class MapRenderer implements Stage {
     this.juice.drawWorld(ctx, this.clock, this, HW, HH);
 
     for (const { sx, top, entity } of this.overlay) {
+      if (this.tour) break;
       this.drawHealthBar(sx, top, entity);
       if (entity.faction === 'player') continue;
       if (entity.intent) this.drawIntent(sx, top - 15, entity.intent.label, entity.faction === 'ally');

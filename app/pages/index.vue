@@ -7,6 +7,7 @@ import { useGameStore } from '~/stores/game';
 // empty tag, and left play held by a shop nobody could see.
 import ShopModal from '~/components/ShopModal.vue';
 import AllyRail from '~/components/AllyRail.vue';
+import logo from '~/assets/attract/logo.png';
 
 const store = useGameStore();
 const route = useRoute();
@@ -14,14 +15,52 @@ const route = useRoute();
 // ?seed=123 replays a run exactly — the whole world comes from the seed,
 // so a bug report is a single number. ?try=card:bolt starts with one thing
 // arranged: the content editor's "Try it". ?try=card:stoke,card:fire
-// arranges both, to try a combo.
+// arranges both, to try a combo. Either goes straight into play; a plain
+// visit starts on the title screen.
 onMounted(() => {
   const seed = Number(route.query.seed);
+  if (route.query.seed === undefined && route.query.try === undefined) {
+    store.showTitle();
+    return;
+  }
   store.start(
     Number.isFinite(seed) && route.query.seed !== undefined ? seed : undefined,
     parseTrials(route.query.try),
   );
 });
+
+/* The title screen's background drifts down one zone, then fades to
+   another, every TITLE_SECONDS. */
+const TITLE_SECONDS = 8;
+const FADE_MS = 700;
+const fading = ref(false);
+let titleTimer: ReturnType<typeof setInterval> | undefined;
+let fadeTimer: ReturnType<typeof setTimeout> | undefined;
+watch(
+  () => store.screen,
+  (screen) => {
+    clearInterval(titleTimer);
+    clearTimeout(fadeTimer);
+    fading.value = false;
+    if (screen !== 'title') return;
+    titleTimer = setInterval(() => {
+      fading.value = true;
+      fadeTimer = setTimeout(() => {
+        store.nextTitleZone();
+        fading.value = false;
+      }, FADE_MS);
+    }, TITLE_SECONDS * 1000);
+  },
+  { immediate: true },
+);
+onBeforeUnmount(() => {
+  clearInterval(titleTimer);
+  clearTimeout(fadeTimer);
+});
+
+function startRun(): void {
+  store.start();
+}
 
 const isDev = import.meta.dev;
 
@@ -144,7 +183,16 @@ const energyCells = computed(() => {
 
 <template>
   <main class="game">
-    <MapStage v-if="store.view" :key="store.run" />
+    <!-- Not before the first world exists: the map mounts before this page
+         does, so it would otherwise ask for a game not yet made. -->
+    <MapStage v-if="store.run > 0 && (store.view || store.screen === 'title')" :key="store.run" />
+
+    <!-- The title: the logo over a zone drifting by, and the way in. -->
+    <div v-if="store.screen === 'title'" class="title">
+      <div class="title-fade" :class="{ 'is-fading': fading }" aria-hidden="true" />
+      <img class="title-logo" :src="logo" alt="Caden's Quest — a deck-building tactics adventure">
+      <button class="px-button is-yellow title-start" type="button" @click="startRun">START</button>
+    </div>
 
     <!-- Everything below floats over the map. The layer itself ignores the
          pointer so dragging still works between the panels; each panel
@@ -502,6 +550,54 @@ const energyCells = computed(() => {
 }
 
 /* ------------------------------ ending --------------------------------- */
+
+/* ------------------------------ title ---------------------------------- */
+
+/* Over the map, which it keeps from being clicked or dragged. */
+.title {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 28px;
+  padding: 24px;
+  pointer-events: auto;
+  background: radial-gradient(ellipse at center, rgba(11, 11, 23, 0.15), rgba(11, 11, 23, 0.6));
+}
+.title-logo {
+  /* Above the fade, which dims only the world behind. */
+  position: relative;
+  width: min(62vw, 900px);
+  height: auto;
+  filter: drop-shadow(0 6px 0 rgba(11, 11, 23, 0.55));
+  animation: title-in 0.9s cubic-bezier(0.3, 1.4, 0.5, 1) both;
+}
+.title-start {
+  position: relative;
+  min-width: 220px;
+  font-size: 24px;
+  padding: 14px 28px;
+  animation: title-in 0.9s 0.25s cubic-bezier(0.3, 1.4, 0.5, 1) both;
+}
+/* Between zones the screen dips to dark and back. */
+.title-fade {
+  position: fixed;
+  inset: 0;
+  background: var(--px-ink);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.7s ease;
+}
+.title-fade.is-fading { opacity: 1; }
+@keyframes title-in {
+  from { opacity: 0; transform: translateY(-14px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .title-logo, .title-start { animation: none; }
+}
 
 .ending {
   position: fixed;
