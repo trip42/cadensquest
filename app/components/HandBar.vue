@@ -94,9 +94,14 @@ function onPointerMove(event: PointerEvent): void {
   store.hover(store.pickAt(event.clientX, event.clientY));
 }
 
+/* A drag plays the card on the tile it is let go over — but only over the
+   map. Let go over the hand (a plain click on the card), a panel or a
+   button, it stays selected and nothing reaches the map: the tile under
+   the card is not what was clicked. */
 function onPointerUp(event: PointerEvent): void {
   if (!draggingUid.value) return;
-  store.commitCell(store.pickAt(event.clientX, event.clientY));
+  const over = document.elementFromPoint(event.clientX, event.clientY);
+  if (over instanceof HTMLCanvasElement) store.commitCell(store.pickAt(event.clientX, event.clientY));
   draggingUid.value = null;
   store.hover(null);
 }
