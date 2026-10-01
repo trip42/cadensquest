@@ -1090,9 +1090,14 @@ the same order by interpolated depth. Health bars and intent chips are drawn
 in a **separate pass afterwards**, or whoever stands in front paints over
 them.
 
-**Known and left as is: chips cover the enemy behind.** An enemy's intent
-chip and reward pill stack about 32 units above its head, which is where
-the next enemy back stands on screen. And `pick` tests tile tops only, never
+**Chips over a creature are one line.** Its intent and, to the right, the
+first letter of what it carries (C, G, T, R, in the reward's colour; the
+tooltip has the full name), centred together just above the health bar.
+They used to stack about 32 units above its head and cover the enemy
+behind; this halves that.
+
+**Known and left as is: clicks pick tiles, not bodies.** The chips still sit
+where the next enemy back stands on screen. And `pick` tests tile tops only, never
 creatures or chips, so clicking an enemy's body lands on the tile behind
 it; you have to click its feet. The user chose to leave it for now. If it
 comes back, the agreed order was:

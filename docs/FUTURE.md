@@ -63,9 +63,6 @@ transparent), and `art-assets/buildings-and-trees.psd`.
   an enemy's body lands on the tile behind it; you have to click its feet.
   Try creature bodies first, frontmost winning, using the overlay that
   already records each one's feet and head every frame.
-- **Fold the reward pill into the intent chip**, as a coloured badge, so
-  the stack of labels over an enemy is half as tall and covers less of the
-  enemy behind it.
 - **Show that the land is shortened**, and the pointer-rest counting down:
   a small "SHORT" tag on the HUD, or a fill on the hovered tile. Today
   nothing says it is on but the look of the land.

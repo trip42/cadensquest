@@ -515,9 +515,19 @@ export class MapRenderer implements Stage {
       if (this.tour) break;
       this.drawHealthBar(sx, top, entity);
       if (entity.faction === 'player') continue;
-      if (entity.intent) this.drawIntent(sx, top - 15, entity.intent.label, entity.faction === 'ally');
-      // What it is carrying, readable before you decide to fight it.
-      if (entity.reward) this.drawRewardPill(sx, top - (entity.intent ? 32 : 16), entity.reward);
+      // What it will do, and beside it the first letter of what it carries
+      // (readable before you decide to fight it), centred together over it
+      // on one line — not stacked, so they cover less of whoever is behind.
+      const intent = entity.intent?.label.toUpperCase() ?? null;
+      const letter = entity.reward ? rewardLabel(entity.reward).charAt(0) : null;
+      ctx.font = `8px ${this.palette.font}`;
+      const intentW = intent ? Math.ceil(ctx.measureText(intent).width) + 10 : 0;
+      const letterW = letter ? Math.ceil(ctx.measureText(letter).width) + 8 : 0;
+      const gap = intent && letter ? 3 : 0;
+      const left = sx - (intentW + gap + letterW) / 2;
+      const chipY = top - 11;
+      if (intent) this.drawIntent(left + intentW / 2, chipY, intent, entity.faction === 'ally');
+      if (letter && entity.reward) this.drawRewardPill(left + intentW + gap + letterW / 2, chipY, entity.reward, letter);
     }
     // Numbers over everything, even the bars.
     this.juice.drawText(ctx, this.clock, this);
@@ -1297,10 +1307,11 @@ export class MapRenderer implements Stage {
     };
   }
 
-  private drawRewardPill(sx: number, sy: number, reward: Reward): void {
+  /** What an enemy carries, as a tag in its colour: just the first letter
+   *  over the map (C, G, T, R), the same height as the intent beside it. */
+  private drawRewardPill(sx: number, sy: number, reward: Reward, label = rewardLabel(reward)): void {
     const ctx = this.ctx;
     const { ink, yellow, green, font } = this.palette;
-    const label = rewardLabel(reward);
     const tint = reward.kind === 'gem'
       ? gemDef(reward.gemId).colour
       : reward.kind === 'talisman' ? yellow : reward.kind === 'removal' ? this.palette.red : green;
@@ -1312,14 +1323,14 @@ export class MapRenderer implements Stage {
 
     // A solid tag in the reward's colour, as in the enemy tip.
     ctx.fillStyle = ink;
-    ctx.fillRect(x - 1, y - 1, width + 2, 14);
+    ctx.fillRect(x - 1, y - 1, width + 2, 16);
     ctx.fillStyle = tint;
-    ctx.fillRect(x, y, width, 12);
+    ctx.fillRect(x, y, width, 14);
 
     ctx.fillStyle = ink;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(label, x + width / 2, y + 6);
+    ctx.fillText(label, x + width / 2, y + 7);
     ctx.textAlign = 'start';
     ctx.textBaseline = 'alphabetic';
   }
