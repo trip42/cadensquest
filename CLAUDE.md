@@ -1090,7 +1090,13 @@ it — every layer drawn `SHORT_LAYER_H` (4) tall instead of `LAYER_H`
 (`layerH`), water's sink squashed with it (`sink`), so heights still read.
 Picking, tile tops and where creatures stand go through the same two
 helpers, so a click lands on what is drawn. Letting go, or the window
-losing focus, stands the land back up. Automatic cutaways (cutting a stack
+losing focus, stands the land back up.
+
+Shortening works without a keyboard too: resting the pointer on the top of
+a stack more than `DWELL_HEIGHT` (5) layers tall for `DWELL_SECONDS` (2)
+shortens the land until the next click on a tile or card played
+(`trackDwell`/`endDwell` in the store, which ORs it with the S key in
+`applyShorten`). A card only picked up, to aim, does not end it. Automatic cutaways (cutting a stack
 down when it hides a creature or a lit tile) were built and tried, and
 the user did not like them: don't bring them back without asking.
 

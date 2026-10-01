@@ -515,6 +515,8 @@ export const useGameStore = defineStore('game', () => {
     run.value += 1;
     game = createGame(seed);
     heard = 0;
+    dwellShort = false;
+    dwellCell = null;
     announce.value = null;
     looking.value = null;
     beginTurn(game);
@@ -531,6 +533,7 @@ export const useGameStore = defineStore('game', () => {
 
   function attach(instance: MapRenderer): void {
     renderer = instance;
+    applyShorten();
     pushHighlights();
   }
 
@@ -548,6 +551,7 @@ export const useGameStore = defineStore('game', () => {
     if (looking.value && renderer?.lookingAt !== looking.value) looking.value = null;
     trackEnemyTip();
     trackTileTip();
+    trackDwell(dt);
   }
 
   /* The tip follows the enemy under the pointer. Updated from the render
@@ -684,6 +688,7 @@ export const useGameStore = defineStore('game', () => {
         if (playCard(game, card.uid)) {
           departed.set(card.uid, 'played');
           selectedUid.value = null;
+          endDwell();
         }
       } else {
         // Picked up, to be aimed. Playing it makes its own sound.
@@ -695,6 +700,8 @@ export const useGameStore = defineStore('game', () => {
 
   /** A click, or the end of a drag, landing on a cell. */
   function commitCell(cell: Cell | null): void {
+    // Any click on a tile stands shortened land back up.
+    if (cell) endDwell();
     if (!game || !cell || game.state.phase !== 'player') return;
 
     const { state } = game;
@@ -838,10 +845,57 @@ export const useGameStore = defineStore('game', () => {
     if (renderer) renderer.flatten = on;
   }
 
-  /** Squash the land while S is held: every layer drawn short, so a peak
-   *  no longer hides what is behind it but heights still show. */
+  /* Shortening the land — every layer drawn short, so a peak no longer
+     hides what is behind it but heights still show. Two ways in, either
+     enough: holding S, and, without a keyboard, resting the pointer on the
+     top of a tall stack (more than DWELL_HEIGHT layers) for DWELL_SECONDS.
+     That one stays until the next click on a tile or card played. */
+  const DWELL_HEIGHT = 5;
+  const DWELL_SECONDS = 2;
+  let keyShort = false;
+  let dwellShort = false;
+  let dwellCell: Cell | null = null;
+  let dwellTime = 0;
+
+  function applyShorten(): void {
+    if (renderer) renderer.shorten = keyShort || dwellShort;
+  }
+
+  /** Held S. */
   function setShorten(on: boolean): void {
-    if (renderer) renderer.shorten = on;
+    keyShort = on;
+    applyShorten();
+  }
+
+  /** A tile clicked or a card played: the land stands back up. */
+  function endDwell(): void {
+    dwellCell = null;
+    dwellTime = 0;
+    if (!dwellShort) return;
+    dwellShort = false;
+    applyShorten();
+  }
+
+  /** Each frame: is the pointer resting on a tall stack's top? */
+  function trackDwell(dt: number): void {
+    const cell = hoverCell.value;
+    const tall = !!game && !!cell && game.world.stackAt(cell.row, cell.col).length > DWELL_HEIGHT;
+    if (dwellShort || !tall || !cell) {
+      if (!dwellShort) {
+        dwellCell = null;
+        dwellTime = 0;
+      }
+      return;
+    }
+    if (!dwellCell || dwellCell.row !== cell.row || dwellCell.col !== cell.col) {
+      dwellCell = cell;
+      dwellTime = 0;
+    }
+    dwellTime += dt;
+    if (dwellTime >= DWELL_SECONDS) {
+      dwellShort = true;
+      applyShorten();
+    }
   }
 
   function toggleSound(): void {
