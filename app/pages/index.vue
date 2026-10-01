@@ -258,7 +258,7 @@ const energyCells = computed(() => {
             END PHASE
           </button>
           <div class="piles panel">
-            <span>DRAW {{ store.view.drawCount }}</span>
+            <span>DECK {{ store.view.drawCount }}</span>
             <span>DISC {{ store.view.discardCount }}</span>
             <span class="foes">FOES {{ store.view.foes }}</span>
           </div>
