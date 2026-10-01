@@ -12,9 +12,7 @@
 import { tick } from '../game/actions';
 import { entityDef } from '../game/entities/definitions';
 import type { Entity } from '../game/entities/types';
-import { gemDef } from '../game/gems';
 import type { Cell } from '../game/map/navigation';
-import { type Reward, rewardLabel } from '../game/rewards';
 import { KIND_OF, type FacePalette, LAYOUT, type TileKind, type TileLetter, VOID, ZONES } from '../game/map/tiles';
 import type { Game, TerrainLayer } from '../game/state';
 import {
@@ -515,19 +513,9 @@ export class MapRenderer implements Stage {
       if (this.tour) break;
       this.drawHealthBar(sx, top, entity);
       if (entity.faction === 'player') continue;
-      // What it will do, and beside it the first letter of what it carries
-      // (readable before you decide to fight it), centred together over it
-      // on one line — not stacked, so they cover less of whoever is behind.
-      const intent = entity.intent?.label.toUpperCase() ?? null;
-      const letter = entity.reward ? rewardLabel(entity.reward).charAt(0) : null;
-      ctx.font = `8px ${this.palette.font}`;
-      const intentW = intent ? Math.ceil(ctx.measureText(intent).width) + 10 : 0;
-      const letterW = letter ? Math.ceil(ctx.measureText(letter).width) + 8 : 0;
-      const gap = intent && letter ? 3 : 0;
-      const left = sx - (intentW + gap + letterW) / 2;
-      const chipY = top - 11;
-      if (intent) this.drawIntent(left + intentW / 2, chipY, intent, entity.faction === 'ally');
-      if (letter && entity.reward) this.drawRewardPill(left + intentW + gap + letterW / 2, chipY, entity.reward, letter);
+      // What it will do, just above its health bar. What it carries is in
+      // its tooltip, not on the map: less over whoever stands behind it.
+      if (entity.intent) this.drawIntent(sx, top - 11, entity.intent.label, entity.faction === 'ally');
     }
     // Numbers over everything, even the bars.
     this.juice.drawText(ctx, this.clock, this);
@@ -1305,34 +1293,6 @@ export class MapRenderer implements Stage {
       x: rect.left + entry.sx * this.scale,
       y: rect.top + entry.top * this.scale,
     };
-  }
-
-  /** What an enemy carries, as a tag in its colour: just the first letter
-   *  over the map (C, G, T, R), the same height as the intent beside it. */
-  private drawRewardPill(sx: number, sy: number, reward: Reward, label = rewardLabel(reward)): void {
-    const ctx = this.ctx;
-    const { ink, yellow, green, font } = this.palette;
-    const tint = reward.kind === 'gem'
-      ? gemDef(reward.gemId).colour
-      : reward.kind === 'talisman' ? yellow : reward.kind === 'removal' ? this.palette.red : green;
-
-    ctx.font = `8px ${font}`;
-    const width = Math.ceil(ctx.measureText(label).width) + 8;
-    const x = Math.round(sx - width / 2);
-    const y = Math.round(sy - 10);
-
-    // A solid tag in the reward's colour, as in the enemy tip.
-    ctx.fillStyle = ink;
-    ctx.fillRect(x - 1, y - 1, width + 2, 16);
-    ctx.fillStyle = tint;
-    ctx.fillRect(x, y, width, 14);
-
-    ctx.fillStyle = ink;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(label, x + width / 2, y + 7);
-    ctx.textAlign = 'start';
-    ctx.textBaseline = 'alphabetic';
   }
 
   private drawIntent(sx: number, sy: number, label: string, ally = false): void {

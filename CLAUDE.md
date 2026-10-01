@@ -948,7 +948,7 @@ union changes — follow its errors.
   mistake. `MOVEMENT_BY_RARITY` prices a discard by rarity — treat those
   numbers as a balance dial and never pin them in a test.
 - **Rewards** (`game/rewards.ts`) are rolled **when an enemy spawns**, not
-  when it dies — so the pill above its head can be read before you commit,
+  when it dies — so its tooltip can say what it carries before you commit,
   and so the whole thing stays a function of the seed.
   `DEFAULT_REWARD_CONFIG` is the frequency dial; any enemy definition may
   override part of it via `reward` (the dragon leans towards talismans and
@@ -991,8 +991,8 @@ and rejected on fun:
 
 - **Points per reward kind** (card points, gem points and so on, paying out
   at a target). A bar that fills and pops a reward involves no decision.
-  It also smooths away the drop's luck, and undercuts reading an enemy's
-  pill to choose which fight is worth it.
+  It also smooths away the drop's luck, and undercuts reading what an
+  enemy carries to choose which fight is worth it.
 - **Shops that each sell one kind.** The fun of a shop is weighing unlike
   things against each other (a removal or a talisman?). A card-only shop
   just asks "which card?", and a random layout would sometimes put the
@@ -1090,22 +1090,19 @@ the same order by interpolated depth. Health bars and intent chips are drawn
 in a **separate pass afterwards**, or whoever stands in front paints over
 them.
 
-**Chips over a creature are one line.** Its intent and, to the right, the
-first letter of what it carries (C, G, T, R, in the reward's colour; the
-tooltip has the full name), centred together just above the health bar.
-They used to stack about 32 units above its head and cover the enemy
-behind; this halves that.
+**Over a creature, only its intent**, just above the health bar. What it
+carries is in its tooltip (`EnemyTip`), not on the map, at the user's
+request: an intent chip with a reward pill stacked on it covered the enemy
+behind. (A one-letter reward badge beside the intent was tried on the way.)
 
-**Known and left as is: clicks pick tiles, not bodies.** The chips still sit
-where the next enemy back stands on screen. And `pick` tests tile tops only, never
+**Known and left as is: clicks pick tiles, not bodies.** `pick` tests tile tops only, never
 creatures or chips, so clicking an enemy's body lands on the tile behind
 it; you have to click its feet. The user chose to leave it for now. If it
 comes back, the agreed order was:
 
 1. Let `pick` try creature bodies first (the overlay already records each
    one's feet and head every frame), frontmost winning.
-2. Fold the reward pill into the intent chip as a small coloured badge.
-3. Only if still needed: fade chips while aiming a card, or draw anything
+2. Only if still needed: fade chips while aiming a card, or draw anything
    standing in front of a valid target translucent, with the target's
    outline over it (the "x-ray" approach).
 
@@ -1443,7 +1440,7 @@ nine to a line and "Shield Slam" was cut short; the cost digit is 16px.
 Rules text on cards is the one exception to Silkscreen: 12px Georgia, a
 smooth serif (8px Silkscreen and 10px Georgia were tried on the way).
 
-The canvas chips (intent labels, reward tags, health bars) are drawn by the
+The canvas chips (intent labels, health bars) are drawn by the
 renderer, which reads the same custom properties once at start
 (`readPalette`), so the map and the panels over it agree. Restyle by
 changing the variables, not the drawing code.
