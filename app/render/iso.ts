@@ -11,6 +11,9 @@
 export const TILE_W = 112;
 export const TILE_H = 56;
 export const LAYER_H = 17;
+/** A layer's height while the land is shortened (S held): low enough to
+ *  see past a peak, tall enough that height still reads. */
+export const SHORT_LAYER_H = 4;
 export const HW = TILE_W / 2;
 export const HH = TILE_H / 2;
 

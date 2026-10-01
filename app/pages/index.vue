@@ -26,15 +26,38 @@ onMounted(() => {
 const isDev = import.meta.dev;
 
 /* M mutes and unmutes — unless the key is being typed into something. */
-function onKey(event: KeyboardEvent): void {
-  if (event.key !== 'm' && event.key !== 'M') return;
-  if (event.metaKey || event.ctrlKey || event.altKey) return;
+/* F, held, lays the board flat — every stack one layer high — to read a
+   position past the peaks; S, held, squashes it instead, every layer a few
+   units tall, so heights still show. Letting go stands it back up. */
+function typing(event: KeyboardEvent): boolean {
   const target = event.target as HTMLElement | null;
-  if (target?.closest('input, textarea, select, [contenteditable]')) return;
-  store.toggleSound();
+  return !!target?.closest('input, textarea, select, [contenteditable]');
 }
-onMounted(() => window.addEventListener('keydown', onKey));
-onBeforeUnmount(() => window.removeEventListener('keydown', onKey));
+function onKey(event: KeyboardEvent): void {
+  if (event.metaKey || event.ctrlKey || event.altKey || typing(event)) return;
+  if (event.key === 'm' || event.key === 'M') store.toggleSound();
+  if (event.key === 'f' || event.key === 'F') store.setFlatten(true);
+  if (event.key === 's' || event.key === 'S') store.setShorten(true);
+}
+function onKeyUp(event: KeyboardEvent): void {
+  if (event.key === 'f' || event.key === 'F') store.setFlatten(false);
+  if (event.key === 's' || event.key === 'S') store.setShorten(false);
+}
+// Leaving the window with a key down would never see it come up.
+const standUp = () => {
+  store.setFlatten(false);
+  store.setShorten(false);
+};
+onMounted(() => {
+  window.addEventListener('keydown', onKey);
+  window.addEventListener('keyup', onKeyUp);
+  window.addEventListener('blur', standUp);
+});
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKey);
+  window.removeEventListener('keyup', onKeyUp);
+  window.removeEventListener('blur', standUp);
+});
 
 /* Meters are drawn as rows of cells, arcade style. Health is always ten
    cells whatever the maximum, so it reads as a fraction; energy is one cell
@@ -239,7 +262,7 @@ const energyCells = computed(() => {
             <span>DISC {{ store.view.discardCount }}</span>
             <span class="foes">FOES {{ store.view.foes }}</span>
           </div>
-          <p class="hint">DRAG: PAN · 2X CLICK: CENTRE · M: MUTE</p>
+          <p class="hint">DRAG: PAN · 2X CLICK: CENTRE · F: FLAT · S: SHORT · M: MUTE</p>
           <span v-if="isDev" class="dev-links">
             <NuxtLink to="/editor" class="to-editor">CONTENT EDITOR</NuxtLink>
             <NuxtLink to="/sounds" class="to-editor">SOUND BOARD</NuxtLink>

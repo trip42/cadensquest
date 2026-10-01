@@ -832,6 +832,18 @@ export const useGameStore = defineStore('game', () => {
   /** Sound on or off, remembered in this browser. */
   const soundOn = ref(!sfx.isMuted);
 
+  /** Lay the board flat while F is held, to read a position past the
+   *  peaks — every stack drawn one layer high. */
+  function setFlatten(on: boolean): void {
+    if (renderer) renderer.flatten = on;
+  }
+
+  /** Squash the land while S is held: every layer drawn short, so a peak
+   *  no longer hides what is behind it but heights still show. */
+  function setShorten(on: boolean): void {
+    if (renderer) renderer.shorten = on;
+  }
+
   function toggleSound(): void {
     sfx.unlock();
     sfx.setMuted(soundOn.value);
@@ -854,7 +866,7 @@ export const useGameStore = defineStore('game', () => {
     select, commitCell, hover, pickAt, discard, discardAll, endPhase,
     chooseCard, socketGem, removeCard, takeTalisman, skip, buy, leave, enterShop,
     looking, lookAt, release,
-    soundOn, toggleSound, howLeft,
+    soundOn, toggleSound, setFlatten, setShorten, howLeft,
     rawGame, entityDef,
   };
 });

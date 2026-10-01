@@ -1083,6 +1083,17 @@ Map rotation was rejected. It touches draw order, picking, the camera,
 sprite facing and the art spec, and only moves the occlusion rather than
 removing it.
 
+**Seeing past peaks: hold F or S.** Tall stacks (Frost Spire's peaks
+reach 12 layers) hide whole tiles behind them. Held down, F lays the board
+flat — every stack drawn as its surface alone (`shown`) — and S shortens
+it — every layer drawn `SHORT_LAYER_H` (4) tall instead of `LAYER_H`
+(`layerH`), water's sink squashed with it (`sink`), so heights still read.
+Picking, tile tops and where creatures stand go through the same two
+helpers, so a click lands on what is drawn. Letting go, or the window
+losing focus, stands the land back up. Automatic cutaways (cutting a stack
+down when it hides a creature or a lit tile) were built and tried, and
+the user did not like them: don't bring them back without asking.
+
 ## Sprites
 
 Two sources feed one draw path through `frameFor`: a cell of a real sheet,

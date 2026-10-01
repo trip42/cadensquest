@@ -32,6 +32,7 @@ import {
   HH,
   HW,
   LAYER_H,
+  SHORT_LAYER_H,
   projectX,
   projectY,
   TILE_H,
@@ -127,6 +128,12 @@ export class MapRenderer implements Stage {
      only reads them. */
   private burstStarts = new Map<number, number>();
   private hover: Cell | null = null;
+  /** Held down (F): every stack drawn one layer high, its surface only —
+   *  the board laid flat, to read a position past the peaks. */
+  flatten = false;
+  /** Held down (S): every layer drawn SHORT_LAYER_H tall instead of
+   *  LAYER_H — the land squashed, its heights still showing. */
+  shorten = false;
   /* Health and intent belong on top of the scene, not inside it: drawn in
      the depth pass they get painted over by whoever stands in front. */
   private overlay: Array<{ sx: number; top: number; feet: number; entity: Entity }> = [];
@@ -317,11 +324,11 @@ export class MapRenderer implements Stage {
     const span = 6;
     for (let row = Math.round(flat.row) - span; row <= Math.round(flat.row) + span; row += 1) {
       for (let col = 0; col < this.game.world.width; col += 1) {
-        const stack = this.game.world.stackAt(row, col);
+        const stack = this.shown(row, col);
         if (stack === VOID) continue;
         const palette = this.paletteFor(row, stack[stack.length - 1] as TileLetter);
         const sx = projectX(col, row, this.camera, this.view);
-        const sy = projectY(col, row, this.camera, this.view) - (stack.length - 1) * LAYER_H - palette.elev;
+        const sy = projectY(col, row, this.camera, this.view) - (stack.length - 1) * this.layerH - this.sink(palette);
         if (Math.abs(px - sx) / HW + Math.abs(py - sy) / HH > 1) continue;
         if (!best || row + col > best.row + best.col) best = { row, col };
       }
@@ -462,7 +469,7 @@ export class MapRenderer implements Stage {
       for (let col = 0; col < world.width; col += 1) {
         const row = depth - col;
         if (row < firstRow || row > lastRow) continue;
-        const stack = world.stackAt(row, col);
+        const stack = this.shown(row, col);
         if (stack === VOID) continue;
 
         const sx = projectX(col, row, this.camera, this.view);
@@ -505,12 +512,12 @@ export class MapRenderer implements Stage {
     for (let layer = 0; layer < stack.length; layer += 1) {
       const letter = stack[layer] as TileLetter;
       const isTop = layer === stack.length - 1;
-      this.drawBlock(sx, sy - layer * LAYER_H, this.paletteFor(row, letter), letter, isTop, row, col, now);
+      this.drawBlock(sx, sy - layer * this.layerH, this.paletteFor(row, letter), letter, isTop, row, col, now);
     }
 
     const ctx = this.ctx;
     const top = this.paletteFor(row, stack[stack.length - 1] as TileLetter);
-    const ty = sy - (stack.length - 1) * LAYER_H - top.elev;
+    const ty = sy - (stack.length - 1) * this.layerH - this.sink(top);
 
     const highlight = this.highlights.get(cellKey(row, col));
     const hovered = this.hover && this.hover.row === row && this.hover.col === col;
@@ -777,14 +784,32 @@ export class MapRenderer implements Stage {
     for (const id of this.burstStarts.keys()) if (!live.has(id)) this.burstStarts.delete(id);
   }
 
+  /** A stack as drawn this frame: its surface alone while F is held, so
+   *  everything stands at ground level. Everything that places a thing on
+   *  a tile reads this. */
+  private shown(row: number, col: number): string {
+    const stack = this.game.world.stackAt(row, col);
+    return this.flatten && stack !== VOID ? stack[stack.length - 1]! : stack;
+  }
+
+  /** How tall a layer is drawn: squashed while S is held. */
+  private get layerH(): number {
+    return this.shorten && !this.flatten ? SHORT_LAYER_H : LAYER_H;
+  }
+
+  /** How far a surface sinks (water), squashed along with the layers. */
+  private sink(palette: FacePalette): number {
+    return (palette.elev * this.layerH) / LAYER_H;
+  }
+
   /** Where a tile's top face sits, in design units. */
   private tileTop(cell: Cell): { x: number; y: number } | null {
-    const stack = this.game.world.stackAt(cell.row, cell.col);
+    const stack = this.shown(cell.row, cell.col);
     if (stack === VOID) return null;
     const palette = this.paletteFor(cell.row, stack[stack.length - 1] as TileLetter);
     return {
       x: projectX(cell.col, cell.row, this.camera, this.view),
-      y: projectY(cell.col, cell.row, this.camera, this.view) - (stack.length - 1) * LAYER_H - palette.elev,
+      y: projectY(cell.col, cell.row, this.camera, this.view) - (stack.length - 1) * this.layerH - this.sink(palette),
     };
   }
 
@@ -818,8 +843,8 @@ export class MapRenderer implements Stage {
     now: number,
   ): void {
     const ctx = this.ctx;
-    const ty = sy - (isTop ? palette.elev : 0);
-    const base = sy + LAYER_H;
+    const ty = sy - (isTop ? this.sink(palette) : 0);
+    const base = sy + this.layerH;
 
     ctx.fillStyle = palette.left;
     ctx.beginPath();
@@ -1074,11 +1099,12 @@ export class MapRenderer implements Stage {
     const world = this.game.world;
     const a = { row: Math.floor(pos.row), col: Math.floor(pos.col) };
     const b = { row: Math.ceil(pos.row), col: Math.ceil(pos.col) };
-    const ha = world.heightAt(a.row, a.col);
-    const hb = world.heightAt(b.row, b.col);
+    // As drawn: laid flat, every surface is the ground's.
+    const ha = this.flatten ? 1 : world.heightAt(a.row, a.col);
+    const hb = this.flatten ? 1 : world.heightAt(b.row, b.col);
     const mix = Math.max(pos.row - a.row, pos.col - a.col);
     const height = ha + (hb - ha) * mix;
-    return Math.max(0, height - 1) * LAYER_H;
+    return Math.max(0, height - 1) * this.layerH;
   }
 
   /* Chips are pixel-style like the HUD: a black outline, a flat fill, no
@@ -1219,11 +1245,11 @@ export class MapRenderer implements Stage {
   /** Screen position of the middle of a tile's top face, in client
    *  coordinates — where the HUD anchors a marked tile's tip. */
   tileTopOf(cell: Cell): { x: number; y: number } | null {
-    const stack = this.game.world.stackAt(cell.row, cell.col);
+    const stack = this.shown(cell.row, cell.col);
     if (stack === VOID) return null;
     const palette = this.paletteFor(cell.row, stack[stack.length - 1] as TileLetter);
     const sx = projectX(cell.col, cell.row, this.camera, this.view);
-    const sy = projectY(cell.col, cell.row, this.camera, this.view) - (stack.length - 1) * LAYER_H - palette.elev;
+    const sy = projectY(cell.col, cell.row, this.camera, this.view) - (stack.length - 1) * this.layerH - this.sink(palette);
     const rect = this.canvas.getBoundingClientRect();
     return { x: rect.left + sx * this.scale, y: rect.top + (sy - HH) * this.scale };
   }
