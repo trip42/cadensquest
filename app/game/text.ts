@@ -106,9 +106,17 @@ interface Numbered {
   kind: string;
 }
 
-/** Inside a burst, a Later's number is its rounds. */
-const roundsOfLater = (inner: SimpleEffect | LaterEffect): { kind: string; amount: Amount } =>
-  (isLater(inner) ? { kind: 'rounds', amount: inner.rounds } : inner);
+/** An effect's own number, as a token reads it: a mark's, a Later's or a
+ *  trail's rounds, a burst's radius, a summon's health, a boon's amount,
+ *  and otherwise the verb's amount. Inside a burst or a Later, each effect
+ *  offers this. */
+function numberOf(effect: Effect): Numbered {
+  if (isTerrain(effect) || isLater(effect) || isTrail(effect)) return { amount: effect.rounds, kind: 'rounds' };
+  if (isArea(effect)) return { amount: effect.radius, kind: 'radius' };
+  if (isSummon(effect)) return { amount: effect.amount, kind: 'health' };
+  if (isBoon(effect)) return { amount: effect.add ?? effect.mul ?? 0, kind: boonKind(effect.stat) };
+  return { amount: effect.amount, kind: effect.kind };
+}
 
 /** Every number a list of effects offers, by token: "1", "2.1". */
 function numbered(effects: readonly Effect[]): Map<string, Numbered> {
@@ -122,10 +130,10 @@ function numbered(effects: readonly Effect[]): Map<string, Numbered> {
       inside(markEffects(effect));
     } else if (isLater(effect)) {
       found.set(key, { amount: effect.rounds, kind: 'rounds' });
-      inside(effect.effects);
+      inside(effect.effects.map(numberOf));
     } else if (isArea(effect)) {
       found.set(key, { amount: effect.radius, kind: 'radius' });
-      inside(effect.effects.map(roundsOfLater));
+      inside(effect.effects.map(numberOf));
     } else if (isSummon(effect)) {
       found.set(key, { amount: effect.amount, kind: 'health' });
     } else if (isBoon(effect)) {
@@ -169,10 +177,10 @@ function liveNumbers(effects: readonly Effect[], start: AmountValues, bonuses: B
       inside(markEffects(effect));
     } else if (isLater(effect)) {
       found.set(key, amountOf(effect.rounds, values));
-      inside(effect.effects, undefined, false);
+      inside(effect.effects.map(numberOf), undefined, false);
     } else if (isArea(effect)) {
       found.set(key, effect.radius);
-      inside(effect.effects.map(roundsOfLater), { power: values.power, bonus: bonuses.damage });
+      inside(effect.effects.map(numberOf), { power: values.power, bonus: bonuses.damage });
     } else if (isSummon(effect)) {
       found.set(key, amountOf(effect.amount, values));
     } else if (isBoon(effect)) {

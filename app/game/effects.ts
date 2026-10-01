@@ -136,7 +136,7 @@ export const ELEMENTS: Element[] = ['fire', 'oil'];
 
 /** Every simple effect a burst carries, those inside a Later included. */
 export const burstEffects = (effect: AreaEffect): SimpleEffect[] =>
-  effect.effects.flatMap((inner) => (isLater(inner) ? inner.effects : [inner]));
+  effect.effects.flatMap((inner) => (isLater(inner) ? inner.effects.filter(isSimple) : [inner]));
 
 /** Every simple effect a mark carries: while on it, on entering, on leaving. */
 export const markEffects = (effect: TerrainEffect): SimpleEffect[] =>
@@ -199,8 +199,12 @@ export interface LaterEffect {
   kind: 'later';
   /** How many rounds from now. */
   rounds: Amount;
-  /** What lands on the actor then. Simple effects that can go on a tile. */
-  effects: SimpleEffect[];
+  /** What lands on the actor then, as if it played them itself, aiming at
+   *  nothing: verbs that can happen to a creature on its own tile (and
+   *  fire's rekindle and flare), or a summon beside it, a mark under it, a
+   *  burst around it, a boon, a trail, or another Later. See `laterVerb`
+   *  and `LATER_SHAPES`. */
+  effects: Effect[];
 }
 
 /* Boon: one of the player's stats raised for a few rounds, as if a
@@ -240,6 +244,51 @@ export const isTerrain = (effect: Effect): effect is TerrainEffect => effect.kin
 export const isSummon = (effect: Effect): effect is SummonEffect => effect.kind === 'summon';
 export const isArea = (effect: Effect): effect is AreaEffect => effect.kind === 'area';
 export const isLater = (effect: Effect): effect is LaterEffect => effect.kind === 'later';
+/** Not one of the shapes: a verb and an amount. */
+export const isSimple = (effect: Effect): effect is SimpleEffect =>
+  !['terrain', 'summon', 'area', 'later', 'boon', 'trail'].includes(effect.kind);
+
+/* What a Later can carry. It lands on its own, as a round begins, with no
+   card being played and nothing aimed at — so only what makes sense for a
+   creature acting on itself:
+     - a verb that can happen to a creature on its own tile (EFFECT_INFO's
+       `tile`), plus fire's rekindle and flare, which need nobody
+     - a summon (beside the summoner), a mark (under it), a burst (around
+       it), a boon, a trail, or another Later
+   Never a verb that aims (damage at a foe, knockback, tame, mend), moves
+   (leap, advance) or is about cards being played (echo, command). */
+export const laterVerb = (kind: EffectKind): boolean =>
+  EFFECT_INFO[kind].tile || kind === 'rekindle' || kind === 'flare';
+export const LATER_SHAPES = ['terrain', 'summon', 'area', 'later', 'boon', 'trail'] as const;
+export const canGoInLater = (kind: string): boolean =>
+  (LATER_SHAPES as readonly string[]).includes(kind) || (kind in EFFECT_INFO && laterVerb(kind as EffectKind));
+
+/** An effect with every amount in it worked out now — a Later keeps what
+ *  it will do fixed from the moment it is played, however things change
+ *  before it lands ("Fire X" keeps its X). */
+export function fixAmounts(effect: Effect, values: AmountValues): Effect {
+  const fix = (amount: Amount): number => amountOf(amount, values);
+  const fixSimple = (inner: SimpleEffect): SimpleEffect => ({ kind: inner.kind, amount: fix(inner.amount) });
+  const fixMark = (mark: TerrainEffect): TerrainEffect => ({
+    ...mark,
+    rounds: fix(mark.rounds),
+    effects: mark.effects.map(fixSimple),
+    ...(mark.enter ? { enter: mark.enter.map(fixSimple) } : {}),
+    ...(mark.exit ? { exit: mark.exit.map(fixSimple) } : {}),
+  });
+  if (isTerrain(effect)) return fixMark(effect);
+  if (isSummon(effect)) return { ...effect, amount: fix(effect.amount), ...(effect.rounds === undefined ? {} : { rounds: fix(effect.rounds) }) };
+  if (isArea(effect)) return { ...effect, effects: effect.effects.map((inner) => fixAmounts(inner, values) as SimpleEffect | LaterEffect) };
+  if (isLater(effect)) return { ...effect, rounds: fix(effect.rounds), effects: effect.effects.map((inner) => fixAmounts(inner, values)) };
+  if (isBoon(effect)) return { ...effect, rounds: fix(effect.rounds), ...(effect.add === undefined ? {} : { add: fix(effect.add) }) };
+  if (isTrail(effect)) return { ...effect, rounds: fix(effect.rounds), mark: fixMark(effect.mark) };
+  return fixSimple(effect);
+}
+
+/** What one effect of a Later will do when it lands, said plainly: "lose 2
+ *  power", "summon a bug with 5 health for 3 rounds". */
+export const describeLanding = (effect: Effect): string =>
+  (isSimple(effect) && EFFECT_INFO[effect.kind].tile ? describeTileEffect(effect) : describeEffect(effect));
 export const isBoon = (effect: Effect): effect is BoonEffect => effect.kind === 'boon';
 export const isTrail = (effect: Effect): effect is TrailEffect => effect.kind === 'trail';
 
@@ -416,7 +465,7 @@ export function nowText(effects: readonly Effect[], values: AmountValues, style:
       if (isLater(effect)) {
         const rounds = isScaled(effect.rounds) ? [style === 'short' ? `IN ${amounts[i]}` : `in ${amounts[i]} rounds`] : [];
         const inner = effect.effects
-          .filter((later) => isScaled(later.amount))
+          .filter((later): later is SimpleEffect => isSimple(later) && isScaled(later.amount))
           .map((later) => `${style === 'short' ? 'LATER' : 'later'} ${labels[later.kind]?.(amountOf(later.amount, values))}`);
         return [...rounds, ...inner];
       }
@@ -442,7 +491,7 @@ export const hasScaledAmount = (effects: readonly Effect[]): boolean =>
         : isArea(effect)
           ? effect.effects.some((inner) => (isLater(inner) ? hasScaledAmount([inner]) : isScaled(inner.amount)))
           : isLater(effect)
-            ? isScaled(effect.rounds) || effect.effects.some((inner) => isScaled(inner.amount))
+            ? isScaled(effect.rounds) || hasScaledAmount(effect.effects)
             : isBoon(effect)
               ? isScaled(effect.rounds) || (effect.add !== undefined && isScaled(effect.add))
               : isTrail(effect)
@@ -608,7 +657,7 @@ export function describeEffect(effect: Effect): string {
   }
   if (isLater(effect)) {
     const rounds = describeAmount(effect.rounds);
-    return `in ${rounds} round${rounds === '1' ? '' : 's'}: ${effect.effects.map(describeTileEffect).join(', ')}`;
+    return `in ${rounds} round${rounds === '1' ? '' : 's'}: ${effect.effects.map(describeLanding).join(', ')}`;
   }
   if (isTerrain(effect)) {
     const rounds = describeAmount(effect.rounds);

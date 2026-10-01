@@ -16,8 +16,8 @@ import { cardDef, cardMovement, energySpent, minimumCost } from './cards/definit
 import { intentDef } from './cards/intents';
 import type { CardDefinition, CardInstance } from './cards/types';
 import {
-  amountOf, type AmountValues, type AreaEffect, type BoonEffect, type Effect, FIRES_WITHIN, isArea, isBoon, isLater, isSummon,
-  isTerrain, isTrail, readsPower, type TrailEffect,
+  amountOf, type AmountValues, type AreaEffect, type BoonEffect, type Effect, EFFECT_INFO, FIRES_WITHIN, fixAmounts, isArea, isBoon,
+  isLater, isSimple, isSummon, isTerrain, isTrail, readsPower, type TrailEffect,
   type LaterEffect,
   type SimpleEffect, type SummonEffect, type TerrainEffect, type TileEffect, type TriggerPoint,
 } from './effects';
@@ -333,19 +333,40 @@ function losePower(state: GameState, entity: Entity, amount: number): void {
 function schedule(game: Game, effect: LaterEffect, play: Play): void {
   const { actor } = play;
   const values = amountValues(game.state, actor, play.x);
-  const effects = effect.effects.map((inner) => ({ kind: inner.kind, amount: amountOf(inner.amount, values) }));
-  scheduleOn(game, actor, amountOf(effect.rounds, values), effects);
+  const fixed = fixAmounts(effect, values) as LaterEffect;
+  scheduleOn(game, actor, fixed.rounds as number, fixed.effects);
 }
 
-/** Fixed effects to land on `actor` in `rounds` rounds — at once for 0. */
-function scheduleOn(game: Game, actor: Entity, rounds: number, effects: TileEffect[]): void {
+/** Effects, every amount fixed, to land on `actor` in `rounds` rounds — at
+ *  once for 0. */
+function scheduleOn(game: Game, actor: Entity, rounds: number, effects: Effect[]): void {
   const { state } = game;
   if (rounds <= 0) {
-    applyTo(game, actor, effects, 'later', actor);
+    landOn(game, actor, effects);
     return;
   }
   state.later.push({ id: nextUid('later'), actorId: actor.id, due: state.turn + rounds, effects });
   state.later.sort((a, b) => a.due - b.due);
+}
+
+/* What a Later does as it lands, as if its maker played it on itself,
+   aiming at nothing. A verb that can happen on a tile lands on the maker
+   (damage hurts it: a price paid later). Anything else is played as an
+   effect of a card with no target and no reach: a summon stands beside it,
+   a mark goes under it, a burst goes off around it; a boon, a trail, a
+   rekindle or a flare need no aim; and a Later inside is scheduled from
+   now. Its amounts were fixed when it was played. */
+function landOn(game: Game, actor: Entity, effects: readonly Effect[]): void {
+  for (const effect of effects) {
+    if (actor.dead) return;
+    if (isSimple(effect) && EFFECT_INFO[effect.kind].tile) {
+      // Fixed when played, so already a number.
+      applyTo(game, actor, [{ kind: effect.kind, amount: effect.amount as number }], 'later', actor);
+      continue;
+    }
+    const underfoot = isTerrain(effect) || isArea(effect);
+    resolveEffect(game, effect, { actor, target: underfoot ? entityCell(actor) : null, range: 0 });
+  }
 }
 
 /** As a round begins: land whatever is due, on whoever is still standing to
@@ -357,7 +378,7 @@ function landLater(game: Game): void {
   state.later = state.later.filter((entry) => entry.due > state.turn);
   for (const entry of due) {
     const actor = state.entities.find((entity) => entity.id === entry.actorId && !entity.dead);
-    if (actor) applyTo(game, actor, entry.effects, 'later', actor);
+    if (actor) landOn(game, actor, entry.effects);
   }
 }
 
@@ -930,9 +951,11 @@ function burst(game: Game, effect: AreaEffect, play: Play): void {
   // A Later inside is fixed now, from the caster, as it lands on each one
   // caught: its effects are theirs to take in due course, as if their own.
   const bonus = isPlayer ? stat(state, 'damageBonus') : 0;
-  const fix = (inner: SimpleEffect): TileEffect => ({ kind: inner.kind, amount: amountOf(inner.amount, values) });
-  const effects = effect.effects.map((inner): TileEffect | { later: true; rounds: number; effects: TileEffect[] } => {
-    if (isLater(inner)) return { later: true, rounds: amountOf(inner.rounds, values), effects: inner.effects.map(fix) };
+  const effects = effect.effects.map((inner): TileEffect | { later: true; rounds: number; effects: Effect[] } => {
+    if (isLater(inner)) {
+      const fixed = fixAmounts(inner, values) as LaterEffect;
+      return { later: true, rounds: fixed.rounds as number, effects: fixed.effects };
+    }
     const amount = amountOf(inner.amount, values);
     if (inner.kind === 'block') return { kind: inner.kind, amount: scaled(amount, play.blockMul) };
     return { kind: inner.kind, amount: inner.kind === 'damage' ? scaled(amount + bonus + (readsPower(inner.amount) ? 0 : actor.power), play.damageMul) : amount };

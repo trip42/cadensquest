@@ -44,7 +44,7 @@ import {
   upcomingIntents,
 } from '~/game/actions';
 import { cardDef, cardMovement } from '~/game/cards/definitions';
-import { describeMark, describeTileEffect, nowText, readsPower, type TileEffect } from '~/game/effects';
+import { describeLanding, describeMark, describeTileEffect, nowText, readsPower, type TileEffect } from '~/game/effects';
 import { joinText, mentions, type TextPart } from '~/game/text';
 import { cuesSince } from '~/game/cues';
 import { intentDef } from '~/game/cards/intents';
@@ -287,7 +287,7 @@ export const useGameStore = defineStore('game', () => {
       power: self.power,
       upcoming: state.later
         .filter((entry) => entry.actorId === state.playerId)
-        .map((entry) => ({ rounds: entry.due - state.turn, text: entry.effects.map(describeTileEffect).join(', ') })),
+        .map((entry) => ({ rounds: entry.due - state.turn, text: entry.effects.map(describeLanding).join(', ') })),
       allies: allies(state).map((ally) => ({
         id: ally.id,
         name: entityDef(ally.defId).name,

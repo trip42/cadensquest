@@ -19,7 +19,7 @@ import {
 } from '../app/game/actions';
 import { cardDef, cardMovement } from '../app/game/cards/definitions';
 import { intentDef } from '../app/game/cards/intents';
-import { amountOf, isArea, isSummon, isTerrain, readsPower } from '../app/game/effects';
+import { amountOf, isArea, isSimple, isSummon, isTerrain, readsPower } from '../app/game/effects';
 import type { Entity } from '../app/game/entities/types';
 import { GEM_SLOTS, gemDef, gemmedDef } from '../app/game/gems';
 import { type Cell, cellDistance, reachable } from '../app/game/map/navigation';
@@ -178,7 +178,11 @@ export function value(game: Game): number {
   // will be taken back is worth less than power kept.
   for (const entry of state.later) {
     if (entry.actorId !== state.playerId) continue;
-    for (const effect of entry.effects) {
+    // Amounts were fixed when played. Only verbs are weighed: a summon or
+    // a mark to come is left to be judged when it arrives.
+    for (const later of entry.effects) {
+      if (!isSimple(later)) continue;
+      const effect = { kind: later.kind, amount: later.amount as number };
       if (effect.kind === 'power') v += effect.amount * 2.5;
       else if (effect.kind === 'losePower') v -= Math.min(effect.amount, self.power) * 2.5;
       else if (effect.kind === 'damage') v -= effect.amount * 0.9;

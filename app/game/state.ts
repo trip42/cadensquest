@@ -12,7 +12,7 @@ import type { Entity } from "./entities/types";
 import { floorRows, START_ROW, surfaceKind } from "./map/tiles";
 import { World } from "./map/world";
 import { createRng, type Rng, shuffle } from "./rng";
-import type { Element, TerrainEffect, TileEffect } from "./effects";
+import type { Effect, Element, TerrainEffect, TileEffect } from "./effects";
 import { emptyTally, type GameEvent, record, type RunTally } from "./telemetry";
 import type { Reward } from "./rewards";
 import { resolveStat, type StatKey, type StatModifier } from "./stats";
@@ -66,7 +66,9 @@ export interface LaterEntry {
   actorId: string;
   /** The turn it goes off, as that turn begins. */
   due: number;
-  effects: TileEffect[];
+  /** What lands then, every amount a number: verbs on itself, or a summon,
+   *  mark, burst, boon, trail or Later played with no aim. */
+  effects: Effect[];
 }
 
 /** A stat raised for a few rounds: a boon, with its amount fixed. It is a

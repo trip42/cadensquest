@@ -11,7 +11,7 @@
    but are almost certainly a mistake. */
 
 import type { ZodError } from 'zod';
-import { AMOUNT_SOURCES, type AmountSource, BOON_INFO, EFFECT_INFO, type Effect, type EffectKind } from '../effects';
+import { AMOUNT_SOURCES, type AmountSource, BOON_INFO, canGoInLater, EFFECT_INFO, type Effect, type EffectKind } from '../effects';
 import { tokenProblems } from '../text';
 import { type AmountData, CONTENT_FILES, type Content, type ContentFile, type EffectData, FILE_SCHEMAS } from './schema';
 
@@ -105,7 +105,7 @@ function crossCheck(content: Content): ContentIssue[] {
 
   /** Every amount in a list of effects, with where it sits — a terrain
    *  effect's rounds and the amounts on its tile count too. */
-  const amountsIn = (effects: readonly EffectData[], at = 'effects') =>
+  const amountsIn = (effects: readonly EffectData[], at = 'effects'): Array<{ amount: AmountData; field: string }> =>
     effects.flatMap((effect, i): Array<{ amount: AmountData; field: string }> =>
       effect.kind === 'terrain'
         ? markAmounts(effect, `${at}[${i}]`)
@@ -120,13 +120,13 @@ function crossCheck(content: Content): ContentIssue[] {
             ? effect.effects.flatMap((inner, t) => (inner.kind === 'later'
               ? [
                 { amount: inner.rounds, field: `${at}[${i}].effects[${t}].rounds` },
-                ...inner.effects.map((later, l) => ({ amount: later.amount, field: `${at}[${i}].effects[${t}].effects[${l}].amount` })),
+                ...amountsIn(inner.effects, `${at}[${i}].effects[${t}].effects`),
               ]
               : [{ amount: inner.amount, field: `${at}[${i}].effects[${t}].amount` }]))
             : effect.kind === 'later'
               ? [
                 { amount: effect.rounds, field: `${at}[${i}].rounds` },
-                ...effect.effects.map((inner, t) => ({ amount: inner.amount, field: `${at}[${i}].effects[${t}].amount` })),
+                ...amountsIn(effect.effects, `${at}[${i}].effects`),
               ]
               : effect.kind === 'boon'
                 ? [
@@ -135,31 +135,55 @@ function crossCheck(content: Content): ContentIssue[] {
                 ]
                 : [{ amount: effect.amount, field: `${at}[${i}].amount` }]);
 
+  /** Every effect inside a Later — on its own, in a burst, or in another
+   *  Later — with where it sits, so checks made on a card's own effects are
+   *  made on these too. */
+  const insideLaters = (effects: readonly EffectData[], at = 'effects'): Array<{ effect: EffectData; field: string }> =>
+    effects.flatMap((effect, i) => {
+      const laters = effect.kind === 'later' ? [{ later: effect, here: `${at}[${i}]` }]
+        : effect.kind === 'area'
+          ? effect.effects.flatMap((inner, t) => (inner.kind === 'later' ? [{ later: inner, here: `${at}[${i}].effects[${t}]` }] : []))
+          : [];
+      return laters.flatMap(({ later, here }) => [
+        ...later.effects.map((inner, l) => ({ effect: inner, field: `${here}.effects[${l}]` })),
+        ...insideLaters(later.effects, `${here}.effects`),
+      ]);
+    });
+
   const scaledOf = (amount: AmountData) => (typeof amount === 'object' ? amount.of : null);
   const usesX = (effects: readonly EffectData[]) => amountsIn(effects).some(({ amount }) => scaledOf(amount) === 'x');
 
   /** A marked tile can only carry verbs that mean something on a tile. */
   /** A burst, and a Later, land their effects the same way, so the same
    *  verbs. */
-  const checkTiles = (file: ContentFile, id: string, effects: readonly EffectData[], at = 'effects') => {
+  /* A Later holds what can land with nothing aimed at (`canGoInLater`); a
+     mark, burst or trail inside it is then checked like any other. */
+  const checkLater = (file: ContentFile, id: string, later: Extract<EffectData, { kind: 'later' }>, here: string) => {
+    later.effects.forEach((inner, l) => {
+      if (!canGoInLater(inner.kind)) {
+        error(file, id, `${labelOf(inner.kind)} cannot go in a Later — it lands with nothing aimed at`, `${here}.effects[${l}].kind`);
+      }
+    });
+    checkTiles(file, id, later.effects, `${here}.effects`);
+  };
+  const checkTiles = (file: ContentFile, id: string, effects: readonly EffectData[], at = 'effects'): void => {
     effects.forEach((outer, i) => {
+      if (outer.kind === 'later') {
+        checkLater(file, id, outer, `${at}[${i}]`);
+        return;
+      }
       // A trail's mark is checked as any other mark.
       const effect = outer.kind === 'trail' ? outer.mark : outer;
       const here = outer.kind === 'trail' ? `${at}[${i}].mark` : `${at}[${i}]`;
-      if (effect.kind !== 'terrain' && effect.kind !== 'area' && effect.kind !== 'later') return;
-      const where = effect.kind === 'area' ? 'in a burst' : effect.kind === 'later' ? 'in a Later' : 'on a tile';
+      if (effect.kind !== 'terrain' && effect.kind !== 'area') return;
+      const where = effect.kind === 'area' ? 'in a burst' : 'on a tile';
       const lists = effect.kind === 'terrain' ? (['effects', 'enter', 'exit'] as const) : (['effects'] as const);
       for (const list of lists) {
         const items = (effect as { [key: string]: unknown })[list] as Array<{ kind: string; effects?: Array<{ kind: EffectKind }> }> | undefined;
         (items ?? []).forEach((tile, t) => {
-          // A burst may carry a Later, which lands on each one caught; what
-          // is inside it must be able to land on a creature, too.
+          // A burst may carry a Later, which lands on each one caught.
           if (tile.kind === 'later') {
-            tile.effects?.forEach((later, l) => {
-              if (!EFFECT_INFO[later.kind].tile) {
-                error(file, id, `${EFFECT_INFO[later.kind].label} cannot go in a Later`, `${here}.${list}[${t}].effects[${l}].kind`);
-              }
-            });
+            checkLater(file, id, tile as Extract<EffectData, { kind: 'later' }>, `${here}.${list}[${t}]`);
             return;
           }
           if (!EFFECT_INFO[tile.kind as EffectKind].tile) {
@@ -176,9 +200,10 @@ function crossCheck(content: Content): ContentIssue[] {
   /** A summon names an enemy that exists, is not a guardian, and is not
    *  disabled while the thing summoning it is enabled. */
   const checkSummons = (file: ContentFile, id: string, enabled: boolean, effects: readonly EffectData[], at = 'effects') => {
-    effects.forEach((effect, i) => {
+    const all = [...effects.map((effect, i) => ({ effect, field: `${at}[${i}]` })), ...insideLaters(effects, at)];
+    all.forEach(({ effect, field: where }) => {
       if (effect.kind !== 'summon') return;
-      const field = `${at}[${i}].entity`;
+      const field = `${where}.entity`;
       const creature = enemies.get(effect.entity);
       if (!creature) return error(file, id, `it summons "${effect.entity}", which is not an enemy`, field);
       if (creature.guardian) return error(file, id, `"${effect.entity}" is a guardian, which cannot be summoned`, field);
@@ -194,9 +219,10 @@ function crossCheck(content: Content): ContentIssue[] {
 
   /** A boon has to raise its stat somehow. */
   const checkBoons = (file: ContentFile, id: string, effects: readonly EffectData[], at = 'effects') => {
-    effects.forEach((effect, i) => {
+    const all = [...effects.map((effect, i) => ({ effect, field: `${at}[${i}]` })), ...insideLaters(effects, at)];
+    all.forEach(({ effect, field }) => {
       if (effect.kind === 'boon' && effect.add === undefined && effect.mul === undefined) {
-        error(file, id, 'a boon needs an amount to add or a number to multiply by', `${at}[${i}]`);
+        error(file, id, 'a boon needs an amount to add or a number to multiply by', field);
       }
     });
   };
@@ -224,6 +250,9 @@ function crossCheck(content: Content): ContentIssue[] {
       if (card.cost !== 'X' && scaledOf(amount) === 'x') {
         warn('cards', card.id, 'X is the energy an X card spends — on this card it is always 0', field);
       }
+    }
+    for (const { effect, field } of insideLaters(card.effects)) {
+      if (offSide(effect.kind, 'player')) warn('cards', card.id, `${labelOf(effect.kind)} does nothing on a player card`, `${field}.kind`);
     }
     card.effects.forEach((effect, i) => {
       if (offSide(effect.kind, 'player')) {
@@ -263,6 +292,9 @@ function crossCheck(content: Content): ContentIssue[] {
 
   // Enemy cards.
   for (const card of content['enemy-cards']) {
+    for (const { effect, field } of insideLaters(card.effects)) {
+      if (offSide(effect.kind, 'enemy')) warn('enemy-cards', card.id, `${labelOf(effect.kind)} does nothing for an enemy`, `${field}.kind`);
+    }
     card.effects.forEach((effect, i) => {
       if (offSide(effect.kind, 'enemy')) {
         warn('enemy-cards', card.id, `${labelOf(effect.kind)} does nothing for an enemy`, `effects[${i}].kind`);

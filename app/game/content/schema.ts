@@ -60,11 +60,15 @@ export const terrainEffectSchema = z.strictObject({
 });
 
 /** Effects that land on whoever played it, `rounds` rounds from now, with
- *  amounts fixed when played. */
+ *  amounts fixed when played. Any effect, by shape — the validator keeps
+ *  out what cannot land with nothing aimed at (`canGoInLater`). A getter,
+ *  because a Later can hold a Later, and a burst that holds one too. */
 export const laterEffectSchema = z.strictObject({
   kind: z.literal('later'),
   rounds: amountSchema,
-  effects: z.array(simpleEffectSchema).min(1, 'needs at least one effect'),
+  get effects(): z.ZodArray<typeof effectSchema> {
+    return z.array(effectSchema).min(1, 'needs at least one effect');
+  },
 });
 
 /** A burst on the target tile: everyone within `radius` steps gets

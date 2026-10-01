@@ -3,7 +3,7 @@ import { beginTurn, endPlayerPhase, enterFloor, MIN_DECK, playCard, removeCardRe
 import { CARDS } from '~/game/cards/definitions';
 import { INTENTS } from '~/game/cards/intents';
 import type { CardDefinition } from '~/game/cards/types';
-import { loadContent } from '~/game/content';
+import { loadContent, validateContent } from '~/game/content';
 import type { Effect } from '~/game/effects';
 import { entityDef, GUARDIAN_IDS } from '~/game/entities/definitions';
 import { rollReward } from '~/game/rewards';
@@ -73,7 +73,7 @@ describe('a Later', () => {
     beginTurn(game);
     // What the card says it costs, whatever that is tuned to.
     const bill = CARDS.blood_pact!.effects.flatMap((effect) => (effect.kind === 'later' ? effect.effects : []))
-      .find((effect) => effect.kind === 'damage')!.amount as number;
+      .find((effect): effect is { kind: 'damage'; amount: number } => effect.kind === 'damage')!.amount;
     expect(self.hp).toBe(hp - bill);
     expect(self.power).toBe(3);
   });
@@ -243,3 +243,110 @@ describe('a Later inside a burst', () => {
       .toBe('Burst around you: each of your side within 2 deals 2 more damage for 2 rounds.');
   });
 });
+
+describe('a Later that summons, marks, bursts and more', () => {
+  const later = (rounds: number, effects: Effect[]): Effect => ({ kind: 'later', rounds, effects });
+
+  it('summons beside its maker when it lands, as the round begins', () => {
+    const game = quiet();
+    const self = player(game.state);
+    define('eggs_later', [later(2, [{ kind: 'summon', entity: 'bug', amount: 5, rounds: 3 }])]);
+    play(game, 'eggs_later');
+    beginTurn(game);
+    expect(game.state.entities.filter((entity) => entity.defId === 'bug')).toHaveLength(0);
+    beginTurn(game);
+    const bugs = game.state.entities.filter((entity) => entity.defId === 'bug');
+    expect(bugs).toHaveLength(1);
+    expect(bugs[0]).toMatchObject({ faction: 'ally', summonedBy: self.id, hp: 5, expires: 3 });
+  });
+
+  it('works for an enemy: its eggs hatch on its side', () => {
+    const game = quiet();
+    const self = player(game.state);
+    const spider = makeEntity('spider', self.row + 4, self.col);
+    game.state.entities.push(spider);
+    INTENTS.test_eggs = {
+      id: 'test_eggs', name: 'Lay Eggs', enabled: true, range: 1, text: '',
+      effects: [later(1, [{ kind: 'summon', entity: 'bug', amount: 4, rounds: 2 }])],
+    } as never;
+    spider.engaged = true;
+    spider.intent = { cardId: 'test_eggs', label: 'Lay Eggs' };
+    game.state.hand = [];
+    endPlayerPhase(game);
+    for (let i = 0; i < 6000 && game.state.phase === 'enemy'; i += 1) tick(game, 1 / 60);
+    // The enemy phase ended and a round began: the eggs hatched.
+    const bugs = game.state.entities.filter((entity) => entity.defId === 'bug');
+    expect(bugs).toHaveLength(1);
+    expect(bugs[0]).toMatchObject({ faction: 'enemy', summonedBy: spider.id, hp: 4 });
+  });
+
+  it('fixes a summon\'s amounts when played: X spent now is the health then', () => {
+    const game = quiet();
+    game.state.energy = 3;
+    define('x_eggs', [later(1, [{ kind: 'summon', entity: 'bug', amount: { of: 'x' } }])], { cost: 'X' });
+    play(game, 'x_eggs');
+    beginTurn(game);
+    expect(game.state.entities.find((entity) => entity.defId === 'bug')?.hp).toBe(3);
+  });
+
+  it('marks the tile under its maker, and bursts around it', () => {
+    const game = quiet();
+    const self = player(game.state);
+    const wolf = makeEntity('wolf', self.row + 1, self.col);
+    game.state.entities.push(wolf);
+    define('slow_fuse', [later(1, [
+      { kind: 'terrain', rounds: 2, colour: '#feae34', effects: [{ kind: 'block', amount: 2 }] },
+      { kind: 'area', radius: 1, colour: '#feae34', affects: 'foes', effects: [{ kind: 'damage', amount: 4 }] },
+    ])]);
+    play(game, 'slow_fuse');
+    expect(terrainCount(game)).toBe(0);
+    beginTurn(game);
+    // He stood still, so the mark is under him; the wolf beside him is caught.
+    expect(game.state.terrain[`${self.row},${self.col}`]?.length).toBe(1);
+    expect(wolf.hp).toBe(wolf.maxHp - 4);
+  });
+
+  it('grants a boon, and can hold another Later', () => {
+    const game = quiet();
+    const self = player(game.state);
+    const base = stat(game.state, 'damageBonus');
+    define('slow_boon', [later(1, [
+      { kind: 'boon', stat: 'damageBonus', add: 2, rounds: 2 },
+      later(1, [{ kind: 'power', amount: 3 }]),
+    ])]);
+    play(game, 'slow_boon');
+    beginTurn(game);
+    expect(stat(game.state, 'damageBonus')).toBe(base + 2);
+    expect(self.power).toBe(0);
+    beginTurn(game);
+    expect(self.power).toBe(3);
+  });
+
+  it('describes what is coming in the HUD\'s words', () => {
+    const game = quiet();
+    define('eggs_later', [later(2, [{ kind: 'summon', entity: 'bug', amount: 5, rounds: 3 }])]);
+    play(game, 'eggs_later');
+    expect(game.state.later[0]!.effects[0]).toMatchObject({ kind: 'summon', amount: 5, rounds: 3 });
+  });
+
+  it('writes its card text from the effects', () => {
+    const text = writeCardText([later(2, [{ kind: 'summon', entity: 'bug', amount: 5, rounds: 3 }])] as never, 0, 'player', 'self');
+    expect(text).toMatch(/^In 2 rounds, summon .*bug/i);
+    const theirs = writeCardText([later(1, [{ kind: 'summon', entity: 'bug', amount: 4 }])] as never, 1, 'enemy');
+    expect(theirs).toMatch(/^Next round, calls .*bug/i);
+  });
+
+  it('refuses what needs something to aim at', () => {
+    const content = structuredClone(readContentFiles()) as { cards: Array<Record<string, unknown>> };
+    content.cards.push({
+      id: 'bad_later', name: 'Bad Later', enabled: true, rarity: 'rare', cost: 1, targeting: 'self', range: 0, text: '',
+      effects: [later(1, [{ kind: 'tame', amount: 5 }, { kind: 'push', amount: 2 }, { kind: 'summon', entity: 'bug', amount: 3 }])],
+    });
+    const issues = validateContent(content as never).issues.filter((issue) => issue.level === 'error' && issue.id === 'bad_later');
+    expect(issues.map((issue) => issue.field)).toEqual(['effects[0].effects[0].kind', 'effects[0].effects[1].kind']);
+  });
+});
+
+function terrainCount(game: Game): number {
+  return Object.keys(game.state.terrain).length;
+}

@@ -26,7 +26,8 @@ function setX(on: boolean): void {
   props.item.cost = 'X';
   const isX = (amount: unknown) => typeof amount === 'object' && (amount as { of: string }).of === 'x';
   const usesX = props.item.effects.some((effect) =>
-    effect.kind === 'terrain' || effect.kind === 'later' ? isX(effect.rounds) || effect.effects.some((tile) => isX(tile.amount))
+    effect.kind === 'terrain' ? isX(effect.rounds) || effect.effects.some((tile) => isX(tile.amount))
+      : effect.kind === 'later' ? isX(effect.rounds) || effect.effects.some((inner) => 'amount' in inner && isX(inner.amount))
       : effect.kind === 'area' ? effect.effects.some((inner) => ('amount' in inner ? isX(inner.amount) : isX(inner.rounds)))
         : effect.kind === 'boon' ? isX(effect.rounds) || isX(effect.add)
         : effect.kind === 'trail' ? isX(effect.rounds) || isX(effect.mark.rounds) || effect.mark.effects.some((tile) => isX(tile.amount))
@@ -36,7 +37,10 @@ function setX(on: boolean): void {
   // A terrain card usually wants X rounds; a burst X of its first effect;
   // anything else X of itself.
   if (first.kind === 'terrain') first.rounds = { of: 'x' };
-  else if (first.kind === 'later') { if (first.effects[0]) first.effects[0].amount = { of: 'x' }; }
+  else if (first.kind === 'later') {
+    const inner = first.effects[0];
+    if (inner && 'amount' in inner) inner.amount = { of: 'x' };
+  }
   else if (first.kind === 'area') {
     const inner = first.effects[0];
     if (inner && 'amount' in inner) inner.amount = { of: 'x' };

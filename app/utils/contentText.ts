@@ -61,7 +61,8 @@ function burstPhrase(effects: AreaData['effects'], owner: string): string {
   const taken = new Set<number>();
   const parts = effects.map((inner, i) => {
     if (taken.has(i)) return '';
-    if (inner.kind === 'later') return `${whenPhrase(inner.rounds as Amount)}, ${tilePhrase(inner.effects, owner)}`;
+    // Each one caught takes the Later on itself: third person, like an enemy's.
+    if (inner.kind === 'later') return `${whenPhrase(inner.rounds as Amount)}, ${inner.effects.map((later) => enemyLaterPart(later, byId, owner)).join(' and ')}`;
     if (inner.kind === 'power') {
       const back = effects.findIndex((later, j) => j > i && later.kind === 'later' && later.effects.length === 1
         && later.effects[0]!.kind === 'losePower' && JSON.stringify(later.effects[0]!.amount) === JSON.stringify(inner.amount));
@@ -91,7 +92,7 @@ function summonedPhrase(effect: SummonData, nameOf: NameOf, where = ''): string 
   return `${article(nameOf(effect.entity))}${where} with ${health} health${rounds}`;
 }
 type TerrainData = Extract<EffectData, { kind: 'terrain' }>;
-import { type Amount, describeAmount, isScaled } from '~/game/effects';
+import { type Amount, describeAmount, EFFECT_INFO, isScaled } from '~/game/effects';
 import { STAT_NAMES } from '~/game/stats';
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -185,9 +186,14 @@ function whenPhrase(rounds: Amount): string {
   return n === '1' ? 'next round' : `in ${n} rounds`;
 }
 
-/** What a Later does, said to the player: "in 2 rounds, lose 2 power". */
-function laterPhrase(effect: LaterData): string {
+/** What a Later does, said to the player: "in 2 rounds, lose 2 power".
+ *  Anything but a verb on yourself is said as a card aimed at your own
+ *  tile would say it: "summon a Bug", "burst around you". */
+function laterPhrase(effect: LaterData, nameOf: NameOf = byId): string {
   const what = effect.effects.map((inner) => {
+    if (!('amount' in inner) || inner.kind === 'summon' || !EFFECT_INFO[inner.kind].tile) {
+      return playerPhrase(inner, 0, 'self', false, nameOf);
+    }
     const n = describeAmount(inner.amount as Amount, 'your');
     switch (inner.kind) {
       case 'damage': return `take ${n} damage`;
@@ -209,7 +215,7 @@ function laterPhrase(effect: LaterData): string {
 function playerPhrase(
   effect: EffectData, range: number, targeting?: Targeting, afterTame = false, nameOf: NameOf = byId, mentioned = false,
 ): string {
-  if (effect.kind === 'later') return laterPhrase(effect);
+  if (effect.kind === 'later') return laterPhrase(effect, nameOf);
   if (effect.kind === 'boon') return boonPhrase(effect);
   if (effect.kind === 'trail') {
     const rounds = describeAmount(effect.rounds as Amount);
@@ -300,6 +306,19 @@ function simplePlayerPhrase(effect: SimpleData, range: number): string {
   }
 }
 
+/* One thing an enemy's Later does as it lands, aimed at nothing: on itself,
+   beside it, under it or around it. */
+function enemyLaterPart(inner: EffectData, nameOf: NameOf, owner = 'its'): string {
+  if (inner.kind === 'summon') return `calls ${summonedPhrase(inner, nameOf)}`;
+  if (inner.kind === 'terrain') {
+    const area = inner.radius ? ` and every tile within ${inner.radius} of it` : '';
+    return `marks its own tile${area} ${roundsPhrase(inner)}: ${markPhrase(inner, 'its')}`;
+  }
+  if (inner.kind === 'area') return `bursts around itself: ${caughtPhrase(inner, 'its')}`;
+  if ('amount' in inner && EFFECT_INFO[inner.kind].tile) return tilePhrase([inner], owner);
+  return enemyPhrase(inner, 0, nameOf);
+}
+
 function enemyPhrase(effect: EffectData, range: number, nameOf: NameOf = byId): string {
   if (effect.kind === 'summon') return `calls ${summonedPhrase(effect, nameOf)}`;
   if (effect.kind === 'terrain') {
@@ -308,7 +327,7 @@ function enemyPhrase(effect: EffectData, range: number, nameOf: NameOf = byId): 
     return `marks its target's tile${area} ${roundsPhrase(effect)}: ${markPhrase(effect, 'its')}`;
   }
   if (effect.kind === 'area') return `bursts at its target's tile: ${caughtPhrase(effect, 'its')}`;
-  if (effect.kind === 'later') return `${whenPhrase(effect.rounds as Amount)}, ${tilePhrase(effect.effects, 'its')}`;
+  if (effect.kind === 'later') return `${whenPhrase(effect.rounds as Amount)}, ${effect.effects.map((inner) => enemyLaterPart(inner, nameOf)).join(' and ')}`;
   // An enemy has no stats to raise; the validator warns.
   if (effect.kind === 'boon') return 'does nothing';
   if (effect.kind === 'trail') {

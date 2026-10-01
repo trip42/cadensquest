@@ -11,7 +11,8 @@
 import { computed } from 'vue';
 import type { ContentIssue, EffectData } from '~/game/content';
 import {
-  AREA_INFO, BOON_INFO, EFFECT_INFO, EFFECT_KINDS, type EffectKind, ELEMENTS, LATER_INFO, SUMMON_INFO, TERRAIN_INFO, TRAIL_INFO,
+  AREA_INFO, BOON_INFO, EFFECT_INFO, EFFECT_KINDS, type EffectKind, ELEMENTS, LATER_INFO, laterVerb, SUMMON_INFO, TERRAIN_INFO,
+  TRAIL_INFO,
 } from '~/game/effects';
 import { STAT_KEYS, STAT_NAMES } from '~/game/stats';
 import { useEditorStore } from '~/stores/editor';
@@ -23,6 +24,9 @@ const props = defineProps<{
   onTile?: boolean;
   /** A burst's effects: tile verbs, and a Later each one caught takes. */
   inBurst?: boolean;
+  /** A Later's effects: what can land with nothing aimed at — verbs on
+   *  oneself, and a summon, mark, burst, boon, trail or Later. */
+  inLater?: boolean;
   /** Issues for the item, to flag the rows they point at. */
   issues?: ContentIssue[];
   /** Where these effects sit inside the item, for matching issues. */
@@ -30,7 +34,8 @@ const props = defineProps<{
 }>();
 
 const at = (index: number) => `${props.path ?? 'effects'}[${index}]`;
-const kinds = props.onTile ? EFFECT_KINDS.filter((kind) => EFFECT_INFO[kind].tile) : EFFECT_KINDS;
+const kinds = props.inLater ? EFFECT_KINDS.filter(laterVerb)
+  : props.onTile ? EFFECT_KINDS.filter((kind) => EFFECT_INFO[kind].tile) : EFFECT_KINDS;
 const info = (kind: string) =>
   kind === 'terrain' ? { ...TERRAIN_INFO, player: true, enemy: true, tile: false }
     : kind === 'summon' ? { ...SUMMON_INFO, player: true, enemy: true, tile: false }
@@ -270,8 +275,8 @@ function move(index: number, by: number): void {
         <EditorEffectList :effects="effect.mark.effects" :side="side" on-tile :issues="issues" :path="`${at(index)}.mark.effects`" />
       </div>
       <div v-if="effect.kind === 'later'" class="tile-effects">
-        <span class="tile-label">Then, on {{ side === 'player' ? 'you' : 'it' }}:</span>
-        <EditorEffectList :effects="effect.effects" :side="side" on-tile :issues="issues" :path="`${at(index)}.effects`" />
+        <span class="tile-label">Then, on {{ side === 'player' ? 'you' : 'it' }} — or beside, under or around {{ side === 'player' ? 'you' : 'it' }}, aimed at nothing:</span>
+        <EditorEffectList :effects="effect.effects" :side="side" in-later :issues="issues" :path="`${at(index)}.effects`" />
       </div>
       <div v-if="effect.kind === 'area'" class="tile-effects">
         <span class="tile-label">Each creature caught:</span>

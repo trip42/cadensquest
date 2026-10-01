@@ -509,5 +509,32 @@
         "amount": 7
       }
     ]
+  },
+  {
+    "id": "broodmother_eggs",
+    "name": "Lay Eggs",
+    "enabled": true,
+    "range": 2,
+    "text": "Lays eggs that hatch in {1} rounds: two Bugs with {1.1} health each.",
+    "effects": [
+      {
+        "kind": "later",
+        "rounds": 2,
+        "effects": [
+          {
+            "kind": "summon",
+            "entity": "bug",
+            "amount": 4,
+            "rounds": 4
+          },
+          {
+            "kind": "summon",
+            "entity": "bug",
+            "amount": 4,
+            "rounds": 4
+          }
+        ]
+      }
+    ]
   }
 ]

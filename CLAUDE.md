@@ -715,14 +715,33 @@ both times read the same X; `cardPlayed` triggers fire once. The hand's
 live numbers do not show the doubling.
 
 **Later, and power that lasts.** A Later's effects land on whoever played
-it `rounds` rounds from now, as if it played them on itself then. It goes
-through `applyTo`, like a tile under its own feet, so only tile-capable
-verbs may go inside.
+it `rounds` rounds from now, as if it played them itself then — **aiming at
+nothing**. That is the whole rule for what may go inside (`canGoInLater`,
+checked by the validator and offered by the editor's `in-later` list):
 
-- **Amounts and rounds are fixed when played.** They're stored with the
-  amounts resolved in `state.later`, as `LaterEntry`s. "Gain X power; in 2
-  rounds lose X power" takes back exactly the X it gave, however power
-  changed in between.
+- **Verbs that happen to a creature on its own tile** (`EFFECT_INFO.tile`:
+  damage to itself, block, thorns, heal, power, energy, draw…) go through
+  `applyTo`, like a mark under its feet. So do rekindle and flare, which
+  need nobody (`laterVerb`).
+- **Shapes that need no aim:** a summon (stands beside the maker, as a
+  summon with no target does), a mark (under the maker), a burst (around
+  the maker), a boon, a trail, or another Later. `landOn` plays these
+  through `resolveEffect` with a `Play` of the actor alone: target its own
+  tile for a mark or burst, otherwise none, and no reach.
+- **Never** what aims (damage at a foe, knockback, pull, tame, mend), moves
+  (leap, advance) or is about cards being played (echo, command). Allowing
+  those needs a rule for what they aim at when they land — re-aim at the
+  nearest foe in reach, as enemies do, was the suggestion — and was left
+  for later on purpose.
+
+The Broodmother's Lay Eggs is the example: in 2 rounds, two Bugs hatch.
+
+- **Amounts and rounds are fixed when played** — every amount in every
+  shape, nested ones too (`fixAmounts`) — and stored whole in
+  `state.later`, as `LaterEntry`s. "Gain X power; in 2 rounds lose X power"
+  takes back exactly the X it gave, however power changed in between, and a
+  summon's X health is the X spent when the card was played. A burst's
+  Later is fixed from the caster and scheduled on each creature caught.
 - **When it lands.** `landLater` runs in `beginTurn` **after** block, energy
   and the hand are refreshed, so a delayed block or energy is not wiped. 0
   rounds lands at once.
