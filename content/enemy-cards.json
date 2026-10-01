@@ -474,14 +474,18 @@
   },
   {
     "id": "ironshell_shell",
-    "name": "Shell",
+    "name": "Spiked Shell",
     "enabled": true,
     "range": 1,
-    "text": "Gains {1} block and creeps {2} closer.",
+    "text": "Gains {1} block and {2} thorns, and creeps {3} closer.",
     "effects": [
       {
         "kind": "block",
         "amount": 10
+      },
+      {
+        "kind": "thorns",
+        "amount": 5
       },
       {
         "kind": "advance",
