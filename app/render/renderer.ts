@@ -13,7 +13,7 @@ import { tick } from '../game/actions';
 import { entityDef } from '../game/entities/definitions';
 import type { Entity } from '../game/entities/types';
 import type { Cell } from '../game/map/navigation';
-import { KIND_OF, type FacePalette, LAYOUT, type TileKind, type TileLetter, VOID, ZONES } from '../game/map/tiles';
+import { floorRows, KIND_OF, type FacePalette, LAYOUT, type TileKind, type TileLetter, VOID, ZONES } from '../game/map/tiles';
 import type { Game, TerrainLayer } from '../game/state';
 import {
   type Camera,
@@ -350,7 +350,16 @@ export class MapRenderer implements Stage {
     if (!self) return;
 
     if (this.tour) {
-      this.tour.row += this.tour.speed * dt;
+      // Keep the whole screen on the floor: past its first and last rows
+      // there is nothing to draw, so the drift starts a screen's reach in
+      // and stops a screen's reach short of the end.
+      const { first, last } = floorRows(state.floor);
+      const above = Math.ceil((this.view.height * this.camera.focusY) / HH) + 7;
+      const below = Math.ceil((this.view.height * (1 - this.camera.focusY)) / HH) + 5
+        + Math.ceil((LAYOUT.maxStack * LAYER_H) / HH);
+      const lo = first + above;
+      const hi = last - below;
+      this.tour.row = lo > hi ? (first + last) / 2 : Math.min(hi, Math.max(lo, this.tour.row + this.tour.speed * dt));
       this.camera.row = this.tour.row;
       this.camera.col = this.tour.col;
       return;

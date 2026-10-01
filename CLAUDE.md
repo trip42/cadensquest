@@ -332,7 +332,10 @@ Try it and bug-report links work as before.
 - **The renderer's `tour`** drifts the camera down that floor from a few
   rows before one of its enemies (`TOUR_SPEED`, 0.7 rows a second). While it
   is set, Caden is not drawn, neither are the bars and chips, and `pick`
-  returns nothing.
+  returns nothing. The drift is clamped a screen's reach inside the floor
+  (the rows above and below the focus, plus the tallest stack), since past
+  its first and last rows there is only open air — unclamped, it drifted
+  off the end of the floor into nothing.
 - **Every 8 seconds** the page fades to dark and swaps in another floor.
   Each world is a new `store.run`, so `MapStage` remounts.
 - **START** is `store.start()`: a fresh run on the first floor.
