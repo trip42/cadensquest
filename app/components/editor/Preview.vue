@@ -16,6 +16,9 @@ import type { GemDefinition } from '~/game/gems';
 import { printedParts, printedText } from '~/game/text';
 import { describeModifier, type StatModifier } from '~/game/stats';
 import { glyph } from '~/render/glyphs';
+// By hand: a dev server started before this component existed would not
+// find it by auto-import (see CLAUDE.md).
+import ZoneMap from './ZoneMap.vue';
 
 const props = defineProps<{
   file: ContentFile;
@@ -346,6 +349,7 @@ watch(() => [card.value?.name, card.value?.text, cardNow.value], measure);
         </svg>
       </div>
       <p class="caption">{{ zone.chunks.length }} chunk{{ zone.chunks.length === 1 ? '' : 's' }}, {{ zone.chunks.length * 16 }} rows</p>
+      <ZoneMap :zone-id="zone.id" />
       <div v-for="chunk in zoneChunks" :key="chunk.index" class="panel note">
         <p class="note-title">Chunk {{ chunk.index + 1 }} — {{ chunk.density }} enemies</p>
         <div class="roster">

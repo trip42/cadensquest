@@ -40,7 +40,7 @@ import {
   pathCost,
   reachable,
 } from './map/navigation';
-import { chunkOfFloor, floorRows, LAYOUT, surfaceKind, ZONES } from './map/tiles';
+import { chunkOfFloor, floorRows, LAYOUT, START_ROW, surfaceKind, ZONES } from './map/tiles';
 import { chunkIndexForRow } from './map/world';
 import { rollDrop } from './rewards';
 import { describeModifier, resolveStat } from './stats';
@@ -1633,6 +1633,23 @@ export function enterFloor(game: Game, floor: number): void {
   state.trails = state.trails.filter((trail) => state.entities.some((entity) => entity.id === trail.actorId));
   state.queue = [];
   state.descending = false;
+}
+
+/** Start a run's play on a given floor — and, for a look at its later
+ *  stretches, at the start of one of its chunks (from 1) — as a fresh first
+ *  turn. For trying a zone out; the hand already dealt is kept. */
+export function startOnFloor(game: Game, floor: number, chunk = 1): void {
+  const { state, world } = game;
+  enterFloor(game, floor);
+  if (chunk > 1) {
+    const row = floorRows(floor).first + (chunk - 1) * CHUNK_ROWS + START_ROW;
+    const cols = Array.from({ length: world.width }, (_, col) => col).filter((col) => world.walkable(row, col));
+    const onTrail = cols.filter((col) => surfaceKind(world.stackAt(row, col)) === 'trail');
+    const choices = onTrail.length ? onTrail : cols;
+    if (choices.length) settleOn(player(state), { row, col: choices[Math.floor(choices.length / 2)]! });
+  }
+  state.turn = 0;
+  beginTurn(game);
 }
 
 /* Through a portal: down to the next floor as a fresh turn on fresh

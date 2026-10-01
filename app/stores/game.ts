@@ -518,7 +518,10 @@ export const useGameStore = defineStore('game', () => {
     announce.value = null;
     looking.value = null;
     beginTurn(game);
-    for (const trial of trials) {
+    // A zone first: it moves the run to another floor, and anything else
+    // tried is arranged there.
+    const ordered = [...trials].sort((a, b) => Number(b.kind === 'zone') - Number(a.kind === 'zone'));
+    for (const trial of ordered) {
       if (!applyTrial(game, trial)) console.warn(`[try] could not arrange ${trialText(trial)}`);
     }
     selectedUid.value = null;

@@ -4,6 +4,7 @@
    is shaped. Where it comes in the run is its place in the list. */
 import { computed } from 'vue';
 import type { Content, ContentIssue, ZoneData } from '~/game/content';
+import { useEditorStore } from '~/stores/editor';
 import { problemsAt } from '~/utils/editorProblems';
 
 const props = defineProps<{ item: ZoneData; issues: ContentIssue[]; content: Content }>();
@@ -33,6 +34,14 @@ function moveFloor(by: number): void {
 }
 
 /* ------------------------------ chunks --------------------------------- */
+
+/** Play the draft from the start of this chunk — to meet its enemies and
+ *  its sub-boss without walking the floor. */
+const editor = useEditorStore();
+function tryFrom(index: number): void {
+  const url = editor.tryUrl(index ? `@${index + 1}` : '');
+  if (url) void navigateTo(url);
+}
 
 function addChunk(): void {
   const last = props.item.chunks.at(-1);
@@ -91,6 +100,7 @@ const TERRAIN: Array<{ key: keyof ZoneData['terrain']; label: string; step: numb
           <strong>Chunk {{ index + 1 }}</strong>
           <span class="chunk-name">{{ chunkName(index) }}</span>
           <span class="chunk-tools">
+            <button type="button" class="btn small" :disabled="editor.errors.length > 0" :title="editor.errors.length ? 'Fix the errors first' : 'Play this zone from the start of this chunk'" @click="tryFrom(index)">▶ Try from here</button>
             <button type="button" class="icon-btn" :disabled="index === 0" aria-label="Move up" @click="moveChunk(index, -1)">↑</button>
             <button type="button" class="icon-btn" :disabled="index === item.chunks.length - 1" aria-label="Move down" @click="moveChunk(index, 1)">↓</button>
             <button type="button" class="icon-btn" :disabled="item.chunks.length <= 1" aria-label="Remove" @click="removeChunk(index)">✕</button>

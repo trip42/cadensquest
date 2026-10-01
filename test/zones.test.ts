@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { beginTurn, ensureSpawns } from '~/game/actions';
+import { applyTrial, parseTrials } from '~/game/sandbox';
 import { type Content, loadContent } from '~/game/content';
 import { CHUNK_ROWS } from '~/game/map/generate';
 import { chunkOfFloor, floorRows, gateRowOf, LAYOUT, START_ROW, ZONES, zoneForRow } from '~/game/map/tiles';
@@ -59,5 +60,32 @@ describe('floors of any length', () => {
     expect(game.state.shop?.row).toBe(shopRowOf(0));
     expect(shopRowOf(0)).toBeGreaterThan(first + START_ROW);
     expect(game.state.gates.at(-1)).toMatchObject({ row: last, final: true });
+  });
+});
+
+describe('trying a zone', () => {
+  it('starts the run on its floor, or at the start of one of its chunks', () => {
+    resetUids();
+    const game = createGame(4242);
+    beginTurn(game);
+    const last = ZONES.length - 1;
+    expect(applyTrial(game, { kind: 'zone', id: ZONES[last]!.id })).toBe(true);
+    expect(game.state.floor).toBe(last);
+    expect(game.state.turn).toBe(1);
+    expect(player(game.state).row).toBe(floorRows(last).first + START_ROW);
+
+    const chunks = ZONES[last]!.chunks.length;
+    expect(applyTrial(game, { kind: 'zone', id: `${ZONES[last]!.id}@${chunks}` })).toBe(true);
+    expect(player(game.state).row).toBe(floorRows(last).first + (chunks - 1) * CHUNK_ROWS + START_ROW);
+    // Its last chunk is populated, guardian and all, as the player arrives there.
+    expect(game.state.spawnedChunks).toContain(LAYOUT.firstChunk[last]! + chunks - 1);
+  });
+
+  it('refuses a zone that does not exist', () => {
+    resetUids();
+    const game = createGame(4242);
+    beginTurn(game);
+    expect(applyTrial(game, { kind: 'zone', id: 'nowhere' })).toBe(false);
+    expect(parseTrials('zone:marsh@3,card:fire')).toEqual([{ kind: 'zone', id: 'marsh@3' }, { kind: 'card', id: 'fire' }]);
   });
 });

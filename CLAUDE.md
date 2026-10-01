@@ -25,8 +25,11 @@ npm run sim          # the fun simulator: a bot plays thousands of runs
 `?seed=90210` on the URL replays a run exactly. Use it when reproducing
 anything — the whole world comes from that number (and from the content
 files, which are the other half of a run). `?try=card:fire` (or `enemy:`,
-`enemy-card:`, `gem:`, `talisman:`) starts a run with one thing arranged up
-front — the editor's "Try it", and the quickest way to test anything.
+`enemy-card:`, `gem:`, `talisman:`, `zone:`) starts a run with one thing
+arranged up front — the editor's "Try it", and the quickest way to test
+anything. `zone:marsh` starts on that floor, `zone:marsh@3` at the start of
+its third chunk (`startOnFloor`); a zone is arranged first, so
+`?try=zone:marsh@2,card:fire` tries Fire there.
 Several go comma-separated, `?try=card:stoke,card:fire`, to try a combo.
 
 ## Commits: always leave a state you can roll back to
@@ -439,8 +442,18 @@ and saves changed files together through `PUT /api/content` (re-validated
 server-side; nothing is written if anything is an error). Files are written
 pretty-printed in schema order so git diffs are line by line. Ids are
 editable only until first saved. "Try it" installs the draft — saved or
-not — and starts `/?try=kind:id` (`sandbox.ts`). The route is removed from
+not — and starts `/?try=kind:id` (`sandbox.ts`); each of a zone's chunks has
+its own "Try from here". The route is removed from
 production builds (`pages:extend` hook) and the endpoint 404s there.
+
+**The zone map** (`editor/ZoneMap.vue`, in a zone's preview) shows the
+floor from above as the game's own code builds it — the generator,
+`ensureSpawns` walked chunk by chunk as a run would, guardians, shop and
+portal — on a seed you can change or re-roll. It installs the draft
+(`installDraft`, only when there are no errors) and redraws a moment after
+each edit. The first floor is exactly what `?seed=N` plays; a deeper floor
+is one roll of its dice, since in a run the floors before it have used
+some of them.
 
 **Numbers in text.** A card's or enemy card's text may write `{1}` for its
 first effect's number and `{2.1}` for the first effect inside its second (a

@@ -36,7 +36,7 @@ export const TABS: Array<{ file: ContentFile; label: string; one: string; trial?
   { file: 'enemy-cards', label: 'Enemy cards', one: 'enemy card', trial: 'enemy-card' },
   { file: 'gems', label: 'Gems', one: 'gem', trial: 'gem' },
   { file: 'talismans', label: 'Talismans', one: 'talisman', trial: 'talisman' },
-  { file: 'zones', label: 'Zones', one: 'zone' },
+  { file: 'zones', label: 'Zones', one: 'zone', trial: 'zone' },
   { file: 'run', label: 'Starting deck', one: 'starting deck' },
 ];
 
@@ -266,12 +266,24 @@ export const useEditorStore = defineStore('editor', () => {
 
   /** Install the draft into the game and return the URL that starts a run
    *  trying the selected item, or null if the draft cannot be played. */
-  function tryUrl(): string | null {
+  /** Install the draft and give the address that tries the selected item.
+   *  `at` narrows it — a zone's `@3` starts at its third chunk. */
+  function tryUrl(at = ''): string | null {
     const trial = TABS.find((t) => t.file === tab.value)?.trial;
-    if (!draft.value || errors.value.length) return null;
-    installContent(structuredClone(JSON.parse(JSON.stringify(draft.value))) as Content);
+    if (!installDraft()) return null;
     if (!trial || !selected.value) return '/';
-    return `/?try=${encodeURIComponent(trialText({ kind: trial, id: selected.value.id }))}`;
+    return `/?try=${encodeURIComponent(trialText({ kind: trial, id: selected.value.id + at }))}`;
+  }
+
+  /* The draft, installed into the game's registries, so the game's own
+     code can show it — Try it, and the zone map. Only when it has no
+     errors. `installed` counts installs, for anything that draws from it. */
+  const installed = ref(0);
+  function installDraft(): boolean {
+    if (!draft.value || errors.value.length) return false;
+    installContent(structuredClone(JSON.parse(JSON.stringify(draft.value))) as Content);
+    installed.value += 1;
+    return true;
   }
 
   return {
@@ -279,6 +291,6 @@ export const useEditorStore = defineStore('editor', () => {
     load, save, revert, dirtyFiles,
     issues, errors, issuesFor,
     items, selected, itemsOf, isSaved, openTab, add, duplicate, remove, rename, usesOf,
-    tryUrl,
+    tryUrl, installDraft, installed,
   };
 });

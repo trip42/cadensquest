@@ -8,7 +8,7 @@
    A trial is written `kind:id`, which is how it travels in the URL; several
    go comma-separated, `card:stoke,card:fire`, to try a combo. */
 
-import { amountValues, drawIntent } from './actions';
+import { amountValues, drawIntent, startOnFloor } from './actions';
 import { CARDS, energySpent } from './cards/definitions';
 import { amountOf } from './effects';
 import { INTENTS } from './cards/intents';
@@ -16,11 +16,12 @@ import { ENTITIES } from './entities/definitions';
 import { type Entity, entityCell } from './entities/types';
 import { GEM_SLOTS, GEMS } from './gems';
 import { cellDistance, reachable } from './map/navigation';
+import { ZONES } from './map/tiles';
 import { rollReward } from './rewards';
 import { entityAt, type Game, makeCard, makeEntity, note, player, syncStats } from './state';
 import { TALISMANS } from './talismans';
 
-export const TRIAL_KINDS = ['card', 'enemy', 'enemy-card', 'gem', 'talisman'] as const;
+export const TRIAL_KINDS = ['card', 'enemy', 'enemy-card', 'gem', 'talisman', 'zone'] as const;
 export type TrialKind = (typeof TRIAL_KINDS)[number];
 
 export interface Trial {
@@ -152,6 +153,17 @@ export function applyTrial(game: Game, trial: Trial): boolean {
       if (!gem || !card) return false;
       card.gems = [...(card.gems ?? []), gem.id];
       note(state, `Trying ${gem.name}: it is set into ${CARDS[card.defId]?.name ?? 'a card'} in your hand.`);
+      return true;
+    }
+    case 'zone': {
+      // `zone:marsh` starts on that floor; `zone:marsh@3` at its third chunk.
+      const [id, at] = trial.id.split('@');
+      const floor = ZONES.findIndex((zone) => zone.id === id);
+      if (floor < 0) return false;
+      const zone = ZONES[floor]!;
+      const chunk = Math.max(1, Math.min(zone.chunks.length, Math.floor(Number(at)) || 1));
+      startOnFloor(game, floor, chunk);
+      note(state, chunk > 1 ? `Trying ${zone.name}, from chunk ${chunk}.` : `Trying ${zone.name}.`);
       return true;
     }
     case 'talisman': {
