@@ -262,6 +262,21 @@ function dealDamage(game: Game, target: Entity, amount: number, blow: Blow): voi
   } else {
     setAnimation(target, 'hurt');
   }
+  strikeBack(game, target, blow);
+}
+
+/* Thorns: a blow or burst from a creature standing next to it is struck
+   back, once per hit — whether or not block took it, and even if this hit
+   was its last. Tiles, knockback and Laters have no attacker at hand, and
+   thorns never set off thorns, so two thorned creatures cannot trade hits
+   for ever. A fixed amount: no power, no bonuses. */
+function strikeBack(game: Game, target: Entity, blow: Blow): void {
+  const { source } = blow;
+  if (target.thorns <= 0 || !source || source === target || source.dead) return;
+  if (blow.via !== 'blow' && blow.via !== 'burst') return;
+  if (cellDistance(entityCell(source), entityCell(target)) > 1) return;
+  noteNear(game.state, target, `${entityDef(source.defId).name} is pricked by thorns.`);
+  dealDamage(game, source, target.thorns, { source: target, via: 'thorns' });
 }
 
 /** High ground: a blow from above hits harder, `highGround` for each layer
@@ -281,6 +296,12 @@ function gainBlock(state: GameState, entity: Entity, amount: number): void {
   if (amount <= 0) return;
   entity.block += amount;
   cue(state, { type: 'gain', target: entity.id, side: entity.faction, cell: entityCell(entity), stat: 'block', amount });
+}
+
+function gainThorns(state: GameState, entity: Entity, amount: number): void {
+  if (amount <= 0) return;
+  entity.thorns += amount;
+  cue(state, { type: 'gain', target: entity.id, side: entity.faction, cell: entityCell(entity), stat: 'thorns', amount });
 }
 
 function heal(state: GameState, entity: Entity, amount: number): void {
@@ -853,6 +874,7 @@ function applyTo(
       case 'damage': dealDamage(game, entity, amount, { source, via }); break;
       case 'block': gainBlock(state, entity, amount); break;
       case 'loseBlock': entity.block = Math.max(0, entity.block - amount); break;
+      case 'thorns': gainThorns(state, entity, amount); break;
       case 'heal': heal(state, entity, amount); break;
       case 'power': gainPower(state, entity, amount); break;
       case 'losePower': losePower(state, entity, amount); break;
@@ -1093,6 +1115,9 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
     case 'loseBlock':
       // No bonus: blockBonus makes gaining block better, not losing it worse.
       actor.block = Math.max(0, actor.block - amount);
+      break;
+    case 'thorns':
+      gainThorns(state, actor, amount);
       break;
     case 'heal':
       heal(state, actor, amount);
@@ -1726,6 +1751,8 @@ export function beginTurn(game: Game): void {
   // Block from talismans replaces what was left, rather than adding to it —
   // unless it is being kept (Entrench), when it goes on top.
   self.block = (stat(state, 'keepBlock') >= 1 ? self.block : 0) + stat(state, 'blockPerRefresh');
+  // Thorns last a turn, like block — and are not kept by Entrench.
+  self.thorns = 0;
   self.hp = Math.min(self.maxHp, self.hp + stat(state, 'healPerRefresh'));
   state.energy = stat(state, 'maxEnergy');
   // Base speed each turn. Cards, gems and talismans raise it through the
@@ -1831,7 +1858,11 @@ function resolveEnemy(game: Game, next: QueuedAction): void {
 
   const card = intentDef(next.cardId);
   // Block is for the turn it was raised in; it falls as the enemy stirs.
-  if (next.index === 0) enemy.block = 0;
+  // Thorns are the same: up for a turn, gone as it acts again.
+  if (next.index === 0) {
+    enemy.block = 0;
+    enemy.thorns = 0;
+  }
 
   // Against whoever is nearest on the other side, chosen as each effect
   // resolves — an advance earlier in the card changes who that is. An ally

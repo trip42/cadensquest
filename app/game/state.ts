@@ -214,6 +214,7 @@ export function makeEntity(defId: string, row: number, col: number): Entity {
     hp: def.maxHp,
     maxHp: def.maxHp,
     block: 0,
+    thorns: 0,
     power: 0,
     facing: 1,
     anim: { state: "idle", frame: 0, elapsed: 0, done: false },

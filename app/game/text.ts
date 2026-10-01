@@ -55,7 +55,7 @@ const boonKind = (stat: StatKey): string => STAT_UNITS[stat] ?? 'boon';
 export type Unit = 'damage' | 'health' | 'block' | 'power' | 'energy' | 'movement' | 'plain';
 
 const UNITS: Record<string, Unit> = {
-  damage: 'damage', flare: 'damage',
+  damage: 'damage', flare: 'damage', thorns: 'damage',
   heal: 'health', mend: 'health', tame: 'health', health: 'health',
   block: 'block', loseBlock: 'block',
   power: 'power', losePower: 'power',

@@ -193,7 +193,10 @@ export class Juice {
    *  not a blow, or lands at once. */
   impactOf(item: Cue, now: number): number {
     if (item.type === 'hit') {
-      const delay = item.via !== 'blow' ? 0 : item.ranged ? flightTime(item.from, item.cell) : MELEE_CONTACT;
+      // Thorns strike back as the blow that set them off lands, not before.
+      const struck = item.via === 'thorns' && item.by ? this.lands.get(item.by) : undefined;
+      const delay = struck !== undefined ? Math.max(0, struck - now)
+        : item.via !== 'blow' ? 0 : item.ranged ? flightTime(item.from, item.cell) : MELEE_CONTACT;
       this.lands.set(item.target, now + delay);
       return delay;
     }
@@ -255,9 +258,11 @@ export class Juice {
         const tall = stage.heightOf(item.target);
         // Power lost comes as a negative amount: the same place, greyed.
         const lost = item.amount < 0;
-        const colour = lost ? '#8b9bb4' : item.stat === 'block' ? palette.blue : item.stat === 'heal' ? palette.green : palette.yellow;
+        const colour = lost ? '#8b9bb4' : item.stat === 'block' ? palette.blue : item.stat === 'heal' ? palette.green
+          : item.stat === 'thorns' ? palette.red : palette.yellow;
         const label = item.stat === 'block' ? `+${item.amount} BLOCK` : item.stat === 'heal' ? `+${item.amount}`
-          : lost ? `−${-item.amount} POWER` : `+${item.amount} POWER`;
+          : item.stat === 'thorns' ? `+${item.amount} THORNS`
+            : lost ? `−${-item.amount} POWER` : `+${item.amount} POWER`;
         this.text(item.cell, tall, label, colour, item.stat === 'heal' ? 16 : 12, now);
         this.flash(item.target, colour, now, 0.25, 0.5);
         if (item.stat === 'block') this.ring(item.cell, colour, now, 0.35, 0.6, 0.35, 2, tall * 0.45);

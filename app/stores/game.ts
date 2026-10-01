@@ -148,6 +148,8 @@ export interface EnemyTipView {
   rewardTint: string;
   /** Coins it drops when it falls. */
   coins: number;
+  /** Struck back at an adjacent attacker, until its next turn. */
+  thorns: number;
   /** A guardian: `final` holds the floor's last row and the way down
    *  opens where it falls; `sub` is a sub-boss at the end of a chunk. */
   guardian: 'final' | 'sub' | null;
@@ -201,6 +203,8 @@ export interface GameView {
   hp: number;
   maxHp: number;
   block: number;
+  /** Struck back at an adjacent attacker, until the next turn. */
+  thorns: number;
   /** Extra damage on every hit, for as long as it lasts. */
   power: number;
   /** The player's delayed effects still to come, soonest first. */
@@ -279,6 +283,7 @@ export const useGameStore = defineStore('game', () => {
       hp: self.hp,
       maxHp: self.maxHp,
       block: self.block,
+      thorns: self.thorns,
       power: self.power,
       upcoming: state.later
         .filter((entry) => entry.actorId === state.playerId)
@@ -387,7 +392,7 @@ export const useGameStore = defineStore('game', () => {
     const self = player(state);
     return [
       state.turn, state.phase, state.floor, state.energy, state.movement,
-      self.hp, self.block, self.power, self.row, self.col,
+      self.hp, self.block, self.thorns, self.power, self.row, self.col,
       // Which cards, not how many: a hand that swaps for another of the
       // same size still has to repaint, or the deal animation never runs.
       state.hand.map((card) => `${card.uid}:${(card.gems ?? []).join('+')}`).join(','),
@@ -616,6 +621,7 @@ export const useGameStore = defineStore('game', () => {
       waiting: !foe.engaged,
       reward: foe.reward ? rewardLabel(foe.reward) : 'NOTHING',
       coins: foe.summonedBy ? 0 : def.coins ?? 0,
+      thorns: foe.thorns,
       guardian: guardKind(game.state, foe, !!def.guardian),
       ground: groundOf({ row: foe.row, col: foe.col }),
       ally: foe.faction === 'ally',
@@ -631,7 +637,7 @@ export const useGameStore = defineStore('game', () => {
 
     const old = enemyTip.value;
     if (!old || old.id !== next.id || old.x !== next.x || old.y !== next.y
-      || old.hp !== next.hp || old.intent !== next.intent
+      || old.hp !== next.hp || old.intent !== next.intent || old.thorns !== next.thorns
       || joinText(old.intentParts ?? []) !== joinText(next.intentParts ?? []) || old.intentNote !== next.intentNote
       || JSON.stringify(old.then) !== JSON.stringify(next.then) || old.waiting !== next.waiting
       || JSON.stringify(old.ground) !== JSON.stringify(next.ground)) {

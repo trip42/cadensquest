@@ -1366,5 +1366,26 @@
         "amount": 0
       }
     ]
+  },
+  {
+    "id": "briar_guard",
+    "name": "Briar Guard",
+    "enabled": true,
+    "rarity": "normal",
+    "art": "shield",
+    "cost": 1,
+    "targeting": "self",
+    "range": 0,
+    "text": "Gain {1} block and {2} thorns.",
+    "effects": [
+      {
+        "kind": "block",
+        "amount": 4
+      },
+      {
+        "kind": "thorns",
+        "amount": 3
+      }
+    ]
   }
 ]

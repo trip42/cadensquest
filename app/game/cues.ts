@@ -19,7 +19,7 @@ import type { Cell } from './map/navigation';
 /** How damage arrived: a blow from a creature or card, a marked tile, an
  *  area burst, being knocked into something (a slam), or a price coming due
  *  (a Later). */
-export type HitVia = 'blow' | 'tile' | 'burst' | 'slam' | 'later';
+export type HitVia = 'blow' | 'tile' | 'burst' | 'slam' | 'later' | 'thorns';
 
 export type Cue =
   /** Damage landing. `amount` is the health it cost, `blocked` what block
@@ -32,7 +32,7 @@ export type Cue =
   }
   /** Block, health or power actually gained — nothing is cued for a heal
    *  at full health. Power lost comes as a negative amount. */
-  | { type: 'gain'; target: string; side: Faction; cell: Cell; stat: 'block' | 'heal' | 'power'; amount: number }
+  | { type: 'gain'; target: string; side: Faction; cell: Cell; stat: 'block' | 'heal' | 'power' | 'thorns'; amount: number }
   /** A creature dying — or, for a summon whose rounds ran out, fading. */
   | { type: 'fall'; target: string; side: Faction; cell: Cell; guardian: boolean; faded: boolean }
   | { type: 'tame'; target: string; cell: Cell }

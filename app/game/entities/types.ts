@@ -134,6 +134,9 @@ export interface Entity {
   hp: number;
   maxHp: number;
   block: number;
+  /** Struck back at an adjacent attacker for each blow or burst, until
+   *  its next turn — it falls when block does. */
+  thorns: number;
   /** Bonus damage from intents like Empower. */
   power: number;
   /** +1 faces down-right along the ribbon, -1 faces back up it. */

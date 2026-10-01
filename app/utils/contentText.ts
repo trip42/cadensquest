@@ -109,6 +109,7 @@ function tilePhrase(tiles: TerrainData['effects'], owner: string): string {
       case 'damage': return `takes ${n} damage`;
       case 'block': return `gains ${n} block`;
       case 'loseBlock': return `loses ${n} block`;
+      case 'thorns': return `gains ${n} thorns`;
       case 'heal': return `heals ${n}`;
       case 'power': return `gains ${n} power`;
       case 'losePower': return isAllOf(tile.amount as Amount, 'power') ? `loses all ${owner} power` : `loses ${n} power`;
@@ -192,6 +193,7 @@ function laterPhrase(effect: LaterData): string {
       case 'damage': return `take ${n} damage`;
       case 'block': return `gain ${n} block`;
       case 'loseBlock': return `lose ${n} block`;
+      case 'thorns': return `gain ${n} thorns`;
       case 'heal': return `heal ${n}`;
       case 'power': return `gain ${n} power`;
       case 'losePower': return isAllOf(inner.amount as Amount, 'power') ? 'lose all your power' : `lose ${n} power`;
@@ -244,6 +246,7 @@ function simplePlayerPhrase(effect: SimpleData, range: number): string {
       case 'damage': return `deal ${n} damage to ${target}`;
       case 'block': return `gain ${n} block`;
       case 'loseBlock': return `lose ${n} block`;
+      case 'thorns': return `gain ${n} thorns`;
       case 'heal': return `heal ${n}`;
       case 'power': return `deal ${n} more damage for the rest of the run`;
       case 'movement': return `gain ${n} steps`;
@@ -263,6 +266,7 @@ function simplePlayerPhrase(effect: SimpleData, range: number): string {
       case 'damage': return `deal damage equal to ${n} to ${target}`;
       case 'block': return `gain block equal to ${n}`;
       case 'loseBlock': return isAllOf(amount, 'block') ? 'lose all your block' : `lose block equal to ${n}`;
+      case 'thorns': return `gain thorns equal to ${n}`;
       case 'heal': return `heal equal to ${n}`;
       case 'power': return `deal extra damage equal to ${n} for the rest of the run`;
       case 'movement': return `gain steps equal to ${n}`;
@@ -281,6 +285,7 @@ function simplePlayerPhrase(effect: SimpleData, range: number): string {
     case 'damage': return `deal ${n} damage to ${target}`;
     case 'block': return `gain ${n} block`;
     case 'loseBlock': return `lose ${n} block`;
+    case 'thorns': return `gain ${n} thorns`;
     case 'heal': return `heal ${n}`;
     case 'power': return `deal ${n} more damage for the rest of the run`;
     case 'movement': return `gain ${plural(n, 'step')}`;
@@ -321,6 +326,7 @@ function enemyPhrase(effect: EffectData, range: number, nameOf: NameOf = byId): 
     }
     case 'block': return scaled ? `gains block equal to ${n}` : `gains ${n} block`;
     case 'loseBlock': return isAllOf(amount, 'block') ? 'drops its guard' : scaled ? `loses block equal to ${n}` : `loses ${n} block`;
+    case 'thorns': return scaled ? `gains thorns equal to ${n}` : `gains ${n} thorns`;
     case 'heal': return scaled ? `heals equal to ${n}` : `heals ${n}`;
     case 'power': return scaled ? `grows stronger by ${n}` : `grows ${n} stronger`;
     case 'losePower': return isAllOf(amount, 'power') ? 'loses all its power' : `loses ${n} power`;

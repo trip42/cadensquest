@@ -36,6 +36,8 @@ export function soundsFor(item: Cue, timing: CueTiming = { impact: 0 }): SoundCa
         else calls.push({ name: 'swing', volume: 0.55 });
       }
       if (item.via === 'tile') calls.push({ name: 'sizzle', volume: 0.7 });
+      // A prick: a short, high clank as the attacker meets the spines.
+      if (item.via === 'thorns') calls.push({ name: 'clank', volume: 0.6, rate: 1.4 });
       if (item.amount > 0) {
         const heavy = item.fatal || item.amount >= 10 || item.via === 'slam';
         const name: SoundName = item.side === 'player' ? 'hurt' : heavy ? 'smash' : 'hit';
@@ -55,6 +57,8 @@ export function soundsFor(item: Cue, timing: CueTiming = { impact: 0 }): SoundCa
     case 'gain':
       if (item.stat === 'block') return [{ name: 'guard', volume: 0.8 }];
       if (item.stat === 'heal') return [{ name: 'heal', volume: 0.8 }];
+      // Spines bristling: the guard's clunk, higher and quicker.
+      if (item.stat === 'thorns') return [{ name: 'guard', volume: 0.7, rate: 1.35 }];
       // Power running out: the same sweep, lower and falling flat.
       return item.amount < 0 ? [{ name: 'power', volume: 0.6, rate: 0.6 }] : [{ name: 'power', volume: 0.8 }];
     case 'tame':

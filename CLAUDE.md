@@ -554,8 +554,9 @@ card is data; a new verb or shape is code (checklists at the end).
 
 **Seven shapes.** A **simple** effect is `{ kind, amount }` with a verb
 from `EFFECT_INFO`: `damage`, `block`, `loseBlock`, `heal`, `power`,
-`losePower`, `movement`, `energy`, `draw`, `step` (Leap), `advance`, `tame`,
-`mend`, `push` (Knockback), `pull`, `rekindle`, `flare`, `echo`, `command`.
+`losePower`, `thorns`, `movement`, `energy`, `draw`, `step` (Leap),
+`advance`, `tame`, `mend`, `push` (Knockback), `pull`, `rekindle`, `flare`,
+`echo`, `command`.
 **Terrain** is `{ kind: "terrain", rounds, colour, effects: [simple...],
 enter?, exit?, radius? }`.
 **Summon** is `{ kind: "summon", entity, amount, rounds? }`. **Area** is
@@ -690,6 +691,22 @@ actor, `pull` drags it in, a tile at a time (`shove`), for either side.
 - **Ranged or not** is judged by distance when the blow lands, so a far
   card played on something adjacent — or just pulled in — swings rather
   than throws.
+
+**Thorns.** `thorns` N (either side, and on a tile) adds N to the actor's
+`Entity.thorns`. It is like block: it stacks, and falls when block does —
+at the player's refresh (Entrench keeps block, not thorns) and as a
+creature starts to act. `dealDamage` ends with `strikeBack`: a hit that
+arrived as a `blow` or `burst`, from a living source within 1 tile that is
+not the target itself, is answered with `thorns` damage to that source,
+`via: 'thorns'`, with no power or bonuses. It answers every hit, not every
+card (two damage effects, two pricks), whether block took the hit or not,
+and even on the killing blow. Tiles, slams and Laters carry a `source` only
+for kill credit, so `strikeBack` goes by `via`, not by the source; and
+thorns never set off thorns, so two thorned creatures cannot trade for
+ever. The juice holds the prick back until the blow that set it off lands
+(`impactOf`, keyed on the hit's `by`). On screen: a red THRN chip beside the
+player's block, red spikes along a creature's health bar, a THORNS line in
+its tooltip, "+N THORNS" as it is gained. Briar Guard is the sample card.
 
 **Echo.** `echo` N (the player's only) makes the next N cards he plays
 this turn each happen twice (`state.echo`, cleared by the refresh). In

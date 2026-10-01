@@ -141,6 +141,7 @@ const energyCells = computed(() => {
             </span>
             <strong>{{ store.view.hp }}/{{ store.view.maxHp }}</strong>
             <span v-if="store.view.block" :key="store.view.block" class="block">+{{ store.view.block }}</span>
+            <span v-if="store.view.thorns" :key="`t${store.view.thorns}`" class="thorns" :title="`Strikes an adjacent attacker for ${store.view.thorns}, each blow, until your next turn`">THRN {{ store.view.thorns }}</span>
             <span v-if="store.view.power" :key="`p${store.view.power}`" class="power" :title="`+${store.view.power} damage on every hit`">POW +{{ store.view.power }}</span>
           </span>
           <span class="meter" :title="`Energy ${store.view.energy} of ${store.view.maxEnergy}`">
@@ -341,6 +342,7 @@ const energyCells = computed(() => {
 .move { color: var(--px-cyan) !important; }
 .block { padding: 0 4px; background: var(--px-blue); color: var(--px-text); animation: tag-in 0.25s cubic-bezier(0.3, 1.6, 0.5, 1); }
 .power { padding: 0 4px; background: var(--px-yellow); color: var(--px-ink); animation: tag-in 0.25s cubic-bezier(0.3, 1.6, 0.5, 1); }
+.thorns { padding: 0 4px; background: var(--px-red); color: var(--px-text); animation: tag-in 0.25s cubic-bezier(0.3, 1.6, 0.5, 1); }
 .soon { padding: 0 4px; border: 2px solid var(--px-muted); color: var(--px-muted); }
 .soon.is-boon { border-color: var(--px-yellow); color: var(--px-yellow); }
 /* Hurt: the meter jolts and flashes. Healed: it glows green. */

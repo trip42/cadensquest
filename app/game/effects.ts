@@ -21,6 +21,9 @@ export type EffectKind =
   | 'damage'
   | 'block'
   | 'loseBlock'
+  /** Spines until the next turn, like block: a blow or burst from a
+   *  creature next to it is struck back for this much. */
+  | 'thorns'
   | 'movement'
   | 'energy'
   | 'draw'
@@ -336,6 +339,7 @@ const NOW_SHORT: Partial<Record<EffectKind, (n: number) => string>> = {
   damage: (n) => `${n} DMG`,
   block: (n) => `+${n} BLK`,
   loseBlock: (n) => `−${n} BLK`,
+  thorns: (n) => `+${n} THRN`,
   heal: (n) => `+${n} HP`,
   energy: (n) => `+${n} EN`,
   draw: (n) => `DRAW ${n}`,
@@ -356,6 +360,7 @@ const NOW_LABELS: Partial<Record<EffectKind, (n: number) => string>> = {
   damage: (n) => `${n} damage`,
   block: (n) => `+${n} block`,
   loseBlock: (n) => `−${n} block`,
+  thorns: (n) => `+${n} thorns`,
   heal: (n) => `heal ${n}`,
   energy: (n) => `+${n} energy`,
   draw: (n) => `draw ${n}`,
@@ -455,6 +460,7 @@ export const EFFECT_INFO: Record<EffectKind, { label: string; help: string; play
   damage: { label: 'Damage', help: 'Hit the target for this much.', player: true, enemy: true, tile: true },
   block: { label: 'Block', help: 'Absorbs this much damage until the next turn.', player: true, enemy: true, tile: true },
   loseBlock: { label: 'Lose block', help: 'Spend this much of your own block.', player: true, enemy: true, tile: true },
+  thorns: { label: 'Thorns', help: 'Until the next turn, like block: each blow or burst from a creature next to it strikes that creature back for this much. Tiles, knockback and thorns never set it off. Stacks.', player: true, enemy: true, tile: true },
   heal: { label: 'Heal', help: 'Restore this much health, up to the maximum.', player: true, enemy: true, tile: true },
   power: { label: 'Power', help: 'Permanently add this much to every hit.', player: true, enemy: true, tile: true },
   losePower: { label: 'Lose power', help: 'Take this much off your power, down to 0. "All of your power" is a reset. Pair it with Power in a Later to make power that lasts a few rounds.', player: true, enemy: true, tile: true },
@@ -557,6 +563,7 @@ export function describeTileEffect(effect: SimpleEffect | TileEffect): string {
     case 'damage': return `take ${n} damage`;
     case 'block': return `gain ${n} block`;
     case 'loseBlock': return `lose ${n} block`;
+    case 'thorns': return `gain ${n} thorns`;
     case 'heal': return `heal ${n}`;
     case 'power': return `gain ${n} power`;
     case 'losePower': return `lose ${n} power`;
@@ -618,6 +625,7 @@ export function describeEffect(effect: Effect): string {
     case 'damage': return scaled ? `deal damage equal to ${n}` : `deal ${n}`;
     case 'block': return scaled ? `gain block equal to ${n}` : `gain ${n} block`;
     case 'loseBlock': return scaled ? `lose block equal to ${n}` : `lose ${n} block`;
+    case 'thorns': return scaled ? `gain thorns equal to ${n}` : `gain ${n} thorns`;
     case 'movement': return scaled ? `gain movement equal to ${n}` : `gain ${n} movement`;
     case 'energy': return scaled ? `gain energy equal to ${n}` : `gain ${n} energy`;
     case 'draw': return scaled ? `draw cards equal to ${n}` : `draw ${n}`;

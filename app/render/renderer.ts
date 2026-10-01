@@ -1101,6 +1101,21 @@ export class MapRenderer implements Stage {
       ctx.fillStyle = blue;
       ctx.fillRect(x, y + h, Math.round(w * Math.min(1, entity.block / entity.maxHp)), 2);
     }
+    // Thorns: a row of little spikes along the top of the bar, so a
+    // creature that strikes back is seen before it is hit.
+    if (entity.thorns > 0) {
+      ctx.fillStyle = ink;
+      for (let i = 0; i < 5; i += 1) {
+        const px = x + 3 + i * 7;
+        ctx.fillRect(px, y - 4, 3, 3);
+        ctx.fillRect(px + 1, y - 6, 1, 2);
+      }
+      ctx.fillStyle = red;
+      for (let i = 0; i < 5; i += 1) {
+        const px = x + 3 + i * 7;
+        ctx.fillRect(px + 1, y - 3, 1, 2);
+      }
+    }
   }
 
   /* ------------------------------ for the juice ----------------------- */

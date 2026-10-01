@@ -20,6 +20,9 @@ const store = useGameStore();
       <span class="hp">{{ store.enemyTip.hp }}/{{ store.enemyTip.maxHp }}</span>
     </p>
     <span class="bar"><i :style="{ width: `${(100 * store.enemyTip.hp) / store.enemyTip.maxHp}%` }" /></span>
+    <p v-if="store.enemyTip.thorns" class="guard">
+      <span class="px-tag is-red">THORNS {{ store.enemyTip.thorns }}</span> Strikes back at anything that hits it from beside it, this turn.
+    </p>
     <p v-if="store.enemyTip.ally" class="guard">
       <span class="px-tag is-ally">ALLY</span> Fights for you against the nearest enemy.
     </p>
