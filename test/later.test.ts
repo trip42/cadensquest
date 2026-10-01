@@ -201,12 +201,14 @@ describe('a removal', () => {
   });
 
   it('turns up among rewards, but never from a guardian', () => {
+    // Guardians carry a talisman (at a floor's end) or a rare card or gem
+    // (sub-bosses) — never a removal.
     const rng = createRng(5);
     let removals = 0;
     for (let i = 0; i < 2000; i += 1) if (rollReward(rng).kind === 'removal') removals += 1;
     expect(removals).toBeGreaterThan(0);
     for (const id of GUARDIAN_IDS) {
-      for (let i = 0; i < 200; i += 1) expect(rollReward(rng, entityDef(id).reward).kind).toBe('talisman');
+      for (let i = 0; i < 200; i += 1) expect(rollReward(rng, entityDef(id).reward).kind, id).not.toBe('removal');
     }
   });
 });

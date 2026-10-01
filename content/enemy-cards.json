@@ -371,5 +371,139 @@
         "amount": 3
       }
     ]
+  },
+  {
+    "id": "gloomslime_engulf",
+    "name": "Engulf",
+    "enabled": true,
+    "range": 1,
+    "text": "Once awake, creeps {1} closer and engulfs for {2}.",
+    "effects": [
+      {
+        "kind": "advance",
+        "amount": 1
+      },
+      {
+        "kind": "damage",
+        "amount": 5
+      }
+    ]
+  },
+  {
+    "id": "gloomslime_harden",
+    "name": "Harden",
+    "enabled": true,
+    "range": 1,
+    "text": "Gains {1} block and creeps {2} closer.",
+    "effects": [
+      {
+        "kind": "block",
+        "amount": 8
+      },
+      {
+        "kind": "advance",
+        "amount": 1
+      }
+    ]
+  },
+  {
+    "id": "cockatrice_rake",
+    "name": "Rake",
+    "enabled": true,
+    "range": 1,
+    "text": "Once awake, closes up to {1} and rakes for {2}.",
+    "effects": [
+      {
+        "kind": "advance",
+        "amount": 4
+      },
+      {
+        "kind": "damage",
+        "amount": 3
+      }
+    ]
+  },
+  {
+    "id": "cockatrice_glare",
+    "name": "Glare",
+    "enabled": true,
+    "range": 2,
+    "text": "Glares for {1} at range 2; its attacks deal {2} more from now on.",
+    "effects": [
+      {
+        "kind": "damage",
+        "amount": 2
+      },
+      {
+        "kind": "power",
+        "amount": 1
+      }
+    ]
+  },
+  {
+    "id": "broodmother_spit",
+    "name": "Venom",
+    "enabled": true,
+    "range": 2,
+    "text": "Once awake, closes up to {1}, then spits for {2} at range 2.",
+    "effects": [
+      {
+        "kind": "advance",
+        "amount": 2
+      },
+      {
+        "kind": "damage",
+        "amount": 4
+      }
+    ]
+  },
+  {
+    "id": "broodmother_hatch",
+    "name": "Hatch",
+    "enabled": true,
+    "range": 2,
+    "text": "Calls a Bug with {1} health for 3 rounds.",
+    "effects": [
+      {
+        "kind": "summon",
+        "entity": "bug",
+        "amount": 5,
+        "rounds": 3
+      }
+    ]
+  },
+  {
+    "id": "ironshell_shell",
+    "name": "Shell",
+    "enabled": true,
+    "range": 1,
+    "text": "Gains {1} block and creeps {2} closer.",
+    "effects": [
+      {
+        "kind": "block",
+        "amount": 10
+      },
+      {
+        "kind": "advance",
+        "amount": 1
+      }
+    ]
+  },
+  {
+    "id": "ironshell_ram",
+    "name": "Ram",
+    "enabled": true,
+    "range": 1,
+    "text": "Once awake, charges up to {1} and rams for {2}.",
+    "effects": [
+      {
+        "kind": "advance",
+        "amount": 3
+      },
+      {
+        "kind": "damage",
+        "amount": 7
+      }
+    ]
   }
 ]

@@ -55,7 +55,7 @@ import { talismanDef, type TalismanDefinition } from '~/game/talismans';
 import { entityDef } from '~/game/entities/definitions';
 import { rewardLabel } from '~/game/rewards';
 import { type Cell, cellDistance } from '~/game/map/navigation';
-import type { SpriteStyle } from '~/game/entities/types';
+import type { Entity, SpriteStyle } from '~/game/entities/types';
 import { floorRows, LAYOUT, ZONES } from '~/game/map/tiles';
 import { describeModifier } from '~/game/stats';
 import {
@@ -148,8 +148,9 @@ export interface EnemyTipView {
   rewardTint: string;
   /** Coins it drops when it falls. */
   coins: number;
-  /** Holds a zone's last row; the way on is shut until it falls. */
-  guardian: boolean;
+  /** A guardian: `final` holds the floor's last row and the way down
+   *  opens where it falls; `sub` is a sub-boss at the end of a chunk. */
+  guardian: 'final' | 'sub' | null;
   /** The marks on the tile it stands on, if any. */
   ground: GroundLine[];
   /** Fights on the player's side: tamed, or summoned. */
@@ -233,6 +234,13 @@ export interface GameView {
   atShop: boolean;
   /** The shop's stock, while he stands in it trading. */
   shop: ShopItemView[] | null;
+}
+
+/** Which kind of guardian a creature is, by the gate it holds. */
+function guardKind(state: GameState, foe: Entity, isGuardian: boolean): 'final' | 'sub' | null {
+  const gate = state.gates.find((item) => item.guardianId === foe.id);
+  if (gate) return gate.final ? 'final' : 'sub';
+  return isGuardian ? 'final' : null;
 }
 
 export const useGameStore = defineStore('game', () => {
@@ -608,7 +616,7 @@ export const useGameStore = defineStore('game', () => {
       waiting: !foe.engaged,
       reward: foe.reward ? rewardLabel(foe.reward) : 'NOTHING',
       coins: foe.summonedBy ? 0 : def.coins ?? 0,
-      guardian: !!def.guardian,
+      guardian: guardKind(game.state, foe, !!def.guardian),
       ground: groundOf({ row: foe.row, col: foe.col }),
       ally: foe.faction === 'ally',
       summoned: foe.summonedBy ? { rounds: foe.expires } : undefined,

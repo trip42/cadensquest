@@ -239,9 +239,9 @@ chosen. Guardians are placed by `placeGuardians` (see **Floors**). The old
 `placed` (an enemy put mid-chunk for certain) is gone: a sub-boss is a
 guardian on its chunk's last row.
 
-The migrated densities are 6 / 9 / 12 for the three floors (up from 4 / 6 /
-8 when enemies began waiting to be approached, which made runs easier; see
-**Simulator**).
+Densities run from 6 on the first floor to 12 at the end of the last, chunk
+by chunk (they were 4 / 6 / 8 a floor until enemies began waiting to be
+approached, which made runs easier; see **Simulator**).
 `ensureSpawns` populates a chunk once, when it lies on the current floor, so
 a chunk straddling two floors would leave part of the second one empty.
 
@@ -1518,9 +1518,19 @@ minutes); `npm run sim -- sim/final.sim.ts` runs one. Reports land in
   the same seeds (`seeds()`), so differences come from the variant, not the
   dice. 150 runs give about ±8% on a win rate; `final` (the committed
   game's scorecard, the number to beat) uses 300.
-- **Where balance stands on 2026-09-29** (`final`, 300 seeds, no
-  lookahead): **56% of runs won**, deaths 0% / 76% / 24% by floor. How it
-  got there, each measured on the same seeds:
+- **Where balance stands on 2026-09-30** (`final`, 300 seeds, no
+  lookahead): **49% of runs won**, deaths 44% / 46% / 10% by floor, 9 of 11
+  targets (up from 8). That is after zones became chunk lists with
+  sub-bosses: four easier guardians on the dark column (Gloomslime,
+  Ironshell, Broodmother, Cockatrice — each with a rare-leaning card or gem
+  reward, not a talisman, which stays with the guardians at a floor's end)
+  standing mid-floor, the marsh and the highlands four chunks long, and the
+  Bogmaw (`tree`) in the marsh. Before it, on the same seeds: 52% won,
+  deaths 1% / 78% / 21%, 8 of 11. Floor 1 now kills and no floor takes more
+  than 60%; turns per floor rose from 18 to 20 (target 8–16) because floors
+  are longer.
+
+  How it got to the 52% before that, each measured on the same seeds:
   - Turning on the 24 COMBOS.md cards: down to 19%, mostly the fire family.
   - Stronger gems and a full heal on each floor: back to 49%.
   - The user's card rebalance (Scout out, Mend, Vault, Blood Pact): 56%.
@@ -1529,14 +1539,13 @@ minutes); `npm run sim -- sim/final.sim.ts` runs one. Reports land in
     every turn before they were met.
   - Densities 6 / 9 / 12, to make up for the waiting: 56%.
 
-  What is still off: floor 1 kills almost nobody, and floor 2 takes three
-  deaths in four against a limit of 60%. The existing enemy decks were
-  written as shuffled multisets and now play in the order listed; giving
-  them real patterns, and floors some sub-bosses (chunk `guardians`), is
-  the obvious next lever. Second Wind was trimmed after testing it as two
-  extra copies in the deck; as an ordinary reward it matters more, so heal
-  8 / draw 2 is worth trying again. FUN.md has sections 1–9 of the
-  history; these last steps are only here.
+  Still off: real choices (24%, target 35%+) and turns per floor. The
+  existing enemy decks were written as shuffled multisets and now play in
+  the order listed; giving them real patterns is the obvious next lever.
+  Second Wind was trimmed after testing it as two extra copies in the deck;
+  as an ordinary reward it matters more, so heal 8 / draw 2 is worth trying
+  again. FUN.md has sections 1–9 of the history; these last steps are only
+  here.
 
 ## Verifying UI work
 

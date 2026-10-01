@@ -285,7 +285,7 @@ watch(() => [card.value?.name, card.value?.text, cardNow.value], measure);
       </div>
       <div class="panel foe-tip">
         <p class="tip-name">{{ foe.name }} <span class="hp">{{ foe.maxHp }}/{{ foe.maxHp }}</span></p>
-        <p v-if="foe.guardian" class="line"><span class="px-tag is-red">GUARDIAN</span> Holds the way out of its zone.</p>
+        <p v-if="foe.guardian" class="line"><span class="px-tag is-red">GUARDIAN</span> Stands at the end of a chunk; at a floor's end, the way down opens where it falls.</p>
         <p v-if="foeFirstMove" class="line">
           <span class="px-tag">NEXT</span> {{ foeFirstMove.name }}: {{ printedText(foeFirstMove.text, foeFirstMove.effects as Effect[], 'its') }}
         </p>

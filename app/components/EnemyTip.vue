@@ -30,7 +30,8 @@ const store = useGameStore();
         : `Fades in ${store.enemyTip.summoned.rounds} round${store.enemyTip.summoned.rounds === 1 ? '' : 's'}.` }}
     </p>
     <p v-if="store.enemyTip.guardian" class="guard">
-      <span class="px-tag is-red">GUARDIAN</span> The way on is shut until it falls.
+      <template v-if="store.enemyTip.guardian === 'final'"><span class="px-tag is-red">GUARDIAN</span> The way down opens where it falls.</template>
+      <template v-else><span class="px-tag is-red">SUB-BOSS</span> It guards this stretch; the way down is further on.</template>
     </p>
     <p v-if="store.enemyTip.intent" class="intent">
       <span class="px-tag">NEXT</span>

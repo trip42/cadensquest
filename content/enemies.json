@@ -284,5 +284,149 @@
       "bug_skitter"
     ],
     "coins": 30
+  },
+  {
+    "id": "gloomslime",
+    "name": "Gloomslime",
+    "enabled": true,
+    "guardian": true,
+    "maxHp": 22,
+    "sprite": {
+      "sheet": "enemies",
+      "col": 1,
+      "row": 0,
+      "faces": 1,
+      "footprint": {
+        "width": 64,
+        "height": 46
+      }
+    },
+    "deck": [
+      "gloomslime_engulf",
+      "gloomslime_harden",
+      "gloomslime_engulf"
+    ],
+    "reward": {
+      "weights": {
+        "card": 70,
+        "gem": 30,
+        "talisman": 0,
+        "removal": 0
+      },
+      "cardRarity": {
+        "normal": 10,
+        "rare": 60,
+        "mythic": 30
+      }
+    },
+    "coins": 18
+  },
+  {
+    "id": "ironshell",
+    "name": "Ironshell",
+    "enabled": true,
+    "guardian": true,
+    "maxHp": 26,
+    "sprite": {
+      "sheet": "enemies",
+      "col": 1,
+      "row": 2,
+      "faces": 1,
+      "footprint": {
+        "width": 78,
+        "height": 50
+      }
+    },
+    "deck": [
+      "ironshell_shell",
+      "ironshell_ram",
+      "ironshell_ram"
+    ],
+    "reward": {
+      "weights": {
+        "card": 70,
+        "gem": 30,
+        "talisman": 0,
+        "removal": 0
+      },
+      "cardRarity": {
+        "normal": 10,
+        "rare": 60,
+        "mythic": 30
+      }
+    },
+    "coins": 22
+  },
+  {
+    "id": "broodmother",
+    "name": "Broodmother",
+    "enabled": true,
+    "guardian": true,
+    "maxHp": 24,
+    "sprite": {
+      "sheet": "enemies",
+      "col": 1,
+      "row": 3,
+      "faces": 1,
+      "footprint": {
+        "width": 86,
+        "height": 60
+      }
+    },
+    "deck": [
+      "broodmother_spit",
+      "broodmother_hatch",
+      "broodmother_spit"
+    ],
+    "reward": {
+      "weights": {
+        "card": 70,
+        "gem": 30,
+        "talisman": 0,
+        "removal": 0
+      },
+      "cardRarity": {
+        "normal": 10,
+        "rare": 60,
+        "mythic": 30
+      }
+    },
+    "coins": 20
+  },
+  {
+    "id": "cockatrice",
+    "name": "Cockatrice",
+    "enabled": true,
+    "guardian": true,
+    "maxHp": 16,
+    "sprite": {
+      "sheet": "enemies",
+      "col": 1,
+      "row": 4,
+      "faces": 1,
+      "footprint": {
+        "width": 56,
+        "height": 62
+      }
+    },
+    "deck": [
+      "cockatrice_rake",
+      "cockatrice_rake",
+      "cockatrice_glare"
+    ],
+    "reward": {
+      "weights": {
+        "card": 70,
+        "gem": 30,
+        "talisman": 0,
+        "removal": 0
+      },
+      "cardRarity": {
+        "normal": 10,
+        "rare": 60,
+        "mythic": 30
+      }
+    },
+    "coins": 15
   }
 ]

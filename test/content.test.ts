@@ -70,15 +70,16 @@ describe('enabled', () => {
 
   it('never spawns a disabled enemy', () => {
     const content = draft();
-    content.enemies.find((enemy) => enemy.id === 'bug')!.enabled = false;
+    // The spider: nothing summons it, so it can be switched off alone.
+    content.enemies.find((enemy) => enemy.id === 'spider')!.enabled = false;
     loadContent(content as unknown as Record<string, unknown>);
-    expect(ENEMY_IDS).not.toContain('bug');
+    expect(ENEMY_IDS).not.toContain('spider');
 
     resetUids();
     const game = createGame(90210);
     beginTurn(game);
     const spawned = new Set(game.state.entities.map((entity) => entity.defId));
-    expect(spawned.has('bug')).toBe(false);
+    expect(spawned.has('spider')).toBe(false);
     expect(spawned.has('slime')).toBe(true);
   });
 

@@ -57,16 +57,21 @@
         "enemies": [
           "slime",
           "chicken",
-          "bug"
+          "bug",
+          "spider"
         ],
         "density": 6,
-        "guardians": []
+        "guardians": [
+          "gloomslime",
+          "cockatrice"
+        ]
       },
       {
         "enemies": [
           "slime",
           "chicken",
-          "bug"
+          "bug",
+          "dragon"
         ],
         "density": 6,
         "guardians": [
@@ -123,19 +128,29 @@
       {
         "enemies": [
           "slime",
-          "bug",
+          "bug"
+        ],
+        "density": 8,
+        "guardians": []
+      },
+      {
+        "enemies": [
+          "slime",
           "spider",
           "whelp"
         ],
         "density": 9,
-        "guardians": []
+        "guardians": [
+          "broodmother"
+        ]
       },
       {
         "enemies": [
           "slime",
           "bug",
           "spider",
-          "whelp"
+          "whelp",
+          "tree"
         ],
         "density": 9,
         "guardians": []
@@ -202,12 +217,22 @@
       {
         "enemies": [
           "wolf",
-          "spider",
+          "spider"
+        ],
+        "density": 10,
+        "guardians": []
+      },
+      {
+        "enemies": [
+          "wolf",
           "dragon",
           "whelp"
         ],
-        "density": 12,
-        "guardians": []
+        "density": 11,
+        "guardians": [
+          "ironshell",
+          "broodmother"
+        ]
       },
       {
         "enemies": [

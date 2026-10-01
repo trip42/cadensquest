@@ -21,15 +21,18 @@ function floor(rowsShort: number): Game {
   self.row = row;
   self.col = Array.from({ length: game.world.width }, (_, c) => c).find((c) => game.world.walkable(row, c))!;
   beginTurn(game);
-  const gate = game.state.gates[0]!;
+  // The one holding the way down; any sub-boss on the way is cleared too.
+  const gate = game.state.gates.find((item) => item.final)!;
   game.state.entities = game.state.entities.filter((entity) => entity.faction !== 'enemy' || entity.id === gate.guardianId);
   game.state.hand = [];
   return game;
 }
 
-const gateOf = (game: Game) => game.state.gates[0]!;
+/** The gate holding the way down — not a sub-boss on the way. */
+const gateOf = (game: Game) => game.state.gates.find((gate) => gate.final)!;
 const guardianOf = (game: Game) => game.state.entities.find((entity) => entity.id === gateOf(game).guardianId)!;
-const wakings = (game: Game) => game.state.cues.filter((item) => item.type === 'guardian').length;
+const wakings = (game: Game) =>
+  game.state.cues.filter((item) => item.type === 'guardian' && item.target === gateOf(game).guardianId).length;
 
 /** Its next card is its maul (close up to 2, then hit at range 2), and the
  *  enemy phase plays out. */

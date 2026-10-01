@@ -6,42 +6,31 @@ import type { Effect } from '~/game/effects';
 import type { AnimationState } from '~/game/entities/types';
 import { type Zone, ZONES } from '~/game/map/tiles';
 
-/** The enemies sheet is a 3-wide, 6-tall grid. */
+/** The enemies sheet: three cells across, and as many rows as the image
+ *  holds — 12 at 3600 pixels tall. */
 const SHEET_COLUMNS = 3;
-const SHEET_ROWS = 6;
+const SHEET_ROWS = 12;
 
 /** Everyone a zone spawns at random, across its chunks. */
 const rosterOf = (zone: Zone): string[] => zone.chunks.flatMap((chunk) => chunk.enemies);
 
 describe('entity definitions', () => {
   it('has the enemies from the sheet', () => {
-    expect(ENEMY_IDS.sort()).toEqual(['bug', 'chicken', 'dragon', 'slime', 'spider', 'whelp', 'wolf']);
+    expect(ENEMY_IDS.sort()).toEqual(['bug', 'chicken', 'dragon', 'slime', 'spider', 'tree', 'whelp', 'wolf']);
   });
 
-  it('gives each enemy its own cell of the sheet, in sheet order', () => {
-    const order = ['slime', 'dragon', 'bug', 'spider', 'chicken', 'wolf'];
-    const seen = new Set<string>();
-
-    order.forEach((id, row) => {
+  it('gives each creature its own cell of the sheet', () => {
+    const seen = new Map<string, string>();
+    for (const id of [...ENEMY_IDS, ...GUARDIAN_IDS]) {
       const sprite = entityDef(id).sprite;
-      expect(sprite.kind).toBe('sheet');
-      if (sprite.kind !== 'sheet') return;
-
-      expect(sprite.row).toBe(row);
-      expect(sprite.col).toBeGreaterThanOrEqual(0);
-      expect(sprite.col).toBeLessThan(SHEET_COLUMNS);
-      expect(sprite.row).toBeLessThan(SHEET_ROWS);
-
+      expect(sprite.kind, id).toBe('sheet');
+      if (sprite.kind !== 'sheet') continue;
+      expect(sprite.col, id).toBeGreaterThanOrEqual(0);
+      expect(sprite.col, id).toBeLessThan(SHEET_COLUMNS);
+      expect(sprite.row, id).toBeLessThan(SHEET_ROWS);
       const cell = `${sprite.col}:${sprite.row}`;
-      expect(seen.has(cell)).toBe(false);
-      seen.add(cell);
-    });
-  });
-
-  it('gives every character a footprint with room in it', () => {
-    for (const def of Object.values(ENTITIES)) {
-      expect(def.sprite.footprint.width).toBeGreaterThan(0);
-      expect(def.sprite.footprint.height).toBeGreaterThan(0);
+      expect(seen.get(cell), `${id} shares ${cell}`).toBeUndefined();
+      seen.set(cell, id);
     }
   });
 

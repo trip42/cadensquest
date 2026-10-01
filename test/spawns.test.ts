@@ -95,8 +95,9 @@ describe('guardians by chunk', () => {
     content.zones[0]!.chunks[0]!.guardians = ['wyrm'];
     install(content);
     const game = spawnWholeFloor();
-    const [mid, last] = game.state.gates;
-    expect(mid).toMatchObject({ row: floorRows(0).first + CHUNK_ROWS - 1, final: false });
+    const mid = game.state.gates.find((gate) => gate.row === floorRows(0).first + CHUNK_ROWS - 1);
+    const last = game.state.gates.find((gate) => gate.row === floorRows(0).last);
+    expect(mid).toMatchObject({ final: false });
     expect(guardianOf(game, mid!).defId).toBe('wyrm');
     expect(last).toMatchObject({ row: floorRows(0).last, final: true });
 
@@ -128,7 +129,7 @@ describe('guardians by chunk', () => {
     delete content.zones[0]!.chunks.at(-1)!.guardians;
     install(content);
     const game = spawnWholeFloor();
-    expect(game.state.gates).toEqual([]);
+    expect(game.state.gates.some((gate) => gate.final)).toBe(false);
     expect(hasPortal(game)).toBe(true);
   });
 });
