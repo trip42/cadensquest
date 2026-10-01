@@ -50,7 +50,8 @@ export interface FacePalette {
   texture: "blades" | "speckle" | "ripple" | "grain" | "none";
 }
 
-export interface ZoneGenParams {
+/** How a zone's ground is shaped. Content (`terrain` on a zone). */
+export interface ZoneTerrain {
   /** Layers of terrain height this zone varies between. */
   minHeight: number;
   maxHeight: number;
@@ -69,235 +70,108 @@ export interface ZoneGenParams {
   peakHeight: number;
 }
 
+/** One chunk of a zone: 16 rows, and who lives in them. */
 export interface ZoneChunk {
-  /** Which chunk of the floor, counting from 1. */
-  chunk: number;
-  /** Join the zone's random mix in this chunk only. */
+  /** Which enemy definitions spawn here at random. A name listed twice is
+   *  twice as likely. */
   enemies: string[];
-  /** Each put in this chunk once, for certain, before the random ones. */
-  placed: string[];
+  /** How many are drawn for this chunk. */
+  density: number;
+  /** One of these, chosen at random, stands on the chunk's last row. On a
+   *  zone's last chunk it holds the way down; anywhere else it is a
+   *  sub-boss. Empty: nobody. */
+  guardians: string[];
 }
 
+/* A zone is a floor: its name, how it looks, how its ground is shaped, and
+   its chunks in order. All of it is content (content/zones.json, in floor
+   order), installed into ZONES by `installContent`. */
 export interface Zone {
   id: string;
   name: string;
   palette: Record<TileKind, FacePalette>;
-  /* Who lives here is content — content/zones.json, keyed by `id` — and is
-     filled in by `installContent`. The terrain and palette stay in code. */
-  /** Which enemy definitions spawn here. A name listed twice is twice as
-   *  likely. */
-  enemies: string[];
-  /** Enemies per chunk. */
-  density: number;
-  /** What changes chunk by chunk (1 is the floor's first): enemies that
-   *  join the random mix in that chunk only, and enemies `placed` there
-   *  once, for certain — a floor's sub-bosses. */
+  terrain: ZoneTerrain;
+  /** The floor's chunks, first to last. At least one. */
   chunks: ZoneChunk[];
-  /** Who holds the way out of this zone, standing on its last row. */
-  guardian?: string;
-  gen: ZoneGenParams;
 }
 
-export const ZONES: Zone[] = [
-  {
-    id: "meadow",
-    name: "North Basin",
-    // Who spawns here comes from content/zones.json.
-    enemies: [],
-    density: 0,
-    chunks: [],
-    palette: {
-      ground: {
-        top: "#8fb063",
-        left: "#5f8046",
-        right: "#4b6838",
-        elev: 0,
-        texture: "blades",
-      },
-      trail: {
-        top: "#c1945f",
-        left: "#956a42",
-        right: "#7a5533",
-        elev: 0,
-        texture: "speckle",
-      },
-      water: {
-        top: "#6ea9ad",
-        left: "#477f85",
-        right: "#39666d",
-        elev: -5,
-        texture: "ripple",
-      },
-      rock: {
-        top: "#8d9498",
-        left: "#646c71",
-        right: "#4e565b",
-        elev: 0,
-        texture: "grain",
-      },
-    },
-    gen: {
-      minHeight: 1,
-      maxHeight: 4,
-      forkChance: 0.18,
-      mergeChance: 0.25,
-      waterChance: 0.16,
-      rockChance: 0.06,
-      widthDrift: 0.6,
-      peakChance: 0.08,
-      peakHeight: 2,
-    },
-  },
-  {
-    id: "marsh",
-    name: "Sunken Reach",
-    // Who spawns here comes from content/zones.json.
-    enemies: [],
-    density: 0,
-    chunks: [],
-    palette: {
-      ground: {
-        top: "#6f8a56",
-        left: "#4a6340",
-        right: "#3a5134",
-        elev: 0,
-        texture: "blades",
-      },
-      trail: {
-        top: "#9b7f52",
-        left: "#735c3a",
-        right: "#5c482d",
-        elev: 0,
-        texture: "speckle",
-      },
-      water: {
-        top: "#5d8f86",
-        left: "#3d6b66",
-        right: "#315854",
-        elev: -6,
-        texture: "ripple",
-      },
-      rock: {
-        top: "#77807f",
-        left: "#565f5f",
-        right: "#434b4b",
-        elev: 0,
-        texture: "grain",
-      },
-    },
-    gen: {
-      minHeight: 1,
-      maxHeight: 3,
-      forkChance: 0.3,
-      mergeChance: 0.2,
-      waterChance: 0.34,
-      rockChance: 0.04,
-      widthDrift: 0.7,
-      peakChance: 0.04,
-      peakHeight: 1,
-    },
-  },
-  {
-    id: "highlands",
-    name: "Pale Shelf",
-    // Who spawns here comes from content/zones.json.
-    enemies: [],
-    density: 0,
-    chunks: [],
-    palette: {
-      ground: {
-        top: "#a8b189",
-        left: "#78805f",
-        right: "#616849",
-        elev: 0,
-        texture: "blades",
-      },
-      trail: {
-        top: "#c9ad82",
-        left: "#9c8259",
-        right: "#7e6845",
-        elev: 0,
-        texture: "speckle",
-      },
-      water: {
-        top: "#7fa8b5",
-        left: "#567f8c",
-        right: "#456972",
-        elev: -5,
-        texture: "ripple",
-      },
-      rock: {
-        top: "#9aa0a6",
-        left: "#70767c",
-        right: "#585e64",
-        elev: 0,
-        texture: "grain",
-      },
-    },
-    gen: {
-      minHeight: 2,
-      maxHeight: 7,
-      forkChance: 0.12,
-      mergeChance: 0.3,
-      waterChance: 0.08,
-      rockChance: 0.14,
-      widthDrift: 0.55,
-      peakChance: 0.22,
-      peakHeight: 3,
-    },
-  },
-];
+/** Rows in one chunk. Zones are whole chunks, so a chunk only ever belongs
+ *  to one zone — and one floor, which is what lets a floor populate each of
+ *  its chunks exactly once, as the player arrives. */
+export const CHUNK_ROWS = 16;
 
-/** Rows each zone occupies. A multiple of CHUNK_ROWS keeps zone edges on
- *  chunk boundaries, so a chunk only ever belongs to one zone — and to one
- *  floor, which is what lets a floor populate each of its chunks exactly
- *  once, as the player arrives. A test pins it. */
-export const ZONE_ROWS = 48;
+/** Every zone, in floor order. The same array for the life of the page:
+ *  `installContent` empties and refills it, never reassigns it. */
+export const ZONES: Zone[] = [];
 
-/** How many chunks a floor is: its rows over a chunk's (16). */
-export const CHUNKS_PER_FLOOR = 3;
+/* Where each floor lies in the one continuous world. Floors are their
+   zones' chunks back to back, so a floor's length follows its zone. Worked
+   out by `layoutZones` whenever zones are installed, and — like ZONES — the
+   same object for the life of the page. */
+export const LAYOUT = {
+  /** How many floors a run goes down through: one per zone. */
+  floors: 0,
+  /** Each floor's first row, and its first chunk's index. */
+  firstRow: [] as number[],
+  firstChunk: [] as number[],
+  /** The last row of the last floor, where the way out waits. */
+  lastRow: -1,
+  /** Tallest a stack can be anywhere: terrain, plus a peak, plus an
+   *  outcrop. Culling needs it. */
+  maxStack: 1,
+};
 
-/** The map is finite: every zone once, in order, and then the far end. */
-export const MAP_ROWS = ZONES.length * ZONE_ROWS;
-
-/** The last row of the last floor, where the way out waits. */
-export const LAST_ROW = MAP_ROWS - 1;
-
-/** The row a zone's guardian holds: the last row of that zone. Every zone
- *  boundary is also a chunk boundary, so this is always a canonical row —
- *  full width, trail across the middle. */
-export const gateRowOf = (zoneIndex: number): number => (zoneIndex + 1) * ZONE_ROWS - 1;
+export function layoutZones(): void {
+  LAYOUT.floors = ZONES.length;
+  LAYOUT.firstRow.length = 0;
+  LAYOUT.firstChunk.length = 0;
+  let chunk = 0;
+  for (const zone of ZONES) {
+    LAYOUT.firstChunk.push(chunk);
+    LAYOUT.firstRow.push(chunk * CHUNK_ROWS);
+    chunk += zone.chunks.length;
+  }
+  LAYOUT.lastRow = chunk * CHUNK_ROWS - 1;
+  LAYOUT.maxStack = Math.max(1, ...ZONES.map((zone) => zone.terrain.maxHeight + zone.terrain.peakHeight)) + 1;
+}
 
 /* Floors. Each zone is a floor of its own, like a level of a dungeon: the
    run goes down through them in order, and only the one the player is on
    exists while he is on it — the map ends at its first and last rows. A
    floor is simply its zone's rows of the one continuous world, so the
    generator, its invariants and every seed are untouched, and analytics
-   still count depth in the same rows as before. */
-
-/** How many floors a run goes down through: one per zone. */
-export const FLOORS = ZONES.length;
+   still count depth in rows. */
 
 /** The rows a floor spans: its zone's, from its canonical first row to the
  *  canonical last row its guardian holds. */
-export const floorRows = (floor: number): { first: number; last: number } => ({
-  first: floor * ZONE_ROWS,
-  last: gateRowOf(floor),
-});
+export function floorRows(floor: number): { first: number; last: number } {
+  const first = LAYOUT.firstRow[floor] ?? 0;
+  const chunks = ZONES[floor]?.chunks.length ?? 0;
+  return { first, last: first + chunks * CHUNK_ROWS - 1 };
+}
+
+/** The row a zone's last guardian holds: the last row of that zone. Every
+ *  zone boundary is also a chunk boundary, so this is always a canonical
+ *  row — full width, trail across the middle. */
+export const gateRowOf = (zoneIndex: number): number => floorRows(zoneIndex).last;
+
+/** Which floor a row lies on. Past the last one the map is over, so
+ *  anything asking beyond the end gets the final floor: zones do not cycle. */
+export function floorOfRow(row: number): number {
+  let floor = 0;
+  for (let i = 1; i < LAYOUT.firstRow.length; i += 1) if (row >= LAYOUT.firstRow[i]!) floor = i;
+  return floor;
+}
+
+export const zoneForRow = (row: number): Zone => ZONES[floorOfRow(row)]!;
+
+/** A chunk's place: its floor, and which of that floor's chunks it is,
+ *  counting from 0. */
+export function chunkOfFloor(chunkIndex: number): { floor: number; k: number } {
+  const floor = floorOfRow(chunkIndex * CHUNK_ROWS);
+  return { floor, k: chunkIndex - (LAYOUT.firstChunk[floor] ?? 0) };
+}
 
 /** How far into each floor the player arrives — a little way in, not on the
  *  very edge, so there is map behind him and the view is not half empty. */
 export const START_ROW = 1;
-
-/* Zones do not cycle. Past the last one the map is over, so anything asking
-   beyond the end gets the final zone rather than starting again. */
-export function zoneForRow(row: number): Zone {
-  const index = Math.floor(Math.max(0, row) / ZONE_ROWS);
-  return ZONES[Math.min(index, ZONES.length - 1)]!;
-}
-
-/** Tallest a stack can be anywhere: terrain, plus a peak, plus an outcrop.
- *  Culling needs it, so it lives with the numbers it comes from. */
-export const MAX_STACK_HEIGHT =
-  Math.max(...ZONES.map((zone) => zone.gen.maxHeight + zone.gen.peakHeight)) +
-  1;

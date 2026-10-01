@@ -212,23 +212,54 @@ export const talismanSchema = z.strictObject({
     .optional(),
 });
 
-/** Who lives in a zone. The zone itself — its terrain and palette — is
- *  code; this is matched to it by id. */
-/** A chunk of a zone's floor (1 is the first) and who is special there. */
-export const zoneChunkSchema = z.strictObject({
-  chunk: count(1, 9),
-  /** Join the zone's random mix in this chunk only. */
-  enemies: z.array(idSchema).optional(),
-  /** Each put in this chunk once, for certain. */
-  placed: z.array(idSchema).optional(),
+/** How one kind of tile looks in a zone: its three faces, how far its
+ *  surface sits from the layer line (water sinks), and its texture. */
+export const facePaletteSchema = z.strictObject({
+  top: colourSchema,
+  left: colourSchema,
+  right: colourSchema,
+  elev: z.number().int().min(-20).max(20),
+  texture: z.enum(['blades', 'speckle', 'ripple', 'grain', 'none']),
 });
 
+const odds = z.number().min(0).max(1);
+
+/** How a zone's ground is shaped. */
+export const zoneTerrainSchema = z.strictObject({
+  minHeight: count(1, 9),
+  maxHeight: count(1, 9),
+  forkChance: odds,
+  mergeChance: odds,
+  waterChance: odds,
+  rockChance: odds,
+  widthDrift: odds,
+  peakChance: odds,
+  peakHeight: count(0, 5),
+});
+
+/** One chunk of a zone (16 rows): who spawns, how many, and who may stand
+ *  on its last row. */
+export const zoneChunkSchema = z.strictObject({
+  enemies: z.array(idSchema),
+  density: count(0, 12),
+  /** One is chosen at random for the chunk's last row. On the zone's last
+   *  chunk it holds the way down. */
+  guardians: z.array(idSchema).optional(),
+});
+
+/** A zone is a floor: its look, its ground, and its chunks in order. The
+ *  file's order is the order the floors come in. */
 export const zoneSchema = z.strictObject({
   id: idSchema,
-  enemies: z.array(idSchema),
-  guardian: idSchema.optional(),
-  density: count(0, 12),
-  chunks: z.array(zoneChunkSchema).optional(),
+  name: nameSchema,
+  palette: z.strictObject({
+    ground: facePaletteSchema,
+    trail: facePaletteSchema,
+    water: facePaletteSchema,
+    rock: facePaletteSchema,
+  }),
+  terrain: zoneTerrainSchema,
+  chunks: z.array(zoneChunkSchema).min(1, 'needs at least one chunk').max(8, 'at most 8 chunks'),
 });
 
 export const runSchema = z.strictObject({

@@ -9,7 +9,6 @@
 
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import type { ContentFile } from '~/game/content';
-import { ZONES } from '~/game/map/tiles';
 import { TABS, useEditorStore } from '~/stores/editor';
 import { problemsAt } from '~/utils/editorProblems';
 
@@ -43,8 +42,7 @@ const tabInfo = computed(() => TABS.find((tab) => tab.file === editor.tab)!);
 const isCollection = computed(() => editor.tab !== 'run');
 
 type Listed = { id: string; name?: string; enabled?: boolean };
-const nameOf = (item: Listed) =>
-  editor.tab === 'zones' ? ZONES.find((zone) => zone.id === item.id)?.name ?? item.id : item.name ?? item.id;
+const nameOf = (item: Listed) => item.name ?? item.id;
 
 const listed = computed(() => {
   const query = search.value.trim().toLowerCase();
@@ -89,7 +87,9 @@ function jump(issue: { file: ContentFile; id?: string }): void {
 
 const idLocked = computed(() => !item.value || editor.isSaved(editor.tab, item.value.id));
 const uses = computed(() => (item.value ? editor.usesOf(editor.tab, item.value.id) : []));
-const canCreate = computed(() => editor.tab !== 'run' && editor.tab !== 'zones');
+const canCreate = computed(() => editor.tab !== 'run');
+// A run needs at least one floor, so the last zone cannot go.
+const lastZone = computed(() => editor.tab === 'zones' && editor.items.length <= 1);
 
 function tryIt(): void {
   const url = editor.tryUrl();
@@ -178,10 +178,9 @@ const saveLabel = computed(() => {
         <template v-if="item || editor.tab === 'run'">
           <div v-if="item" class="head">
             <div class="head-fields">
-              <EditorField v-if="editor.tab !== 'zones'" label="Name" :problems="problemsAt(itemIssues, 'name')">
+              <EditorField label="Name" :problems="problemsAt(itemIssues, 'name')">
                 <input v-model="(item as { name: string }).name" type="text" class="big">
               </EditorField>
-              <p v-else class="zone-title">{{ nameOf(item) }}</p>
               <EditorField
                 label="Id"
                 :hint="idLocked ? 'Fixed once saved — other content and analytics refer to it.' : 'How everything refers to it. Can be changed until it is saved.'"
@@ -200,8 +199,8 @@ const saveLabel = computed(() => {
                 v-if="canCreate"
                 type="button"
                 class="btn danger"
-                :disabled="uses.length > 0"
-                :title="uses.length ? `Used by ${uses.join(', ')} — disable it instead, or remove those first` : 'Delete it'"
+                :disabled="uses.length > 0 || lastZone"
+                :title="lastZone ? 'A run needs at least one floor' : uses.length ? `Used by ${uses.join(', ')} — disable it instead, or remove those first` : 'Delete it'"
                 @click="editor.remove()"
               >
                 Delete
@@ -330,7 +329,6 @@ const saveLabel = computed(() => {
 .editor .head { display: flex; justify-content: space-between; gap: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--ed-line); }
 .editor .head-fields { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 10px 14px; flex: 1; }
 .editor .head-actions { display: flex; gap: 8px; align-items: flex-start; }
-.editor .zone-title { margin: 0; font-size: 20px; font-weight: 600; }
 .editor .toggle { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .editor .toggle input { width: 18px; height: 18px; }
 

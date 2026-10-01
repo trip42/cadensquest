@@ -15,7 +15,7 @@ import type { Entity } from '../game/entities/types';
 import { gemDef } from '../game/gems';
 import type { Cell } from '../game/map/navigation';
 import { type Reward, rewardLabel } from '../game/rewards';
-import { KIND_OF, type FacePalette, MAX_STACK_HEIGHT, type TileKind, type TileLetter, VOID, ZONES } from '../game/map/tiles';
+import { KIND_OF, type FacePalette, LAYOUT, type TileKind, type TileLetter, VOID, ZONES } from '../game/map/tiles';
 import type { Game, TerrainLayer } from '../game/state';
 import {
   type Camera,
@@ -468,7 +468,7 @@ export class MapRenderer implements Stage {
         const sx = projectX(col, row, this.camera, this.view);
         const sy = projectY(col, row, this.camera, this.view);
         if (sx < -TILE_W || sx > view.width + TILE_W) continue;
-        if (sy < -TILE_H - MAX_STACK_HEIGHT * LAYER_H || sy > view.height + TILE_H + LAYER_H) continue;
+        if (sy < -TILE_H - LAYOUT.maxStack * LAYER_H || sy > view.height + TILE_H + LAYER_H) continue;
 
         this.drawStack(sx, sy, stack, row, col, now);
       }

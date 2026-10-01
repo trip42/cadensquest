@@ -56,7 +56,7 @@ import { entityDef } from '~/game/entities/definitions';
 import { rewardLabel } from '~/game/rewards';
 import { type Cell, cellDistance } from '~/game/map/navigation';
 import type { SpriteStyle } from '~/game/entities/types';
-import { FLOORS, floorRows, ZONES } from '~/game/map/tiles';
+import { floorRows, LAYOUT, ZONES } from '~/game/map/tiles';
 import { describeModifier } from '~/game/stats';
 import {
   allies,
@@ -293,7 +293,7 @@ export const useGameStore = defineStore('game', () => {
       row: self.row - floorRows(state.floor).first,
       lastRow: floorRows(state.floor).last - floorRows(state.floor).first,
       floor: state.floor + 1,
-      floors: FLOORS,
+      floors: LAYOUT.floors,
       foes: enemies(state).length,
       drawCount: state.drawPile.length,
       discardCount: state.discardPile.length,

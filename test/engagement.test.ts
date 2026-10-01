@@ -222,7 +222,8 @@ describe('enemies play their own cards', () => {
 });
 
 describe('guardians', () => {
-  const guarded = ZONES.map((zone, index) => ({ zone, index })).filter(({ zone }) => zone.guardian);
+  // Zones whose last chunk names a guardian to hold the way down.
+  const guarded = ZONES.map((zone, index) => ({ zone, index })).filter(({ zone }) => zone.chunks.at(-1)!.guardians.length);
 
   /** Stand the player a little before a zone's last row and populate it. */
   function nearGate(zoneIndex: number): Game {
@@ -244,14 +245,15 @@ describe('guardians', () => {
       const gate = game.state.gates.find((g) => g.row === gateRowOf(index));
       expect(gate, zone.id).toBeDefined();
       const guardian = game.state.entities.find((e) => e.id === gate!.guardianId)!;
-      expect(guardian.defId).toBe(zone.guardian);
+      expect(zone.chunks.at(-1)!.guardians).toContain(guardian.defId);
+      expect(gate!.final).toBe(true);
       expect(guardian.row).toBe(gateRowOf(index));
     }
   });
 
   it('keeps its post instead of chasing', () => {
     const game = nearGate(0);
-    const gate = game.state.gates[0]!;
+    const gate = game.state.gates.find((g) => g.final)!;
     const guardian = game.state.entities.find((e) => e.id === gate.guardianId)!;
     const post = entityCell(guardian);
     runEnemyPhase(game);

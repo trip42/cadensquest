@@ -12,6 +12,8 @@ const props = defineProps<{
   noun?: string;
 }>();
 const noun = computed(() => props.noun ?? 'card');
+/** "enemies", not "enemys". */
+const plural = computed(() => (/[^aeiou]y$/.test(noun.value) ? `${noun.value.slice(0, -1)}ies` : `${noun.value}s`));
 
 const counts = computed(() => {
   const tally = new Map<string, number>();
@@ -58,7 +60,7 @@ function addPicked(): void {
           {{ option.name }}{{ option.enabled ? '' : ' (disabled)' }}
         </option>
       </select>
-      <span class="deck-total">{{ deck.length }} {{ noun }}{{ deck.length === 1 ? '' : 's' }}</span>
+      <span class="deck-total">{{ deck.length }} {{ deck.length === 1 ? noun : plural }}</span>
     </div>
     <span v-for="problem in problems" :key="problem" class="field-problem">{{ problem }}</span>
   </div>

@@ -5,7 +5,7 @@ import { loadContent } from '~/game/content';
 import { entityCell } from '~/game/entities/types';
 import { type Cell, cellDistance } from '~/game/map/navigation';
 import { CHUNK_ROWS } from '~/game/map/generate';
-import { FLOORS, floorRows, gateRowOf, START_ROW, ZONE_ROWS, ZONES } from '~/game/map/tiles';
+import { floorRows, gateRowOf, LAYOUT, START_ROW, ZONES } from '~/game/map/tiles';
 import { allies, createGame, enemies, type Game, makeCard, makeEntity, player, resetUids } from '~/game/state';
 import { readContentFiles } from './setup';
 
@@ -76,7 +76,11 @@ describe('a floor', () => {
   it('holds whole chunks, so none is split between two floors', () => {
     // A chunk straddling floors would be populated for the first and then
     // never again: part of the next floor would arrive empty.
-    expect(ZONE_ROWS % CHUNK_ROWS).toBe(0);
+    for (let floor = 0; floor < LAYOUT.floors; floor += 1) {
+      const { first, last } = floorRows(floor);
+      expect(first % CHUNK_ROWS).toBe(0);
+      expect((last + 1) % CHUNK_ROWS).toBe(0);
+    }
   });
 
   it('is all the map there is: it ends at its first and last rows', () => {
@@ -103,10 +107,10 @@ describe('a floor', () => {
   it('with no guardian, has its way off open from the start', () => {
     // Whatever the content names — a final boss is one edit away — a floor
     // without a guardian has its way out waiting. afterEach restores it.
-    delete ZONES[FLOORS - 1]!.guardian;
-    const game = nearTheEnd(FLOORS - 1);
+    ZONES[LAYOUT.floors - 1]!.chunks.at(-1)!.guardians = [];
+    const game = nearTheEnd(LAYOUT.floors - 1);
     const portal = portalAt(game);
-    expect(portal?.row).toBe(floorRows(FLOORS - 1).last);
+    expect(portal?.row).toBe(floorRows(LAYOUT.floors - 1).last);
     expect(terrainAt(game.state, portal!)[0]?.portal).toBe('out');
   });
 
@@ -174,7 +178,7 @@ describe('going down', () => {
   });
 
   it('out of the last floor wins the run', () => {
-    const game = nearTheEnd(FLOORS - 1);
+    const game = nearTheEnd(LAYOUT.floors - 1);
     // Through a final guardian if the content names one; open if not.
     const way = game.state.gates.length ? fell(game) : portalAt(game)!;
     expect(terrainAt(game.state, way).find((layer) => layer.portal)?.portal).toBe('out');

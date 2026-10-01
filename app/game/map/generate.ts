@@ -21,10 +21,12 @@
    order, while still joining seamlessly to its neighbours. */
 
 import { chance, createRng, hashSeed, nextInt, type Rng } from '../rng';
-import { type Stack, VOID, type Zone, zoneForRow } from './tiles';
+import { CHUNK_ROWS, type Stack, VOID, type Zone, zoneForRow } from './tiles';
 
 export const MAP_WIDTH = 10;
-export const CHUNK_ROWS = 16;
+// Lives with the zones, which are whole chunks; re-exported for everything
+// that has always imported it from here.
+export { CHUNK_ROWS };
 /* A strand may get this narrow, and a fork's void this wide. Dropping the
    strand minimum is what makes room for both: at ten columns across, a
    fork needs 2 x MIN_STRAND + MIN_GAP to fit. */
@@ -89,7 +91,7 @@ function drift(
   bounds?: { maxHi?: number; minLo?: number },
 ): Strand {
   const drifted = { ...strand };
-  const amount = () => (chance(rng, zone.gen.widthDrift) ? (chance(rng, 0.5) ? -1 : 1) : 0);
+  const amount = () => (chance(rng, zone.terrain.widthDrift) ? (chance(rng, 0.5) ? -1 : 1) : 0);
 
   let lo = Math.min(Math.max(strand.lo + amount(), 0), MAP_WIDTH - 1);
   let hi = Math.min(Math.max(strand.hi + amount(), 0), MAP_WIDTH - 1);
@@ -116,11 +118,11 @@ function drift(
   // Terrain height wanders one layer at a time, within the zone's range.
   if (chance(rng, 0.3)) {
     const step = chance(rng, 0.5) ? -1 : 1;
-    drifted.height = Math.min(Math.max(strand.height + step, zone.gen.minHeight), zone.gen.maxHeight);
+    drifted.height = Math.min(Math.max(strand.height + step, zone.terrain.minHeight), zone.terrain.maxHeight);
   }
 
   if (chance(rng, 0.15)) drifted.ridge = !strand.ridge;
-  drifted.peak = chance(rng, zone.gen.peakChance) ? zone.gen.peakHeight : 0;
+  drifted.peak = chance(rng, zone.terrain.peakChance) ? zone.terrain.peakHeight : 0;
 
   // The trail steps one column at a time and stays on its strand. The row
   // emits every column between where it entered and where it leaves, so a
@@ -203,8 +205,8 @@ function paintRow(strands: Strand[], rng: Rng, zone: Zone): Stack[] {
     if (decorable) {
       for (const edge of [strand.lo, strand.hi]) {
         if (edge >= strand.spanLo && edge <= strand.spanHi) continue;   // never the trail
-        if (chance(rng, zone.gen.waterChance)) special.set(edge, 'W');
-        else if (chance(rng, zone.gen.rockChance)) special.set(edge, 'R');
+        if (chance(rng, zone.terrain.waterChance)) special.set(edge, 'W');
+        else if (chance(rng, zone.terrain.rockChance)) special.set(edge, 'R');
       }
     }
 
@@ -244,7 +246,7 @@ export interface Chunk {
 export function generateChunk(seed: number, index: number): Chunk {
   const rng = createRng(hashSeed(seed, index));
   const zone = zoneForRow(index * CHUNK_ROWS);
-  const startHeight = Math.min(Math.max(1, zone.gen.minHeight), zone.gen.maxHeight);
+  const startHeight = Math.min(Math.max(1, zone.terrain.minHeight), zone.terrain.maxHeight);
 
   const plan: Strand[][] = [[canonicalStrand(startHeight)]];
 
@@ -256,7 +258,7 @@ export function generateChunk(seed: number, index: number): Chunk {
 
     if (previous.length === 2) {
       const [left, right] = previous as [Strand, Strand];
-      if (chance(rng, zone.gen.mergeChance)) {
+      if (chance(rng, zone.terrain.mergeChance)) {
         next = [merge(left, right)];
       } else {
         // Drift both, then hold them apart so the gap survives.
@@ -297,7 +299,7 @@ export function generateChunk(seed: number, index: number): Chunk {
       }
     } else {
       const only = previous[0]!;
-      if (canFork(only) && chance(rng, zone.gen.forkChance)) {
+      if (canFork(only) && chance(rng, zone.terrain.forkChance)) {
         const [left, right] = fork(only, rng);
         // Widen the trail on the row above so both branches hang off a
         // path that is already connected — this is the whole trick.

@@ -96,7 +96,8 @@ export function incoming(state: GameState, at: Cell): number {
 }
 
 /** Where the bot is heading on this floor: the way down if it is open,
- *  else the guardian, else the far end of the floor. */
+ *  else the guardian holding it, else the far end of the floor. A
+ *  sub-boss on the way is fought when it wakes, like anything else. */
 function goalOf(game: Game): Cell {
   const { state, world } = game;
   for (const [key, layers] of Object.entries(state.terrain)) {
@@ -110,7 +111,7 @@ function goalOf(game: Game): Cell {
   if (shop && !shop.visited && shop.items.some((item, i) => !item.sold && state.coins >= (shopPrice(state, i) ?? Infinity))) {
     return { row: shop.row, col: shop.col };
   }
-  const gate = state.gates[0];
+  const gate = state.gates.find((item) => item.final);
   const guardian = gate && state.entities.find((entity) => entity.id === gate.guardianId && !entity.dead);
   if (guardian) return cellOf(guardian);
   return { row: gateRowOf(state.floor), col: Math.floor(world.width / 2) };

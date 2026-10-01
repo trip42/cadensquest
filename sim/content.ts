@@ -79,9 +79,9 @@ export const scaleEnemyDamage = (factor: number) => (raw: Raw): void => {
   }
 };
 
-/** More or fewer enemies per chunk — at most 12, content's own limit. */
+/** More or fewer enemies in every chunk — at most 12, content's own limit. */
 export const scaleDensity = (factor: number) => (raw: Raw): void => {
-  for (const zone of raw.zones) zone.density = Math.min(12, round(zone.density * factor));
+  for (const zone of raw.zones) for (const chunk of zone.chunks) chunk.density = Math.min(12, round(chunk.density * factor));
 };
 
 export const startingDeck = (ids: string[]) => (raw: Raw): void => {
@@ -109,7 +109,7 @@ export const addCards = (cards: Raw[]) => (raw: Raw): void => {
 export const addEnemies = (enemies: Raw[], cards: Raw[], zones: Record<string, string[]>) => (raw: Raw): void => {
   raw['enemy-cards'].push(...cards);
   raw.enemies.push(...enemies);
-  for (const zone of raw.zones) zone.enemies.push(...(zones[zone.id] ?? []));
+  for (const zone of raw.zones) for (const chunk of zone.chunks) chunk.enemies.push(...(zones[zone.id] ?? []));
 };
 
 export const all = (...changes: Array<(raw: Raw) => void>) => (raw: Raw): void => {

@@ -1,14 +1,19 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { beginTurn, enterFloor, ensureSpawns } from '~/game/actions';
+import { beginTurn, enterFloor, ensureSpawns, playCard } from '~/game/actions';
+import { CARDS } from '~/game/cards/definitions';
 import { type Content, loadContent, validateContent } from '~/game/content';
-import { ENTITIES, entityDef } from '~/game/entities/definitions';
+import { entityCell } from '~/game/entities/types';
 import { CHUNK_ROWS } from '~/game/map/generate';
-import { CHUNKS_PER_FLOOR, floorRows, ZONE_ROWS, ZONES } from '~/game/map/tiles';
+import { floorRows } from '~/game/map/tiles';
 import { chunkIndexForRow } from '~/game/map/world';
-import { createGame, type Game, player, resetUids } from '~/game/state';
+import { createGame, type Game, makeCard, player, resetUids } from '~/game/state';
 import { readContentFiles } from './setup';
 
 afterEach(() => loadContent(readContentFiles()));
+
+const draft = () => structuredClone(readContentFiles()) as unknown as Content;
+const install = (content: Content) => loadContent(content as never);
+const errors = (content: Content) => validateContent(content as never).issues.filter((issue) => issue.level === 'error');
 
 /** A fresh floor 0 with every chunk spawned, walking the player down it. */
 function spawnWholeFloor(seed = 4242): Game {
@@ -30,65 +35,138 @@ const chunkOf = (row: number) => chunkIndexForRow(row) - chunkIndexForRow(floorR
 const enemiesOf = (game: Game, defId: string) =>
   game.state.entities.filter((entity) => entity.defId === defId && !entity.dead);
 
+const guardianOf = (game: Game, gate: { guardianId: string }) =>
+  game.state.entities.find((entity) => entity.id === gate.guardianId)!;
+
+function hasPortal(game: Game): boolean {
+  return Object.values(game.state.terrain).some((layers) => layers.some((layer) => layer.portal));
+}
+
+/** Strike a creature down with a card that cannot miss. */
+function fell(game: Game, target: { row: number; col: number }): void {
+  CARDS.smite = {
+    id: 'smite', name: 'Smite', rarity: 'rare', cost: 0, targeting: 'enemy', range: 99, text: '',
+    effects: [{ kind: 'damage', amount: 999 }],
+  };
+  const card = makeCard('smite');
+  game.state.hand.push(card);
+  expect(playCard(game, card.uid, target)).toBe(true);
+  game.state.pendingRewards = [];
+}
+
 describe('spawning by chunk', () => {
-  it('knows how many chunks a floor is', () => {
-    expect(CHUNKS_PER_FLOOR).toBe(ZONE_ROWS / CHUNK_ROWS);
-  });
-
-  it('places a sub-boss in its chunk, once, for certain', () => {
-    ZONES[0]!.chunks = [{ chunk: 3, enemies: [], placed: ['wolf'] }];
-    const game = spawnWholeFloor();
-    const wolves = enemiesOf(game, 'wolf');
-    expect(wolves).toHaveLength(1);
-    expect(chunkOf(wolves[0]!.row)).toBe(3);
-  });
-
-  it('adds an enemy to the random mix in its chunk only', () => {
-    ZONES[0]!.enemies = ['slime'];
-    ZONES[0]!.density = 12;
-    ZONES[0]!.chunks = [{ chunk: 2, enemies: ['wolf', 'wolf', 'wolf', 'wolf'], placed: [] }];
+  it('spawns each chunk from its own roster, as many as its density', () => {
+    const content = draft();
+    content.zones[0]!.chunks = [
+      { enemies: ['slime'], density: 12 },
+      { enemies: ['wolf'], density: 12 },
+      { enemies: ['slime'], density: 0, guardians: ['warden'] },
+    ];
+    install(content);
     const game = spawnWholeFloor();
     const wolves = enemiesOf(game, 'wolf');
     expect(wolves.length).toBeGreaterThan(0);
     expect(wolves.every((wolf) => chunkOf(wolf.row) === 2)).toBe(true);
+    expect(enemiesOf(game, 'slime').every((slime) => chunkOf(slime.row) === 1)).toBe(true);
   });
 
   it('spawns a unique enemy at most once a run, however often it is drawn', () => {
-    ENTITIES.wolf = { ...entityDef('wolf'), unique: true };
-    ZONES[0]!.enemies = ['wolf'];
-    ZONES[0]!.density = 12;
-    ZONES[0]!.chunks = [{ chunk: 1, enemies: [], placed: ['wolf'] }];
+    const content = draft();
+    content.enemies.find((enemy) => enemy.id === 'wolf')!.unique = true;
+    for (const zone of content.zones) {
+      for (const chunk of zone.chunks) {
+        chunk.enemies = ['wolf'];
+        chunk.density = 12;
+      }
+    }
+    install(content);
     const game = spawnWholeFloor();
     expect(enemiesOf(game, 'wolf')).toHaveLength(1);
     // And not on the next floor either.
-    ZONES[1]!.enemies = ['wolf'];
     enterFloor(game, 1);
     ensureSpawns(game);
     expect(enemiesOf(game, 'wolf')).toHaveLength(0);
   });
 });
 
-describe('chunks in content', () => {
-  const draft = () => structuredClone(readContentFiles()) as unknown as Content;
-  const errors = (content: Content) => validateContent(content as never).issues.filter((issue) => issue.level === 'error');
-
-  it('refuses a chunk past the end of the floor, one listed twice, or a guardian placed', () => {
+describe('guardians by chunk', () => {
+  it('stands one on the last row of its chunk; a sub-boss falling opens nothing', () => {
     const content = draft();
-    content.zones[0]!.chunks = [
-      { chunk: CHUNKS_PER_FLOOR + 1, placed: ['slime'] },
-      { chunk: 2, placed: ['warden'] },
-      { chunk: 2, enemies: ['nobody'] },
-    ];
-    const found = errors(content).map((issue) => issue.message).join(' | ');
-    expect(found).toMatch(/only 3 chunks/);
-    expect(found).toMatch(/listed twice/);
-    expect(found).toMatch(/guardian/);
-    expect(found).toMatch(/does not exist/);
+    content.zones[0]!.chunks[0]!.guardians = ['wyrm'];
+    install(content);
+    const game = spawnWholeFloor();
+    const [mid, last] = game.state.gates;
+    expect(mid).toMatchObject({ row: floorRows(0).first + CHUNK_ROWS - 1, final: false });
+    expect(guardianOf(game, mid!).defId).toBe('wyrm');
+    expect(last).toMatchObject({ row: floorRows(0).last, final: true });
+
+    fell(game, entityCell(guardianOf(game, mid!)));
+    expect(guardianOf(game, mid!).dead).toBe(true);
+    expect(hasPortal(game)).toBe(false);
+
+    fell(game, entityCell(guardianOf(game, last!)));
+    expect(hasPortal(game)).toBe(true);
   });
 
-  it('accepts a chunk that adds to the mix and places a sub-boss', () => {
+  it('chooses among several at random: the same for a seed, always from the list', () => {
     const content = draft();
-    content.zones[0]!.chunks = [{ chunk: 3, enemies: ['chicken'], placed: ['slime'] }];
-    expect(errors(content)).toEqual([]);
+    content.zones[0]!.chunks[2]!.guardians = ['warden', 'wyrm'];
+    install(content);
+    const chosen = new Set<string>();
+    for (let seed = 1; seed <= 40; seed += 1) {
+      const a = spawnWholeFloor(seed);
+      const b = spawnWholeFloor(seed);
+      const pick = guardianOf(a, a.state.gates.at(-1)!).defId;
+      expect(guardianOf(b, b.state.gates.at(-1)!).defId).toBe(pick);
+      chosen.add(pick);
+    }
+    expect([...chosen].sort()).toEqual(['warden', 'wyrm']);
+  });
+
+  it('leaves the way down open when the last chunk has nobody to stand there', () => {
+    const content = draft();
+    delete content.zones[0]!.chunks.at(-1)!.guardians;
+    install(content);
+    const game = spawnWholeFloor();
+    expect(game.state.gates).toEqual([]);
+    expect(hasPortal(game)).toBe(true);
+  });
+});
+
+describe('zones in content', () => {
+  it('accepts the committed zones', () => {
+    expect(errors(draft())).toEqual([]);
+  });
+
+  it('refuses a guardian spawning at random, a roamer guarding, and unknown names', () => {
+    const content = draft();
+    content.zones[0]!.chunks = [
+      { enemies: ['warden', 'nobody'], density: 4 },
+      { enemies: ['slime'], density: 4, guardians: ['slime', 'ghost'] },
+    ];
+    const found = errors(content).map((issue) => issue.message).join(' | ');
+    expect(found).toMatch(/"warden" is a guardian, so it cannot spawn at random/);
+    expect(found).toMatch(/spawns "nobody", which does not exist/);
+    expect(found).toMatch(/"slime" guards chunk 2, so it must be marked as a guardian/);
+    expect(found).toMatch(/guarded by "ghost", which does not exist/);
+  });
+
+  it('refuses no zones, no chunks, two zones of one name, and ground upside down', () => {
+    const none = draft();
+    none.zones = [];
+    expect(errors(none).map((issue) => issue.message).join()).toMatch(/at least one zone/);
+
+    // A shape error stops the cross-checks, so the empty floor goes alone.
+    const empty = draft();
+    empty.zones[0]!.chunks = [];
+    expect(errors(empty).map((issue) => issue.message).join()).toMatch(/at least one chunk/);
+
+    const content = draft();
+    content.zones[1]!.name = content.zones[2]!.name;
+    content.zones[2]!.terrain.minHeight = 5;
+    content.zones[2]!.terrain.maxHeight = 2;
+    const found = errors(content).map((issue) => issue.message).join(' | ');
+    expect(found).toMatch(/also called/);
+    expect(found).toMatch(/lowest ground is higher than its highest/);
   });
 });

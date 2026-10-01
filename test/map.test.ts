@@ -1,15 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { auditRows, strandedTiles, traversable } from '~/game/map/audit';
 import { CHUNK_ROWS, generateChunk, MAP_WIDTH, MIN_GAP, MIN_STRAND } from '~/game/map/generate';
-import {
-  LAST_ROW,
-  MAP_ROWS,
-  MAX_STACK_HEIGHT,
-  surfaceKind,
-  ZONE_ROWS,
-  ZONES,
-  zoneForRow,
-} from '~/game/map/tiles';
+import { floorRows, LAYOUT, surfaceKind, ZONES, zoneForRow } from '~/game/map/tiles';
 import { World } from '~/game/map/world';
 
 const SEEDS = Array.from({ length: 200 }, (_, i) => i * 7919 + 13);
@@ -110,23 +102,27 @@ describe('chunk generation', () => {
   });
 
   it('raises real peaks where a zone calls for them', () => {
-    // The highlands start at row 96 — chunk 6 onward.
-    const tall = SEEDS.slice(0, 40).map((seed) => auditRows(generateChunk(seed, 7).rows, MAP_WIDTH).tallestStack);
+    // The tallest zone, one chunk in.
+    const tallest = ZONES.reduce((best, zone, i) =>
+      (zone.terrain.maxHeight + zone.terrain.peakHeight > ZONES[best]!.terrain.maxHeight + ZONES[best]!.terrain.peakHeight ? i : best), 0);
+    const index = LAYOUT.firstChunk[tallest]! + Math.min(1, ZONES[tallest]!.chunks.length - 1);
+    const tall = SEEDS.slice(0, 40).map((seed) => auditRows(generateChunk(seed, index).rows, MAP_WIDTH).tallestStack);
     const highest = Math.max(...tall);
-    expect(highest).toBeGreaterThan(ZONES[0]!.gen.maxHeight);
-    expect(highest).toBeLessThanOrEqual(MAX_STACK_HEIGHT);
+    expect(highest).toBeGreaterThan(Math.min(...ZONES.map((zone) => zone.terrain.maxHeight)));
+    expect(highest).toBeLessThanOrEqual(LAYOUT.maxStack);
   });
 
-  it('can be walked the whole way, first row to the winning one', () => {
-    const chunks = Math.ceil(MAP_ROWS / CHUNK_ROWS);
+  it('can be walked the whole way across every floor, first row to the last', () => {
+    // Floors are played one at a time, so each must be crossable on its own;
+    // where one zone meets the next does not matter.
     const failures: string[] = [];
-
     for (const seed of SEEDS.slice(0, 60)) {
       const world = new World(seed);
-      const rows = Array.from({ length: chunks }, (_, i) => world.chunk(i).rows).flat();
-      expect(rows.length).toBeGreaterThanOrEqual(MAP_ROWS);
-      // The run ends on LAST_ROW, so that is as far as it has to go.
-      if (!traversable(rows.slice(0, LAST_ROW + 1), MAP_WIDTH)) failures.push(`seed ${seed}`);
+      for (let floor = 0; floor < LAYOUT.floors; floor += 1) {
+        const { first, last } = floorRows(floor);
+        const rows = Array.from({ length: (last - first + 1) / CHUNK_ROWS }, (_, i) => world.chunk(first / CHUNK_ROWS + i).rows).flat();
+        if (!traversable(rows, MAP_WIDTH)) failures.push(`seed ${seed} floor ${floor}`);
+      }
     }
     expect(failures).toEqual([]);
   });
@@ -181,6 +177,7 @@ describe('chunk generation', () => {
         expect(world.walkable(row, col)).toBe(false);
       }
     }
+    const LAST_ROW = LAYOUT.lastRow;
     for (const row of [LAST_ROW + 1, LAST_ROW + 20]) {
       for (let col = 0; col < MAP_WIDTH; col += 1) {
         expect(world.stackAt(row, col), `row ${row}`).toBe('');
@@ -200,18 +197,16 @@ describe('chunk generation', () => {
   });
 
   it('is finite: zones run once, in order, and then it is over', () => {
-    expect(zoneForRow(0).id).toBe(ZONES[0]!.id);
-    expect(zoneForRow(ZONE_ROWS).id).toBe(ZONES[1]!.id);
-    expect(zoneForRow(ZONE_ROWS * 2).id).toBe(ZONES[2]!.id);
+    ZONES.forEach((zone, floor) => expect(zoneForRow(floorRows(floor).first).id).toBe(zone.id));
     // Past the end it stays at the last zone rather than starting again.
-    expect(zoneForRow(MAP_ROWS).id).toBe(ZONES[ZONES.length - 1]!.id);
-    expect(zoneForRow(MAP_ROWS * 4).id).toBe(ZONES[ZONES.length - 1]!.id);
-    expect(LAST_ROW).toBe(MAP_ROWS - 1);
+    expect(zoneForRow(LAYOUT.lastRow + 1).id).toBe(ZONES.at(-1)!.id);
+    expect(zoneForRow(LAYOUT.lastRow * 4).id).toBe(ZONES.at(-1)!.id);
+    expect(LAYOUT.lastRow).toBe(floorRows(LAYOUT.floors - 1).last);
   });
 
   it('puts different zones at different depths', () => {
     const world = new World(99);
-    expect(world.zoneAt(0).id).not.toEqual(world.zoneAt(60).id);
+    expect(world.zoneAt(0).id).not.toEqual(world.zoneAt(floorRows(1).first).id);
     expect(world.zoneAt(0).id).toEqual(world.zoneAt(10).id);
   });
 });

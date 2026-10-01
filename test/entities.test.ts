@@ -4,11 +4,14 @@ import { intentDef } from '~/game/cards/intents';
 import { ENEMY_IDS, ENTITIES, entityDef, GUARDIAN_IDS } from '~/game/entities/definitions';
 import type { Effect } from '~/game/effects';
 import type { AnimationState } from '~/game/entities/types';
-import { ZONES } from '~/game/map/tiles';
+import { type Zone, ZONES } from '~/game/map/tiles';
 
 /** The enemies sheet is a 3-wide, 6-tall grid. */
 const SHEET_COLUMNS = 3;
 const SHEET_ROWS = 6;
+
+/** Everyone a zone spawns at random, across its chunks. */
+const rosterOf = (zone: Zone): string[] => zone.chunks.flatMap((chunk) => chunk.enemies);
 
 describe('entity definitions', () => {
   it('has the enemies from the sheet', () => {
@@ -42,8 +45,8 @@ describe('entity definitions', () => {
     }
   });
 
-  it('gives each guarded zone a guardian that exists and is marked as one', () => {
-    const named = ZONES.map((zone) => zone.guardian).filter((id): id is string => !!id);
+  it('gives each guarded chunk guardians that exist and are marked as such', () => {
+    const named = ZONES.flatMap((zone) => zone.chunks.flatMap((chunk) => chunk.guardians));
     expect(named.length).toBeGreaterThan(0);
     for (const id of named) {
       expect(GUARDIAN_IDS).toContain(id);
@@ -51,13 +54,13 @@ describe('entity definitions', () => {
       expect(entityDef(id).faction).toBe('enemy');
     }
     // Guardians hold a post; they are never rolled as ordinary spawns.
-    for (const zone of ZONES) for (const id of zone.enemies) expect(GUARDIAN_IDS).not.toContain(id);
+    for (const id of ZONES.flatMap(rosterOf)) expect(GUARDIAN_IDS).not.toContain(id);
   });
 
   it('only lists enemies that exist, in every zone', () => {
     for (const zone of ZONES) {
-      expect(zone.enemies.length).toBeGreaterThan(0);
-      for (const id of zone.enemies) {
+      expect(rosterOf(zone).length, zone.id).toBeGreaterThan(0);
+      for (const id of rosterOf(zone)) {
         expect(() => entityDef(id)).not.toThrow();
         expect(entityDef(id).faction).toBe('enemy');
       }
@@ -65,7 +68,7 @@ describe('entity definitions', () => {
   });
 
   it('puts every enemy somewhere in the world', () => {
-    const placed = new Set(ZONES.flatMap((zone) => zone.enemies));
+    const placed = new Set(ZONES.flatMap(rosterOf));
     expect([...placed].sort()).toEqual(ENEMY_IDS.sort());
   });
 

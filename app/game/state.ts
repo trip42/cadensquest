@@ -96,6 +96,9 @@ export interface Gate {
    *  `GUARDIAN_WAKE_ROWS` of the end of the floor, or something hits or
    *  shoves it. Awake, it closes in like anything else. */
   awake: boolean;
+  /** Holds the floor's last chunk: its fall opens the way down. A guardian
+   *  of any other chunk is a sub-boss, and its fall opens nothing. */
+  final: boolean;
 }
 
 /** One effect of an enemy's card, waiting its turn in the enemy phase. */

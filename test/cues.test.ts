@@ -9,7 +9,7 @@ import { type Cue, cue, type CueFeed, type CueType, cuesSince, MAX_CUES } from '
 import type { Effect } from '~/game/effects';
 import { entityCell } from '~/game/entities/types';
 import { type Cell, cellDistance, reachable } from '~/game/map/navigation';
-import { FLOORS, gateRowOf } from '~/game/map/tiles';
+import { gateRowOf, LAYOUT } from '~/game/map/tiles';
 import { createGame, type Game, makeCard, makeEntity, player, resetUids } from '~/game/state';
 import { readContentFiles } from './setup';
 
@@ -184,7 +184,7 @@ describe('cues', () => {
     expect(during(game, () => tick(game, 1 / 60))).toContainEqual({ type: 'end', outcome: 'died' });
 
     const won = quiet();
-    enterFloor(won, FLOORS - 1);
+    enterFloor(won, LAYOUT.floors - 1);
     won.state.descending = true;
     expect(during(won, () => tick(won, 1 / 60))).toContainEqual({ type: 'end', outcome: 'won' });
   });

@@ -7,7 +7,7 @@
    pure, a pruned chunk regenerates identically if it is ever needed again. */
 
 import { CHUNK_ROWS, MAP_WIDTH, type Chunk, generateChunk } from './generate';
-import { isWalkable, LAST_ROW, type Stack, stackHeight, VOID, type Zone, zoneForRow } from './tiles';
+import { isWalkable, LAYOUT, type Stack, stackHeight, VOID, type Zone, zoneForRow } from './tiles';
 
 export const chunkIndexForRow = (row: number): number => Math.floor(row / CHUNK_ROWS);
 
@@ -19,7 +19,7 @@ export class World {
      floor the player is on, so that floor is all there is — the map ends
      at its edges, and the floors above and below are open air. */
   private first = 0;
-  private last = LAST_ROW;
+  private last = LAYOUT.lastRow;
 
   constructor(seed: number) {
     this.seed = seed >>> 0;
@@ -28,7 +28,7 @@ export class World {
   /** Make only these rows exist — the floor being played. */
   setBounds(first: number, last: number): void {
     this.first = Math.max(0, first);
-    this.last = Math.min(LAST_ROW, last);
+    this.last = Math.min(LAYOUT.lastRow, last);
   }
 
   chunk(index: number): Chunk {

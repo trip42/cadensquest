@@ -183,7 +183,15 @@ export const useEditorStore = defineStore('editor', () => {
 
   function add(): void {
     const file = tab.value;
-    if (file === 'run' || file === 'zones') return;
+    if (file === 'run') return;
+    // A new zone is a copy of the last floor, added after it.
+    if (file === 'zones') {
+      const zones = itemsOf('zones') as unknown as Array<Record<string, unknown>>;
+      const id = freshId(file, 'new_zone');
+      zones.push({ ...structuredClone(JSON.parse(JSON.stringify(zones.at(-1)))), id, name: `New zone ${zones.length + 1}` });
+      selectedId.value = id;
+      return;
+    }
     const id = freshId(file, `new_${TABS.find((t) => t.file === file)!.one.replace(/ /g, '_')}`);
     (itemsOf(file) as unknown as Record<string, unknown>[]).push(BLANK[file](id));
     selectedId.value = id;
@@ -192,7 +200,7 @@ export const useEditorStore = defineStore('editor', () => {
   function duplicate(): void {
     const file = tab.value;
     const source = selected.value;
-    if (!source || file === 'run' || file === 'zones') return;
+    if (!source || file === 'run') return;
     const copy = structuredClone(JSON.parse(JSON.stringify(source))) as Item & { name?: string };
     copy.id = freshId(file, `${source.id}_copy`);
     if (copy.name) copy.name = `${copy.name} copy`;
@@ -218,8 +226,10 @@ export const useEditorStore = defineStore('editor', () => {
     }
     if (file === 'enemies') {
       for (const zone of content.zones) {
-        if (zone.enemies.includes(id)) uses.push(`the ${zone.id} spawn list`);
-        if (zone.guardian === id) uses.push(`the ${zone.id} gate`);
+        zone.chunks.forEach((chunk, c) => {
+          if (chunk.enemies.includes(id)) uses.push(`${zone.name}, chunk ${c + 1}`);
+          if (chunk.guardians?.includes(id)) uses.push(`${zone.name}, chunk ${c + 1}'s guardians`);
+        });
       }
     }
     if (file === 'gems' || file === 'talismans') {
@@ -235,7 +245,9 @@ export const useEditorStore = defineStore('editor', () => {
   function remove(): void {
     const file = tab.value;
     const item = selected.value;
-    if (!item || file === 'run' || file === 'zones' || usesOf(file, item.id).length) return;
+    if (!item || file === 'run' || usesOf(file, item.id).length) return;
+    // A run needs at least one floor.
+    if (file === 'zones' && itemsOf(file).length <= 1) return;
     const list = itemsOf(file);
     const at = list.indexOf(item);
     list.splice(at, 1);

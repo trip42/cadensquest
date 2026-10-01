@@ -14,7 +14,6 @@ import {
 } from '~/game/effects';
 import type { GemDefinition } from '~/game/gems';
 import { printedParts, printedText } from '~/game/text';
-import { ZONES } from '~/game/map/tiles';
 import { describeModifier, type StatModifier } from '~/game/stats';
 import { glyph } from '~/render/glyphs';
 
@@ -131,9 +130,17 @@ const movePlayers = computed(() => {
 
 const foe = computed(() => (props.file === 'enemies' ? (props.item as EnemyData) : null));
 const foeFirstMove = computed(() => (foe.value ? enemyCard(foe.value.deck[0] ?? '') : undefined));
-const foeZones = computed(() =>
-  foe.value ? props.content.zones.filter((zone) => zone.enemies.includes(foe.value!.id) || zone.guardian === foe.value!.id) : [],
-);
+/** Where an enemy turns up: each zone and chunk, and whether it guards it. */
+const foeZones = computed(() => {
+  const id = foe.value?.id;
+  if (!id) return [];
+  return props.content.zones.flatMap((zone) => zone.chunks.flatMap((chunk, c) => {
+    const guards = chunk.guardians?.includes(id);
+    if (!guards && !chunk.enemies.includes(id)) return [];
+    const last = c === zone.chunks.length - 1;
+    return [{ key: `${zone.id}-${c}`, text: `${zone.name}, chunk ${c + 1}${guards ? (last ? ' — guarding the way down' : ' — as a sub-boss') : ''}` }];
+  }));
+});
 
 const gem = computed(() => (props.file === 'gems' ? asGem(props.item as GemData) : null));
 const gemHost = computed(() => {
@@ -144,8 +151,13 @@ const gemHost = computed(() => {
 const talisman = computed(() => (props.file === 'talismans' ? (props.item as TalismanData) : null));
 
 const zone = computed(() => (props.file === 'zones' ? (props.item as ZoneData) : null));
-const zoneName = computed(() => ZONES.find((item) => item.id === zone.value?.id)?.name ?? zone.value?.id);
-const zoneRoster = computed(() => (zone.value ? tally(zone.value.enemies) : []));
+const zoneChunks = computed(() => (zone.value?.chunks ?? []).map((chunk, index, all) => ({
+  index,
+  density: chunk.density,
+  roster: tally(chunk.enemies),
+  guardians: chunk.guardians ?? [],
+  last: index === all.length - 1,
+})));
 
 const startingDeck = computed(() => (props.file === 'run' ? tally(props.content.run.startingDeck) : []));
 const cardById = (id: string) => {
@@ -286,9 +298,7 @@ watch(() => [card.value?.name, card.value?.text, cardNow.value], measure);
       </div>
       <div class="panel note">
         <p class="note-title">Found in</p>
-        <p v-for="entry in foeZones" :key="entry.id">
-          {{ ZONES.find((z) => z.id === entry.id)?.name }}{{ entry.guardian === foe.id ? ' — as its guardian' : '' }}
-        </p>
+        <p v-for="entry in foeZones" :key="entry.key">{{ entry.text }}</p>
         <p v-if="!foeZones.length" class="muted">No zone yet — add it on the Zones tab, or use Try it.</p>
       </div>
     </template>
@@ -325,25 +335,36 @@ watch(() => [card.value?.name, card.value?.text, cardNow.value], measure);
       <p class="caption">As it sits on the rail, and its details on hover</p>
     </template>
 
-    <!-- A zone: who lives there, and who guards it. -->
+    <!-- A zone: how it looks, then each chunk — who lives there and who guards it. -->
     <template v-else-if="zone">
-      <p class="zone-name">{{ zoneName }}</p>
-      <p class="caption">{{ zone.density }} enemies a chunk, drawn from</p>
-      <div class="roster">
-        <div v-for="entry in zoneRoster" :key="entry.id" class="roster-item" :class="{ 'is-off': !enemy(entry.id)?.enabled }">
-          <EditorSprite v-if="enemy(entry.id)" :sprite="spriteOf(enemy(entry.id)!)" :scale="0.8" />
-          <span>{{ enemy(entry.id)?.name ?? entry.id }}{{ entry.count > 1 ? ` ×${entry.count}` : '' }}</span>
-        </div>
+      <p class="zone-name">{{ zone.name }}</p>
+      <div class="tiles">
+        <svg v-for="kind in (['ground', 'trail', 'water', 'rock'] as const)" :key="kind" viewBox="0 0 56 44" class="tile" :aria-label="kind">
+          <polygon points="0,14 28,28 28,44 0,30" :fill="zone.palette[kind].left" />
+          <polygon points="56,14 28,28 28,44 56,30" :fill="zone.palette[kind].right" />
+          <polygon points="28,0 56,14 28,28 0,14" :fill="zone.palette[kind].top" />
+        </svg>
       </div>
-      <template v-if="zone.guardian && enemy(zone.guardian)">
-        <p class="caption">Guarded by</p>
+      <p class="caption">{{ zone.chunks.length }} chunk{{ zone.chunks.length === 1 ? '' : 's' }}, {{ zone.chunks.length * 16 }} rows</p>
+      <div v-for="chunk in zoneChunks" :key="chunk.index" class="panel note">
+        <p class="note-title">Chunk {{ chunk.index + 1 }} — {{ chunk.density }} enemies</p>
         <div class="roster">
-          <div class="roster-item" :class="{ 'is-off': !enemy(zone.guardian)?.enabled }">
-            <EditorSprite :sprite="spriteOf(enemy(zone.guardian)!)" :scale="0.8" />
-            <span>{{ enemy(zone.guardian)?.name }}</span>
+          <div v-for="entry in chunk.roster" :key="entry.id" class="roster-item" :class="{ 'is-off': !enemy(entry.id)?.enabled }">
+            <EditorSprite v-if="enemy(entry.id)" :sprite="spriteOf(enemy(entry.id)!)" :scale="0.6" />
+            <span>{{ enemy(entry.id)?.name ?? entry.id }}{{ entry.count > 1 ? ` ×${entry.count}` : '' }}</span>
           </div>
         </div>
-      </template>
+        <template v-if="chunk.guardians.length">
+          <p class="caption">{{ chunk.last ? 'Holding the way down' : 'Sub-boss at the end' }}{{ chunk.guardians.length > 1 ? ', one of' : '' }}</p>
+          <div class="roster">
+            <div v-for="id in chunk.guardians" :key="id" class="roster-item" :class="{ 'is-off': !enemy(id)?.enabled }">
+              <EditorSprite v-if="enemy(id)" :sprite="spriteOf(enemy(id)!)" :scale="0.6" />
+              <span>{{ enemy(id)?.name ?? id }}</span>
+            </div>
+          </div>
+        </template>
+        <p v-else-if="chunk.last" class="caption">No guardian — the way down is open</p>
+      </div>
     </template>
 
     <!-- The starting deck. -->
@@ -415,6 +436,8 @@ watch(() => [card.value?.name, card.value?.text, cardNow.value], measure);
 .relic-name { color: var(--px-yellow); font-size: 16px; }
 .relic-detail ul { margin: 6px 0 0; padding-left: 14px; color: var(--px-soft); }
 
+.tiles { display: flex; gap: 8px; margin: 6px 0; }
+.tile { width: 56px; height: 44px; }
 .zone-name { margin: 0; color: var(--px-yellow); font-size: 16px; }
 .roster { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
 .roster-item { display: flex; flex-direction: column; align-items: center; gap: 4px; }

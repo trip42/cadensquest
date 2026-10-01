@@ -13,10 +13,9 @@ import {
   takeTalismanReward,
   tick,
 } from '~/game/actions';
-import { FLOORS } from '~/game/map/tiles';
+import { floorRows, LAYOUT } from '~/game/map/tiles';
 import { entityCell } from '~/game/entities/types';
 import { reachable } from '~/game/map/navigation';
-import { ZONE_ROWS } from '~/game/map/tiles';
 import { createGame, type Game, makeCard, makeEntity, player, resetUids, wholeDeck } from '~/game/state';
 import type { Reward } from '~/game/rewards';
 import type { GameEvent, GameEventType } from '~/game/telemetry';
@@ -113,7 +112,7 @@ describe('run events', () => {
 
   it('reports a win and its summary', () => {
     const game = fresh();
-    enterFloor(game, FLOORS - 1);
+    enterFloor(game, LAYOUT.floors - 1);
     game.state.descending = true;
     tick(game, 1 / 60);
     expect(of(game, 'run_won')).toHaveLength(1);
@@ -141,13 +140,14 @@ describe('run events', () => {
     const game = fresh();
     const self = player(game.state);
     game.state.gates = [];
-    self.row = ZONE_ROWS - 2;
+    const second = floorRows(1).first;
+    self.row = second - 2;
     tick(game, 1 / 60);
-    self.row = ZONE_ROWS + 1;
+    self.row = second + 1;
     tick(game, 1 / 60);
     const crossings = of(game, 'zone_entered');
     expect(crossings).toHaveLength(1);
-    expect(crossings[0]!.row).toBe(ZONE_ROWS);
+    expect(crossings[0]!.row).toBe(second);
   });
 
   it('records what was collected from rewards, and what was left', () => {

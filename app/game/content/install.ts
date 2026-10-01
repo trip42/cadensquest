@@ -17,7 +17,7 @@ import type { Effect, Trigger } from '../effects';
 import { ENEMY_IDS, ENTITIES, GUARDIAN_IDS } from '../entities/definitions';
 import { STATIC_ANIMATIONS } from '../entities/types';
 import { GEM_IDS, GEMS } from '../gems';
-import { ZONES } from '../map/tiles';
+import { layoutZones, type Zone, ZONES } from '../map/tiles';
 import { DEFAULT_REWARD_CONFIG } from '../rewards';
 import type { StatModifier } from '../stats';
 import { TALISMAN_IDS, TALISMANS } from '../talismans';
@@ -85,15 +85,21 @@ export function installContent(content: Content): void {
   }]));
   refill(TALISMAN_IDS, content.talismans.filter((talisman) => talisman.enabled).map((talisman) => talisman.id));
 
-  // Who lives in each zone. The zone objects are the ones the world already
-  // holds, so a chunk built earlier sees the change too.
-  for (const zone of ZONES) {
-    const table = content.zones.find((item) => item.id === zone.id);
-    zone.enemies = [...(table?.enemies ?? [])];
-    zone.density = table?.density ?? 0;
-    zone.chunks = (table?.chunks ?? []).map((entry) => ({ chunk: entry.chunk, enemies: [...(entry.enemies ?? [])], placed: [...(entry.placed ?? [])] }));
-    zone.guardian = table?.guardian;
-  }
+  // The zones, in floor order, and where each floor lies. Refilled in place
+  // like every registry, so anything holding ZONES or LAYOUT sees the new
+  // ones; a world built before keeps its chunks, which a new run replaces.
+  refill(ZONES, content.zones.map((zone): Zone => ({
+    id: zone.id,
+    name: zone.name,
+    palette: structuredClone(zone.palette),
+    terrain: { ...zone.terrain },
+    chunks: zone.chunks.map((chunk) => ({
+      enemies: [...chunk.enemies],
+      density: chunk.density,
+      guardians: [...(chunk.guardians ?? [])],
+    })),
+  })));
+  layoutZones();
 }
 
 /** Validate raw content and install it, or throw with every error listed.

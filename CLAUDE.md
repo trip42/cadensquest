@@ -112,9 +112,9 @@ app/game/            the simulation — no Vue, no DOM (see the rule above)
   text.ts              numbers in rules text: {1}, {2.1} (see "Content")
   content/             schema.ts (zod), validate.ts, install.ts
   map/
-    tiles.ts           tile letters, zones (terrain + palette, spawn
-                       tables filled from content), ZONE_ROWS,
-                       CHUNKS_PER_FLOOR
+    tiles.ts           tile letters, CHUNK_ROWS, ZONES (filled from
+                       content), LAYOUT (where each floor lies),
+                       floorRows/gateRowOf/zoneForRow/chunkOfFloor
     generate.ts        seeded chunk generator — the braid invariants live here
     world.ts           chunk cache, bounded to the current floor; stackAt()
                        is the single read path
@@ -203,7 +203,7 @@ chunk a pure function of `(seed, index)` — buildable, droppable and
 rebuildable in any order.
 
 **The map is finite, and only one floor of it exists at a time.**
-`MAP_ROWS` is every zone once, in order; `zoneForRow` clamps past the end
+The map is every zone once, in order; `zoneForRow` clamps past the end
 rather than cycling. Each zone is a floor (`floorRows`: its first row to its
 gate row) — simply its rows of the one continuous world, so the generator,
 its invariants and every seed are untouched, and analytics still count rows
@@ -218,20 +218,29 @@ into terrain that should not have existed. The generator itself is
 unbounded and does not need to know; the bound belongs to the `World`, which
 is why the chunk tests still work on raw `generateChunk` output.
 
-`ZONE_ROWS` must stay a multiple of `CHUNK_ROWS` (a test pins it), and
-`CHUNKS_PER_FLOOR` (3) is the one over the other (a test pins that too).
+**A zone is its chunks, so floors are as long as their zones.** Zones are
+pure content (`content/zones.json`, in floor order): a name, a `palette`,
+a `terrain` (how the generator shapes the ground) and 1–8 `chunks`. Each
+chunk is 16 rows and says who spawns there (`enemies`, `density` of them)
+and who may stand on its last row (`guardians`, one chosen at random).
+`installContent` refills `ZONES` and calls `layoutZones`, which fills
+`LAYOUT` — each floor's first row and first chunk, `floors`, `lastRow`,
+`maxStack` — the same object for the life of the page, like the registries.
+Nothing caches a floor's length: `floorRows`, `gateRowOf`, `zoneForRow` and
+`chunkOfFloor` read `LAYOUT`. Zones are whole chunks, so a chunk belongs to
+one zone and one floor, and the generator takes its zone from its first row.
+Where two zones meet need not match in height: floors are played one at a
+time, and the map test walks each floor on its own.
 
-**Spawning chunk by chunk.** A zone's `enemies` spawn at random in every
-chunk of its floor, `density` of them. Its optional `chunks` list says what
-is special in one chunk (1 is where the player arrives, 3 the last stretch
-with the shop and guardian): `enemies` join the random mix there only, and
-`placed` enemies are put there once, for certain — mid-chunk, on the trail
-where there is room, with no dice — for sub-bosses. An enemy marked
-`unique` spawns at most once a run (`state.uniques`), however it is
-chosen.
+**Spawning chunk by chunk.** `ensureSpawns` draws a chunk's `density`
+enemies from that chunk's own `enemies` (no zone-wide list). An enemy
+marked `unique` spawns at most once a run (`state.uniques`), however it is
+chosen. Guardians are placed by `placeGuardians` (see **Floors**). The old
+`placed` (an enemy put mid-chunk for certain) is gone: a sub-boss is a
+guardian on its chunk's last row.
 
-The densities are 6 / 9 / 12 for the three floors (up from 4 / 6 / 8 when
-enemies began waiting to be approached, which made runs easier; see
+The migrated densities are 6 / 9 / 12 for the three floors (up from 4 / 6 /
+8 when enemies began waiting to be approached, which made runs easier; see
 **Simulator**).
 `ensureSpawns` populates a chunk once, when it lies on the current floor, so
 a chunk straddling two floors would leave part of the second one empty.
@@ -267,11 +276,17 @@ rules in the generator:
 A run goes down through the zones in order, one floor each, like the levels
 of a dungeon. `state.floor` is the zone's index.
 
-- **A floor ends at its guardian.** `placeGuardians` stands the zone's
-  guardian on the trail of its last row and records a `Gate`. When it dies,
-  `dealDamage` calls `openPortal` on its tile. A zone with no guardian — none
-  named, or disabled in content — has its portal open from the start; the
-  last zone names none, so its way out is simply waiting.
+- **A floor ends at its guardian.** `placeGuardians` runs as each chunk is
+  populated: if the chunk names `guardians`, one (chosen on its own stream,
+  `hashSeed(seed, chunkIndex, salt)`, and with no dice when there is only
+  one, so nothing else in the seed moves) stands on the trail of the
+  chunk's last row, and a `Gate` is recorded. The gate of the floor's last
+  chunk is `final`: when its guardian dies, `dealDamage` calls `openPortal`
+  on its tile. Any other chunk's guardian is a **sub-boss**: it sleeps,
+  wakes and closes in the same way, and its fall opens nothing. A last chunk
+  with nobody to stand there — none named, or all disabled — has its portal
+  open from the start; the last zone names none, so its way out is simply
+  waiting.
 - **A portal is a terrain layer** with `portal: 'down' | 'out'`: white, no
   effects. `ageTerrain` never ages it out. It takes only the player:
   `triggerTile` sets `state.descending` when he steps on, *before* the
@@ -358,15 +373,16 @@ Three rules keep fights from being skippable:
 - **Enemies close in.** Most enemy cards open with `advance`: an enemy
   three tiles away walks up and hits you (or your nearest ally) in the same
   turn.
-- **Guardians end each floor.** Each zone may name a `guardian`, placed on
-  the trail of its last row (`gateRowOf`) — always a canonical, full-width
-  row, and the last row that exists. There is no barrier: nothing lies past
+- **Guardians end each floor.** A zone's last chunk may name `guardians`,
+  one placed on the trail of its last row (`gateRowOf`) — always a
+  canonical, full-width row, and the last row that exists. There is no barrier: nothing lies past
   it, and the way down is a portal that opens only where the guardian falls
   (see **Floors**). A guardian **keeps its post until it wakes**: its
   `advance` does nothing while `Gate.awake` is false. It wakes when the
   player comes within `GUARDIAN_WAKE_ROWS` (5) rows of the end of the floor
   (`watchGates`, on each of his steps and each refresh), or when something
-  hits or shoves it (`wakeGuardian`). Waking cues `guardian`: a "dun, dun,
+  hits or shoves it (`wakeGuardian`). Each gate wakes on its own, so a
+  sub-boss wakes as the player nears the end of its chunk. Waking cues `guardian`: a "dun, dun,
   DUNNN" (`doom`), a red ring, a shake, and a red banner naming it (the store
   reads it off the cue feed as `announce`). Then it closes in like any
   enemy, so its portal opens wherever it falls. Every guardian's deck has an
@@ -376,10 +392,12 @@ Three rules keep fights from being skippable:
 
 ## Content
 
-Cards, enemy cards, enemies, gems, talismans, zone spawn tables and the
-starting deck are **JSON in `content/`**, not code. What stays in code: the
-effect verbs (`resolveEffect`), the player's definition, sprite sheet
-files, glyphs, and each zone's terrain and palette.
+Cards, enemy cards, enemies, gems, talismans, zones (all of them: name,
+colours, terrain, chunks) and the starting deck are **JSON in `content/`**,
+not code. What stays in code: the effect verbs (`resolveEffect`), the
+player's definition, sprite sheet files and glyphs. The editor can add a
+zone (a copy of the last floor), delete one (never the last), and move it
+earlier or later — the file's order is the floors' order.
 
 **The flow.** `app/plugins/content.ts` fetches `/content/<file>.json` (Nitro
 serves the folder via `publicAssets`) and calls `loadContent`, which
@@ -1514,7 +1532,7 @@ minutes); `npm run sim -- sim/final.sim.ts` runs one. Reports land in
   What is still off: floor 1 kills almost nobody, and floor 2 takes three
   deaths in four against a limit of 60%. The existing enemy decks were
   written as shuffled multisets and now play in the order listed; giving
-  them real patterns, and floors some sub-bosses (`chunks.placed`), is
+  them real patterns, and floors some sub-bosses (chunk `guardians`), is
   the obvious next lever. Second Wind was trimmed after testing it as two
   extra copies in the deck; as an ordinary reward it matters more, so heal
   8 / draw 2 is worth trying again. FUN.md has sections 1–9 of the

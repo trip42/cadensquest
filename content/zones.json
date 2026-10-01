@@ -1,33 +1,234 @@
 [
   {
     "id": "meadow",
-    "enemies": [
-      "slime",
-      "chicken",
-      "bug"
-    ],
-    "guardian": "warden",
-    "density": 6
+    "name": "North Basin",
+    "palette": {
+      "ground": {
+        "top": "#8fb063",
+        "left": "#5f8046",
+        "right": "#4b6838",
+        "elev": 0,
+        "texture": "blades"
+      },
+      "trail": {
+        "top": "#c1945f",
+        "left": "#956a42",
+        "right": "#7a5533",
+        "elev": 0,
+        "texture": "speckle"
+      },
+      "water": {
+        "top": "#6ea9ad",
+        "left": "#477f85",
+        "right": "#39666d",
+        "elev": -5,
+        "texture": "ripple"
+      },
+      "rock": {
+        "top": "#8d9498",
+        "left": "#646c71",
+        "right": "#4e565b",
+        "elev": 0,
+        "texture": "grain"
+      }
+    },
+    "terrain": {
+      "minHeight": 1,
+      "maxHeight": 4,
+      "forkChance": 0.18,
+      "mergeChance": 0.25,
+      "waterChance": 0.16,
+      "rockChance": 0.06,
+      "widthDrift": 0.6,
+      "peakChance": 0.08,
+      "peakHeight": 2
+    },
+    "chunks": [
+      {
+        "enemies": [
+          "slime",
+          "chicken",
+          "bug"
+        ],
+        "density": 6,
+        "guardians": []
+      },
+      {
+        "enemies": [
+          "slime",
+          "chicken",
+          "bug"
+        ],
+        "density": 6,
+        "guardians": []
+      },
+      {
+        "enemies": [
+          "slime",
+          "chicken",
+          "bug"
+        ],
+        "density": 6,
+        "guardians": [
+          "warden"
+        ]
+      }
+    ]
   },
   {
     "id": "marsh",
-    "enemies": [
-      "slime",
-      "bug",
-      "spider",
-      "whelp"
-    ],
-    "guardian": "wyrm",
-    "density": 9
+    "name": "Sunken Reach",
+    "palette": {
+      "ground": {
+        "top": "#6f8a56",
+        "left": "#4a6340",
+        "right": "#3a5134",
+        "elev": 0,
+        "texture": "blades"
+      },
+      "trail": {
+        "top": "#9b7f52",
+        "left": "#735c3a",
+        "right": "#5c482d",
+        "elev": 0,
+        "texture": "speckle"
+      },
+      "water": {
+        "top": "#5d8f86",
+        "left": "#3d6b66",
+        "right": "#315854",
+        "elev": -6,
+        "texture": "ripple"
+      },
+      "rock": {
+        "top": "#77807f",
+        "left": "#565f5f",
+        "right": "#434b4b",
+        "elev": 0,
+        "texture": "grain"
+      }
+    },
+    "terrain": {
+      "minHeight": 1,
+      "maxHeight": 3,
+      "forkChance": 0.3,
+      "mergeChance": 0.2,
+      "waterChance": 0.34,
+      "rockChance": 0.04,
+      "widthDrift": 0.7,
+      "peakChance": 0.04,
+      "peakHeight": 1
+    },
+    "chunks": [
+      {
+        "enemies": [
+          "slime",
+          "bug",
+          "spider",
+          "whelp"
+        ],
+        "density": 9,
+        "guardians": []
+      },
+      {
+        "enemies": [
+          "slime",
+          "bug",
+          "spider",
+          "whelp"
+        ],
+        "density": 9,
+        "guardians": []
+      },
+      {
+        "enemies": [
+          "slime",
+          "bug",
+          "spider",
+          "whelp"
+        ],
+        "density": 9,
+        "guardians": [
+          "wyrm"
+        ]
+      }
+    ]
   },
   {
     "id": "highlands",
-    "enemies": [
-      "wolf",
-      "spider",
-      "dragon",
-      "whelp"
-    ],
-    "density": 12
+    "name": "Pale Shelf",
+    "palette": {
+      "ground": {
+        "top": "#a8b189",
+        "left": "#78805f",
+        "right": "#616849",
+        "elev": 0,
+        "texture": "blades"
+      },
+      "trail": {
+        "top": "#c9ad82",
+        "left": "#9c8259",
+        "right": "#7e6845",
+        "elev": 0,
+        "texture": "speckle"
+      },
+      "water": {
+        "top": "#7fa8b5",
+        "left": "#567f8c",
+        "right": "#456972",
+        "elev": -5,
+        "texture": "ripple"
+      },
+      "rock": {
+        "top": "#9aa0a6",
+        "left": "#70767c",
+        "right": "#585e64",
+        "elev": 0,
+        "texture": "grain"
+      }
+    },
+    "terrain": {
+      "minHeight": 2,
+      "maxHeight": 7,
+      "forkChance": 0.12,
+      "mergeChance": 0.3,
+      "waterChance": 0.08,
+      "rockChance": 0.14,
+      "widthDrift": 0.55,
+      "peakChance": 0.22,
+      "peakHeight": 3
+    },
+    "chunks": [
+      {
+        "enemies": [
+          "wolf",
+          "spider",
+          "dragon",
+          "whelp"
+        ],
+        "density": 12,
+        "guardians": []
+      },
+      {
+        "enemies": [
+          "wolf",
+          "spider",
+          "dragon",
+          "whelp"
+        ],
+        "density": 12,
+        "guardians": []
+      },
+      {
+        "enemies": [
+          "wolf",
+          "spider",
+          "dragon",
+          "whelp"
+        ],
+        "density": 12,
+        "guardians": []
+      }
+    ]
   }
 ]

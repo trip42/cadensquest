@@ -12,7 +12,6 @@
 
 import type { ZodError } from 'zod';
 import { AMOUNT_SOURCES, type AmountSource, BOON_INFO, EFFECT_INFO, type Effect, type EffectKind } from '../effects';
-import { CHUNKS_PER_FLOOR, ZONES } from '../map/tiles';
 import { tokenProblems } from '../text';
 import { type AmountData, CONTENT_FILES, type Content, type ContentFile, type EffectData, FILE_SCHEMAS } from './schema';
 
@@ -345,49 +344,39 @@ function crossCheck(content: Content): ContentIssue[] {
     else if (!card.enabled) error('run', undefined, `the starting deck uses "${cardId}", which is disabled`, `startingDeck[${i}]`);
   });
 
-  // Zones: one entry per zone in the code, naming enemies that exist.
-  const tables = new Map(content.zones.map((zone) => [zone.id, zone]));
-  for (const zone of ZONES) {
-    if (!tables.has(zone.id)) error('zones', zone.id, `${zone.name} has no entry, so nothing would live there`);
-  }
-  for (const table of content.zones) {
-    const zone = ZONES.find((item) => item.id === table.id);
-    if (!zone) {
-      error('zones', table.id, `there is no zone "${table.id}" in the game`, 'id');
-      continue;
+  // Zones: at least one floor; each chunk names enemies that exist and are
+  // not guardians, and guardians that are.
+  if (!content.zones.length) error('zones', undefined, 'there must be at least one zone — a run needs a floor');
+  const names = new Set<string>();
+  for (const zone of content.zones) {
+    // Backdrops are found by a floor's name, so two alike would share one.
+    const name = zone.name.trim().toLowerCase();
+    if (names.has(name)) error('zones', zone.id, `another zone is also called "${zone.name}"`, 'name');
+    names.add(name);
+    if (zone.terrain.minHeight > zone.terrain.maxHeight) {
+      error('zones', zone.id, 'its lowest ground is higher than its highest', 'terrain.minHeight');
     }
-    table.enemies.forEach((enemyId, i) => {
-      const enemy = enemies.get(enemyId);
-      if (!enemy) error('zones', table.id, `spawns "${enemyId}", which does not exist`, `enemies[${i}]`);
-      else if (enemy.guardian) error('zones', table.id, `"${enemyId}" is a guardian, so it cannot spawn at random`, `enemies[${i}]`);
-    });
-    if (table.guardian) {
-      const guardian = enemies.get(table.guardian);
-      if (!guardian) error('zones', table.id, `is guarded by "${table.guardian}", which does not exist`, 'guardian');
-      else if (!guardian.guardian) error('zones', table.id, `"${table.guardian}" guards it, so it must be marked as a guardian`, 'guardian');
-    }
-    // What is special chunk by chunk: a real chunk of the floor, once each,
-    // naming enemies that exist and are not guardians.
-    const seenChunks = new Set<number>();
-    table.chunks?.forEach((entry, c) => {
-      if (entry.chunk > CHUNKS_PER_FLOOR) {
-        error('zones', table.id, `a floor has only ${CHUNKS_PER_FLOOR} chunks, so there is no chunk ${entry.chunk}`, `chunks[${c}].chunk`);
+    zone.chunks.forEach((chunk, c) => {
+      const which = `chunk ${c + 1}`;
+      chunk.enemies.forEach((enemyId, i) => {
+        const enemy = enemies.get(enemyId);
+        const field = `chunks[${c}].enemies[${i}]`;
+        if (!enemy) error('zones', zone.id, `${which} spawns "${enemyId}", which does not exist`, field);
+        else if (enemy.guardian) error('zones', zone.id, `"${enemyId}" is a guardian, so it cannot spawn at random — list it under the chunk's guardians`, field);
+      });
+      if (chunk.density > 0 && !chunk.enemies.some((enemyId) => enemies.get(enemyId)?.enabled)) {
+        warn('zones', zone.id, `${which} has nobody enabled to spawn — it will be empty`, `chunks[${c}].enemies`);
       }
-      if (seenChunks.has(entry.chunk)) error('zones', table.id, `chunk ${entry.chunk} is listed twice`, `chunks[${c}].chunk`);
-      seenChunks.add(entry.chunk);
-      for (const list of ['enemies', 'placed'] as const) {
-        entry[list]?.forEach((enemyId, i) => {
-          const enemy = enemies.get(enemyId);
-          const field = `chunks[${c}].${list}[${i}]`;
-          if (!enemy) error('zones', table.id, `chunk ${entry.chunk} names "${enemyId}", which does not exist`, field);
-          else if (enemy.guardian) error('zones', table.id, `"${enemyId}" is a guardian, which is placed by the zone, not in a chunk`, field);
-          else if (!enemy.enabled) warn('zones', table.id, `chunk ${entry.chunk} names "${enemyId}", which is disabled — it will not appear`, field);
-        });
+      chunk.guardians?.forEach((enemyId, i) => {
+        const enemy = enemies.get(enemyId);
+        const field = `chunks[${c}].guardians[${i}]`;
+        if (!enemy) error('zones', zone.id, `${which} is guarded by "${enemyId}", which does not exist`, field);
+        else if (!enemy.guardian) error('zones', zone.id, `"${enemyId}" guards ${which}, so it must be marked as a guardian`, field);
+      });
+      if (chunk.guardians?.length && !chunk.guardians.some((enemyId) => enemies.get(enemyId)?.enabled)) {
+        warn('zones', zone.id, `every guardian of ${which} is disabled — nobody will stand there`, `chunks[${c}].guardians`);
       }
     });
-    if (table.density > 0 && !table.enemies.some((enemyId) => enemies.get(enemyId)?.enabled)) {
-      warn('zones', table.id, `every enemy ${zone.name} spawns is disabled — it will be empty`, 'enemies');
-    }
   }
   for (const file of ['zones'] as const) {
     const seen = new Set<string>();

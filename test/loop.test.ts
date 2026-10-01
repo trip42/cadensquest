@@ -15,7 +15,7 @@ import {
 import { cardDef, energySpent, minimumCost, MOVEMENT_BY_RARITY } from '~/game/cards/definitions';
 import { entityDef } from '~/game/entities/definitions';
 import { entityCell } from '~/game/entities/types';
-import { FLOORS, floorRows, START_ROW } from '~/game/map/tiles';
+import { floorRows, LAYOUT, START_ROW } from '~/game/map/tiles';
 import { chunkIndexForRow } from '~/game/map/world';
 import { createGame, enemies, type Game, player, resetUids, stat } from '~/game/state';
 
@@ -339,7 +339,7 @@ describe('the turn loop', () => {
   it('ends the run when the player takes the way out of the last floor', () => {
     const game = createGame(11);
     beginTurn(game);
-    enterFloor(game, FLOORS - 1);
+    enterFloor(game, LAYOUT.floors - 1);
     game.state.descending = true;
     tick(game, 1 / 60);
     expect(game.state.phase).toBe('victory');

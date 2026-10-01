@@ -40,12 +40,12 @@ import {
   pathCost,
   reachable,
 } from './map/navigation';
-import { FLOORS, floorRows, gateRowOf, surfaceKind, ZONES } from './map/tiles';
+import { chunkOfFloor, floorRows, LAYOUT, surfaceKind, ZONES } from './map/tiles';
 import { chunkIndexForRow } from './map/world';
 import { rollDrop } from './rewards';
 import { describeModifier, resolveStat } from './stats';
 import { record } from './telemetry';
-import { nextInt, pick, shuffle } from './rng';
+import { createRng, hashSeed, nextInt, pick, shuffle } from './rng';
 import { priceOf, rollStock, SHOP_COLOUR, shopRowOf } from './shop';
 import { talismanDef, talismanEffects } from './talismans';
 import { liveText, NO_BONUSES, type TextPart } from './text';
@@ -254,7 +254,9 @@ function dealDamage(game: Game, target: Entity, amount: number, blow: Blow): voi
         cue(state, { type: 'coins', amount: coins, cell: entityCell(target) });
       }
       // A floor's guardian falling opens the way off the floor, where it fell.
-      if (state.gates.some((gate) => gate.guardianId === target.id)) openPortal(game, entityCell(target));
+      // Only the guardian of a floor's last chunk holds the way down; a
+      // sub-boss's fall opens nothing.
+      if (state.gates.some((gate) => gate.guardianId === target.id && gate.final)) openPortal(game, entityCell(target));
       fire(game, 'enemyDefeated', entityCell(target));
     }
   } else {
@@ -1511,7 +1513,7 @@ function openPortal(game: Game, cell: Cell): void {
   const { state } = game;
   const key = terrainKey(cell);
   if (state.terrain[key]?.some((layer) => layer.portal)) return;
-  const kind = state.floor >= FLOORS - 1 ? 'out' : 'down';
+  const kind = state.floor >= LAYOUT.floors - 1 ? 'out' : 'down';
   (state.terrain[key] ??= []).push({
     id: nextUid('portal'),
     effects: [],
@@ -1578,7 +1580,7 @@ export function enterFloor(game: Game, floor: number): void {
 function descend(game: Game): void {
   const { state } = game;
   state.descending = false;
-  if (state.floor >= FLOORS - 1) {
+  if (state.floor >= LAYOUT.floors - 1) {
     note(state, 'Out into the light.');
     record(state, { type: 'run_won', turn: state.turn });
     endRun(state, 'won');
@@ -1599,41 +1601,52 @@ function descend(game: Game): void {
 
 /* ------------------------------ spawning -------------------------------- */
 
-/* A floor's last row is canonical — full width, trail across the middle —
-   and it is where the floor ends. Its guardian stands on the trail there;
-   when it falls, the portal off the floor opens on its tile. A floor with
-   no guardian (none named, or disabled) has its portal waiting there from
-   the start. */
+/* Every chunk's last row is canonical — full width, trail across the
+   middle — and a chunk may name guardians to stand there. One is chosen at
+   random, on a stream of its own so nothing else in the seed moves (with
+   one to choose from, no dice at all). On the floor's last chunk it holds
+   the way down: its gate is `final`, and when it falls the portal opens on
+   its tile. Anywhere else it is a sub-boss, waking and closing in the same
+   way, and its fall opens nothing. A last chunk with nobody to stand there
+   (none named, or all disabled) has its portal waiting from the start. */
 function placeGuardians(game: Game, chunkIndex: number): void {
   const { state, world } = game;
-  const first = chunkIndex * CHUNK_ROWS;
-  const last = first + CHUNK_ROWS - 1;
+  const row = chunkIndex * CHUNK_ROWS + CHUNK_ROWS - 1;
+  if (!world.contains(row) || state.gates.some((gate) => gate.row === row)) return;
+  const { floor, k } = chunkOfFloor(chunkIndex);
+  const zone = ZONES[floor];
+  const entry = zone?.chunks[k];
+  if (!zone || !entry) return;
+  const final = k === zone.chunks.length - 1;
 
-  ZONES.forEach((zone, zoneIndex) => {
-    const row = gateRowOf(zoneIndex);
-    if (row < first || row > last || !world.contains(row)) return;
-    if (state.gates.some((gate) => gate.row === row)) return;
+  const guardians = entry.guardians.filter((id) => GUARDIAN_IDS.includes(id));
+  if (!guardians.length && !final) return;
 
-    const cols = Array.from({ length: world.width }, (_, col) => col)
-      .filter((col) => world.walkable(row, col) && !entityAt(state, row, col));
-    if (!cols.length) return;
-    const onTrail = cols.filter((col) => surfaceKind(world.stackAt(row, col)) === 'trail');
-    const choices = onTrail.length ? onTrail : cols;
-    const col = choices[Math.floor(choices.length / 2)]!;
+  const cols = Array.from({ length: world.width }, (_, col) => col)
+    .filter((col) => world.walkable(row, col) && !entityAt(state, row, col));
+  if (!cols.length) return;
+  const onTrail = cols.filter((col) => surfaceKind(world.stackAt(row, col)) === 'trail');
+  const choices = onTrail.length ? onTrail : cols;
+  const col = choices[Math.floor(choices.length / 2)]!;
 
-    // No guardian to beat: the way off the floor is open from the start.
-    if (!zone.guardian || !GUARDIAN_IDS.includes(zone.guardian)) {
-      openPortal(game, { row, col });
-      return;
-    }
+  // No guardian to beat: the way off the floor is open from the start.
+  if (!guardians.length) {
+    openPortal(game, { row, col });
+    return;
+  }
 
-    const guardian = makeEntity(zone.guardian, row, col);
-    guardian.facing = -1;
-    guardian.reward = rollDrop(state.rng, entityDef(guardian.defId).reward);
-    state.entities.push(guardian);
-    state.gates.push({ row, guardianId: guardian.id, awake: false });
-  });
+  const id = guardians.length === 1
+    ? guardians[0]!
+    : pick(createRng(hashSeed(state.seed, chunkIndex, GUARDIAN_SALT)), guardians);
+  const guardian = makeEntity(id, row, col);
+  guardian.facing = -1;
+  guardian.reward = rollDrop(state.rng, entityDef(guardian.defId).reward);
+  state.entities.push(guardian);
+  state.gates.push({ row, guardianId: guardian.id, awake: false, final });
 }
+
+/** Salt for the stream that chooses a chunk's guardian. */
+const GUARDIAN_SALT = 0x6a7d;
 
 /** One enemy onto the floor, carrying what it rolled to drop. */
 function spawnEnemy(game: Game, id: string, spot: Cell): void {
@@ -1671,29 +1684,15 @@ export function ensureSpawns(game: Game): void {
         if (world.walkable(row, col)) candidates.push({ row, col });
       }
     }
-    // What is special about this chunk of the floor, counting from 1.
-    const which = index - chunkIndexForRow(floorRows(state.floor).first) + 1;
-    const special = chunk.zone.chunks.find((entry) => entry.chunk === which);
-
-    // Sub-bosses first, for certain, each once: in the middle of the chunk,
-    // on the trail where there is room — no dice, so nothing else moves.
-    for (const id of special?.placed ?? []) {
-      if (!ENEMY_IDS.includes(id) || (entityDef(id).unique && state.uniques.includes(id))) continue;
-      const spot = [...candidates]
-        .filter((cell) => !entityAt(state, cell.row, cell.col) && !shopUnder(state, cell))
-        .sort((a, b) => Math.abs(a.row - index * CHUNK_ROWS - CHUNK_ROWS / 2) - Math.abs(b.row - index * CHUNK_ROWS - CHUNK_ROWS / 2)
-          || Number(surfaceKind(world.stackAt(b.row, b.col)) === 'trail') - Number(surfaceKind(world.stackAt(a.row, a.col)) === 'trail')
-          || Math.abs(a.col - world.width / 2) - Math.abs(b.col - world.width / 2))[0];
-      if (spot) spawnEnemy(game, id, spot);
-    }
-
-    // Only enabled enemies spawn. With all of them on, and nothing special
-    // in the chunk, this is the zone's own list, so the draws — and every
+    // Who lives in this chunk of the floor. Only enabled enemies spawn: with
+    // all of them on this is the chunk's own list, so the draws — and every
     // seed — come out as they always did.
-    const roster = [...chunk.zone.enemies, ...(special?.enemies ?? [])].filter((id) => ENEMY_IDS.includes(id));
-    if (!candidates.length || !roster.length) continue;
+    const { k } = chunkOfFloor(index);
+    const entry = chunk.zone.chunks[k];
+    const roster = (entry?.enemies ?? []).filter((id) => ENEMY_IDS.includes(id));
+    if (!entry || !candidates.length || !roster.length) continue;
 
-    for (let n = 0; n < chunk.zone.density; n += 1) {
+    for (let n = 0; n < entry.density; n += 1) {
       const spot = candidates[nextInt(state.rng, candidates.length)]!;
       // Not on the shop: the way in stays clear. (The draw is still made, so
       // every other spawn lands where it did before there were shops.)
