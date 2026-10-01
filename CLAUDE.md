@@ -1088,6 +1088,9 @@ reach 12 layers) hide whole tiles behind them. Held down, F lays the board
 flat — every stack drawn as its surface alone (`shown`) — and S shortens
 it — every layer drawn `SHORT_LAYER_H` (4) tall instead of `LAYER_H`
 (`layerH`), water's sink squashed with it (`sink`), so heights still read.
+The change is eased, not instant: `layerNow` moves toward its target at
+`LAYER_EASE` (40 units a second, about a third of a second for the whole
+squash) each frame (`easeLayers`), because the jump was jarring.
 Picking, tile tops and where creatures stand go through the same two
 helpers, so a click lands on what is drawn. Letting go, or the window
 losing focus, stands the land back up.

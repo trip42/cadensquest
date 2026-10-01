@@ -31,6 +31,7 @@ import {
   hash,
   HH,
   HW,
+  LAYER_EASE,
   LAYER_H,
   SHORT_LAYER_H,
   projectX,
@@ -186,6 +187,7 @@ export class MapRenderer implements Stage {
       this.juice.take(seconds, this);
       this.juice.update(seconds);
       this.update(dt);
+      this.easeLayers(dt);
       this.draw(now);
       this.raf = requestAnimationFrame(frame);
     };
@@ -794,7 +796,20 @@ export class MapRenderer implements Stage {
 
   /** How tall a layer is drawn: squashed while S is held. */
   private get layerH(): number {
-    return this.shorten && !this.flatten ? SHORT_LAYER_H : LAYER_H;
+    return this.flatten ? LAYER_H : this.layerNow;
+  }
+
+  /** How tall a layer is drawn right now: eased toward SHORT_LAYER_H while
+   *  the land is shortened, and back up to LAYER_H after, at LAYER_EASE a
+   *  second — never jumping between the two. */
+  private layerNow = LAYER_H;
+
+  private easeLayers(dt: number): void {
+    const target = this.shorten && !this.flatten ? SHORT_LAYER_H : LAYER_H;
+    const step = LAYER_EASE * dt;
+    this.layerNow = target < this.layerNow
+      ? Math.max(target, this.layerNow - step)
+      : Math.min(target, this.layerNow + step);
   }
 
   /** How far a surface sinks (water), squashed along with the layers. */

@@ -14,6 +14,10 @@ export const LAYER_H = 17;
 /** A layer's height while the land is shortened (S held): low enough to
  *  see past a peak, tall enough that height still reads. */
 export const SHORT_LAYER_H = 4;
+/** How fast a layer's drawn height eases between LAYER_H and SHORT_LAYER_H,
+ *  in design units a second: 40 takes the 13-unit change in about a third
+ *  of a second, so shortening is a quick squash rather than a jump. */
+export const LAYER_EASE = 40;
 export const HW = TILE_W / 2;
 export const HH = TILE_H / 2;
 
