@@ -851,7 +851,7 @@ export const useGameStore = defineStore('game', () => {
      — and ends once it points at a tile DWELL_REACH or more steps from the
      stack that set it off. */
   const DWELL_HEIGHT = 5;
-  const DWELL_SECONDS = 2;
+  const DWELL_SECONDS = 1.4;
   const DWELL_REACH = 5;
   /** The stack that set it off, while it is on. */
   let dwellFrom: Cell | null = null;

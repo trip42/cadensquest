@@ -1096,7 +1096,7 @@ helpers, so a click lands on what is drawn. Letting go, or the window
 losing focus, stands the land back up.
 
 Shortening works without a keyboard too: resting the pointer on the top of
-a stack more than `DWELL_HEIGHT` (5) layers tall for `DWELL_SECONDS` (2)
+a stack more than `DWELL_HEIGHT` (5) layers tall for `DWELL_SECONDS` (1.4)
 shortens the land, and it stays while the pointer looks around there —
 clicks and cards included — until it points at a tile `DWELL_REACH` (5) or
 more steps from the stack that set it off (`trackDwell`/`endDwell` in the
