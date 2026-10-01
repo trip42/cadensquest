@@ -1094,9 +1094,12 @@ losing focus, stands the land back up.
 
 Shortening works without a keyboard too: resting the pointer on the top of
 a stack more than `DWELL_HEIGHT` (5) layers tall for `DWELL_SECONDS` (2)
-shortens the land until the next click on a tile or card played
-(`trackDwell`/`endDwell` in the store, which ORs it with the S key in
-`applyShorten`). A card only picked up, to aim, does not end it. Automatic cutaways (cutting a stack
+shortens the land, and it stays while the pointer looks around there —
+clicks and cards included — until it points at a tile `DWELL_REACH` (5) or
+more steps from the stack that set it off (`trackDwell`/`endDwell` in the
+store, ORed with the S key in `applyShorten`). The user found ending it on
+the next click or card awkward; tying it to where the pointer is keeps the
+view open where they are already looking. Automatic cutaways (cutting a stack
 down when it hides a creature or a lit tile) were built and tried, and
 the user did not like them: don't bring them back without asking.
 

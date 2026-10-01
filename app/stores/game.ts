@@ -517,6 +517,7 @@ export const useGameStore = defineStore('game', () => {
     heard = 0;
     dwellShort = false;
     dwellCell = null;
+    dwellFrom = null;
     announce.value = null;
     looking.value = null;
     beginTurn(game);
@@ -688,7 +689,6 @@ export const useGameStore = defineStore('game', () => {
         if (playCard(game, card.uid)) {
           departed.set(card.uid, 'played');
           selectedUid.value = null;
-          endDwell();
         }
       } else {
         // Picked up, to be aimed. Playing it makes its own sound.
@@ -700,8 +700,6 @@ export const useGameStore = defineStore('game', () => {
 
   /** A click, or the end of a drag, landing on a cell. */
   function commitCell(cell: Cell | null): void {
-    // Any click on a tile stands shortened land back up.
-    if (cell) endDwell();
     if (!game || !cell || game.state.phase !== 'player') return;
 
     const { state } = game;
@@ -849,9 +847,14 @@ export const useGameStore = defineStore('game', () => {
      hides what is behind it but heights still show. Two ways in, either
      enough: holding S, and, without a keyboard, resting the pointer on the
      top of a tall stack (more than DWELL_HEIGHT layers) for DWELL_SECONDS.
-     That one stays until the next click on a tile or card played. */
+     That one stays while the pointer looks around there — behind the peak
+     — and ends once it points at a tile DWELL_REACH or more steps from the
+     stack that set it off. */
   const DWELL_HEIGHT = 5;
   const DWELL_SECONDS = 2;
+  const DWELL_REACH = 5;
+  /** The stack that set it off, while it is on. */
+  let dwellFrom: Cell | null = null;
   let keyShort = false;
   let dwellShort = false;
   let dwellCell: Cell | null = null;
@@ -867,24 +870,28 @@ export const useGameStore = defineStore('game', () => {
     applyShorten();
   }
 
-  /** A tile clicked or a card played: the land stands back up. */
+  /** Pointing far from where it began: the land stands back up. */
   function endDwell(): void {
     dwellCell = null;
     dwellTime = 0;
+    dwellFrom = null;
     if (!dwellShort) return;
     dwellShort = false;
     applyShorten();
   }
 
-  /** Each frame: is the pointer resting on a tall stack's top? */
+  /** Each frame: is the pointer resting on a tall stack's top — or, once
+   *  the land is short, has it gone far from that stack? */
   function trackDwell(dt: number): void {
     const cell = hoverCell.value;
+    if (dwellShort) {
+      if (cell && dwellFrom && cellDistance(cell, dwellFrom) >= DWELL_REACH) endDwell();
+      return;
+    }
     const tall = !!game && !!cell && game.world.stackAt(cell.row, cell.col).length > DWELL_HEIGHT;
-    if (dwellShort || !tall || !cell) {
-      if (!dwellShort) {
-        dwellCell = null;
-        dwellTime = 0;
-      }
+    if (!tall || !cell) {
+      dwellCell = null;
+      dwellTime = 0;
       return;
     }
     if (!dwellCell || dwellCell.row !== cell.row || dwellCell.col !== cell.col) {
@@ -894,6 +901,7 @@ export const useGameStore = defineStore('game', () => {
     dwellTime += dt;
     if (dwellTime >= DWELL_SECONDS) {
       dwellShort = true;
+      dwellFrom = cell;
       applyShorten();
     }
   }
