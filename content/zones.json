@@ -255,5 +255,92 @@
         "guardians": []
       }
     ]
+  },
+  {
+    "id": "ice",
+    "name": "Frost Spire",
+    "palette": {
+      "ground": {
+        "top": "#c0ccdd",
+        "left": "#92a1b9",
+        "right": "#496369",
+        "elev": 0,
+        "texture": "grain"
+      },
+      "trail": {
+        "top": "#a3b3bd",
+        "left": "#808d9d",
+        "right": "#5f7181",
+        "elev": -2,
+        "texture": "speckle"
+      },
+      "water": {
+        "top": "#7fa8b5",
+        "left": "#567f8c",
+        "right": "#456972",
+        "elev": -5,
+        "texture": "ripple"
+      },
+      "rock": {
+        "top": "#9aa0a6",
+        "left": "#70767c",
+        "right": "#585e64",
+        "elev": 0,
+        "texture": "grain"
+      }
+    },
+    "terrain": {
+      "minHeight": 1,
+      "maxHeight": 7,
+      "forkChance": 0,
+      "mergeChance": 0.2,
+      "waterChance": 0,
+      "rockChance": 0.2,
+      "widthDrift": 0.3,
+      "peakChance": 0.5,
+      "peakHeight": 5
+    },
+    "chunks": [
+      {
+        "enemies": [
+          "wolf",
+          "spider"
+        ],
+        "density": 10,
+        "guardians": []
+      },
+      {
+        "enemies": [
+          "wolf",
+          "dragon",
+          "whelp"
+        ],
+        "density": 11,
+        "guardians": [
+          "ironshell",
+          "broodmother"
+        ]
+      },
+      {
+        "enemies": [
+          "wolf",
+          "spider",
+          "dragon",
+          "whelp"
+        ],
+        "density": 12,
+        "guardians": []
+      },
+      {
+        "enemies": [
+          "wolf",
+          "spider",
+          "dragon",
+          "whelp"
+        ],
+        "density": 12,
+        "guardians": []
+      }
+    ]
   }
 ]
