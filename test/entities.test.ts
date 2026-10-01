@@ -19,7 +19,10 @@ describe('entity definitions', () => {
     expect(ENEMY_IDS.sort()).toEqual(['bug', 'chicken', 'dragon', 'slime', 'slimelet', 'spider', 'tree', 'whelp', 'wolf']);
   });
 
-  it('gives each creature its own cell of the sheet', () => {
+  it('tells every creature apart: its own cell of the sheet, or its own size', () => {
+    // Two may share a picture when one is drawn smaller — the Slimelet is
+    // the Slime's own art, small, a piece of the one that split. The same
+    // art at the same size would be two creatures nobody can tell apart.
     const seen = new Map<string, string>();
     for (const id of [...ENEMY_IDS, ...GUARDIAN_IDS]) {
       const sprite = entityDef(id).sprite;
@@ -28,9 +31,9 @@ describe('entity definitions', () => {
       expect(sprite.col, id).toBeGreaterThanOrEqual(0);
       expect(sprite.col, id).toBeLessThan(SHEET_COLUMNS);
       expect(sprite.row, id).toBeLessThan(SHEET_ROWS);
-      const cell = `${sprite.col}:${sprite.row}`;
-      expect(seen.get(cell), `${id} shares ${cell}`).toBeUndefined();
-      seen.set(cell, id);
+      const look = `${sprite.col}:${sprite.row} at ${sprite.footprint.width}x${sprite.footprint.height}`;
+      expect(seen.get(look), `${id} looks exactly like ${seen.get(look)} (${look})`).toBeUndefined();
+      seen.set(look, id);
     }
   });
 
