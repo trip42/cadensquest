@@ -14,7 +14,7 @@
         "top": "#c1945f",
         "left": "#956a42",
         "right": "#7a5533",
-        "elev": 0,
+        "elev": -1,
         "texture": "speckle"
       },
       "water": {
@@ -35,11 +35,11 @@
     "terrain": {
       "minHeight": 1,
       "maxHeight": 4,
-      "forkChance": 0.18,
-      "mergeChance": 0.25,
-      "waterChance": 0.16,
+      "forkChance": 0,
+      "mergeChance": 0.08,
+      "waterChance": 1,
       "rockChance": 0.06,
-      "widthDrift": 0.6,
+      "widthDrift": 0.58,
       "peakChance": 0.08,
       "peakHeight": 2
     },
