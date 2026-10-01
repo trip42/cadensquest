@@ -166,7 +166,9 @@ sim/                 the fun simulator: bot (and synergy.ts, how it prices
 docs/                ART_SPEC.md (the brief for an artist), MARKETING.md
                      (the plan for finding an audience), FUN.md (research,
                      the fun scorecard, the simulator's findings), COMBOS.md
-                     (cards that combine: families, mechanics, build order)
+                     (cards that combine: families, mechanics, build order),
+                     FUTURE.md (ideas set aside to come back to: props,
+                     aimed Laters, reading the board, tilesets, balance)
 legacy/              the original single-file prototype this grew from
 ```
 
