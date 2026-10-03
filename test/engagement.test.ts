@@ -8,7 +8,6 @@ import {
   isValidTarget,
   movePlayerTo,
   movementRange,
-  playerMoveOptions,
   tick,
   upcomingIntents,
 } from '~/game/actions';
@@ -17,7 +16,7 @@ import { ENTITIES, entityDef } from '~/game/entities/definitions';
 import { entityCell } from '~/game/entities/types';
 import { type Cell, cellDistance, reachable } from '~/game/map/navigation';
 import { gateRowOf, ZONES } from '~/game/map/tiles';
-import { createGame, type Game, makeEntity, player, resetUids, stat } from '~/game/state';
+import { createGame, type Game, makeEntity, player, resetUids } from '~/game/state';
 
 afterEach(() => loadContent(readContentFiles()));
 
@@ -51,41 +50,22 @@ function runEnemyPhase(game: Game): void {
   for (let i = 0; i < 30000 && game.state.phase === 'enemy'; i += 1) tick(game, 1 / 60);
 }
 
-describe('zone of control', () => {
-  it('charges extra to step away from an adjacent enemy', () => {
-    const game = quiet(4242);
-    const here = entityCell(player(game.state));
-    const options = playerMoveOptions(game);
-    const somewhere = cellAt(game, 1);
-
-    expect(options.stepCost!(here, somewhere)).toBe(1);
-    place(game, 'bug', cellAt(game, 1));
-    expect(playerMoveOptions(game).stepCost!(here, somewhere))
-      .toBe(1 + stat(game.state, 'disengageCost'));
-  });
-
-  it('leaves you pinned when you cannot afford to break away', () => {
-    const game = quiet(4242);
-    place(game, 'bug', cellAt(game, 1));
-    game.state.movement = 1;
-    expect(movementRange(game).size).toBe(0);
-  });
-
-  it('bills the toll when you walk away', () => {
+describe('walking', () => {
+  it('costs one a step, even stepping away from an adjacent enemy', () => {
+    // There used to be a toll for breaking away (zone of control). Nothing
+    // showed it, so a card discarded for a step bought nothing: it is gone.
     const game = quiet(4242);
     const foe = place(game, 'bug', cellAt(game, 1));
+    game.state.movement = 1;
     const away = [...movementRange(game).values()]
       .map((entry) => entry.cell)
-      .find((cell) => cellDistance(cell, entityCell(foe)) > 1 && cellDistance(cell, entityCell(player(game.state))) === 1);
+      .find((cell) => cellDistance(cell, entityCell(foe)) > 1);
     expect(away).toBeDefined();
-
-    game.state.movement = 5;
     expect(movePlayerTo(game, away!)).toBe(true);
-    expect(game.state.movement).toBe(5 - 1 - stat(game.state, 'disengageCost'));
-    expect(game.state.log.at(-1)).toContain('Breaking away cost');
+    expect(game.state.movement).toBe(0);
   });
 
-  it('costs nothing extra away from enemies', () => {
+  it('costs one a step away from enemies', () => {
     const game = quiet(4242);
     game.state.movement = 5;
     const target = cellAt(game, 2);

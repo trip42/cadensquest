@@ -437,13 +437,16 @@ use thrown away than played. This replaced an earlier design where discards
 were the *only* source of movement; that made running past every fight too
 easy, so don't swing it back without the engagement rules below.
 
-Three rules keep fights from being skippable:
+**Every step costs one, next to an enemy or not.** There used to be a zone
+of control: a step away from a tile next to an enemy cost `disengageCost`
+(1) more. It was removed because players could not see it: they discarded
+a card for a step, then could not take it. Don't bring it back without
+something on screen that shows the price before the card is spent.
+`navigation` still takes an optional `stepCost` (so `reachable` is
+cheapest-first and `movePlayerTo` charges `pathCost`), but nothing sets it.
 
-- **Zone of control.** A step *away* from a tile next to an enemy costs
-  `disengageCost` more (1). Approaching is cheap; leaving is not. It lives in
-  `playerMoveOptions` as a `stepCost`, which is why `reachable` is
-  cheapest-first rather than a flood fill, and why `movePlayerTo` charges
-  `pathCost`, not `path.length`. Enemies are not subject to it.
+Two rules keep fights from being skippable:
+
 - **Enemies close in.** Most enemy cards open with `advance`: an enemy
   three tiles away walks up and hits you (or your nearest ally) in the same
   turn.
@@ -897,7 +900,7 @@ creature plays its deck against `nearestFoe` — enemies pick the nearest of
 the player and his allies (so a pet draws attacks), allies the nearest
 enemy within `ENGAGE_RADIUS` (8); an ally with nobody to fight advances
 toward the player instead (`Play.goal`). Allies act first in the enemy
-phase, are hit by terrain, block the way but cause no zone of control, and
+phase, are hit by terrain, block the way, and
 drop nothing. They are drawn with a pulsing cyan ring, a green bar and a
 cyan-edged intent chip; their tooltip says ALLY. `tame` (amount = the
 health threshold) turns the targeted enemy if its health is at most that,

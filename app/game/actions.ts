@@ -108,29 +108,16 @@ export const occupied = (state: GameState, ignore?: Entity) =>
     return !!other && other !== ignore;
   };
 
-/** Is this cell next to a living enemy? Standing there, you are engaged. */
-export function threatened(state: GameState, cell: Cell): boolean {
-  return enemies(state).some((enemy) => cellDistance(entityCell(enemy), cell) === 1);
-}
-
-/* How the player moves. Two rules on top of plain pathfinding:
-
-   Zone of control — a step away from a tile next to an enemy costs
-   `disengageCost` more. Walking up to an enemy is cheap; walking away from
-   one is not, so slipping past a fight costs you the turn you were trying
-   to save.
+/* How the player moves: plain pathfinding, every step one movement, round
+   anything standing in the way. Stepping away from an enemy used to cost
+   extra (zone of control); players could not see it, discarded a card for
+   a step and then could not take it, so it is gone.
 
    There is no gate to guard: a floor ends at its guardian's row, and the
    rows beyond do not exist until the way down is taken. */
 export function playerMoveOptions(game: Game): MoveOptions {
   const { state } = game;
-  const self = player(state);
-  const toll = stat(state, 'disengageCost');
-  const standing = occupied(state, self);
-  return {
-    blocked: standing,
-    stepCost: (from) => 1 + (threatened(state, from) ? toll : 0),
-  };
+  return { blocked: occupied(state, player(state)) };
 }
 
 /** Where the player could walk with the movement left this turn. */
@@ -1409,7 +1396,7 @@ function faceToward(entity: Entity, cell: Cell): void {
    as the card it is playing can reach — a spitter has no reason to walk
    into melee. It paths to the player's own cell, which is how it finds the
    way round obstacles, then keeps only the stretch it will actually walk.
-   Enemies are not slowed by zone of control; that rule is the player's. */
+   */
 function advance(game: Game, enemy: Entity, steps: number, reach: number, goal: Entity): void {
   const { state, world } = game;
   const target = entityCell(goal);
@@ -1570,8 +1557,7 @@ export function movePlayerTo(game: Game, cell: Cell): boolean {
   const path = findPath(world, from, cell, { ...options, maxCost: state.movement });
   if (!path || !path.length) return false;
 
-  // Steps and cost differ once breaking away from an enemy costs extra.
-  // Count both before handing the path over: startStep shifts cells off it.
+  // Count before handing the path over: startStep shifts cells off it.
   const steps = path.length;
   const cost = pathCost(from, path, options);
   if (cost > state.movement) return false;
@@ -1580,8 +1566,7 @@ export function movePlayerTo(game: Game, cell: Cell): boolean {
   state.moved += steps;
   self.path = path;
   startStep(self);
-  const toll = cost - steps;
-  note(state, `Moved ${steps} cell${steps === 1 ? '' : 's'}.${toll ? ` Breaking away cost ${toll} more.` : ''}`);
+  note(state, `Moved ${steps} cell${steps === 1 ? '' : 's'}.`);
   return true;
 }
 

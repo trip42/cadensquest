@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { beginTurn, endPlayerPhase, isValidTarget, nearestFoe, playCard, playerMoveOptions, releaseAlly, tick } from '~/game/actions';
+import { beginTurn, endPlayerPhase, isValidTarget, nearestFoe, playCard, releaseAlly, tick } from '~/game/actions';
 import { CARDS } from '~/game/cards/definitions';
 import { intentDef, INTENTS } from '~/game/cards/intents';
 import type { CardDefinition } from '~/game/cards/types';
@@ -169,16 +169,6 @@ describe('allies in the fight', () => {
     friend.faction = 'ally';
     runEnemyPhase(game);
     expect(cellDistance(entityCell(friend), here)).toBeLessThan(6);
-  });
-
-  it('do not hem the player in, the way enemies do', () => {
-    const game = quiet();
-    const here = entityCell(player(game.state));
-    const next = cellsAt(game, 1);
-    const friend = place(game, 'bug', next[0]!);
-    friend.faction = 'ally';
-    const away = next[1]!;
-    expect(playerMoveOptions(game).stepCost!(here, away)).toBe(1);
   });
 
   it('credit a kill to whoever made it, and are mourned when they fall', () => {
