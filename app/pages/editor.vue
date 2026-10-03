@@ -8,6 +8,10 @@
    straight away, saved or not. */
 
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+// By hand, not auto-imported: a dev server started before this form existed
+// never registers it, and the Props tab showed a name and an id and nothing
+// else (see CLAUDE.md, the ShopModal gotcha).
+import EditorFormProp from '~/components/editor/FormProp.vue';
 import type { ContentFile } from '~/game/content';
 import { TABS, useEditorStore } from '~/stores/editor';
 import { problemsAt } from '~/utils/editorProblems';
