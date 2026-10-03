@@ -4,7 +4,6 @@ import { applyTrial, parseTrials } from '~/game/sandbox';
 import { type Content, loadContent } from '~/game/content';
 import { CHUNK_ROWS } from '~/game/map/generate';
 import { chunkOfFloor, floorRows, gateRowOf, LAYOUT, START_ROW, ZONES, zoneForRow } from '~/game/map/tiles';
-import { shopRowOf } from '~/game/shop';
 import { createGame, player, resetUids } from '~/game/state';
 import { readContentFiles } from './setup';
 
@@ -49,7 +48,7 @@ describe('floors of any length', () => {
     expect(chunkOfFloor(6)).toEqual({ floor: 2, k: 0 });
   });
 
-  it('fits a whole floor into one chunk: arrival, shop and guardian in order', () => {
+  it('fits a whole floor into one chunk: arrival, shop and guardian', () => {
     withChunks(1, 3, 3);
     resetUids();
     const game = createGame(4242);
@@ -57,8 +56,10 @@ describe('floors of any length', () => {
     ensureSpawns(game);
     const { first, last } = floorRows(0);
     expect(player(game.state).row).toBe(first + START_ROW);
-    expect(game.state.shop?.row).toBe(shopRowOf(0));
-    expect(shopRowOf(0)).toBeGreaterThan(first + START_ROW);
+    // The last chunk's shop came with it: somewhere between the seams.
+    expect(game.state.shops).toHaveLength(1);
+    expect(game.state.shops[0]!.row).toBeGreaterThan(first);
+    expect(game.state.shops[0]!.row).toBeLessThan(last);
     expect(game.state.gates.at(-1)).toMatchObject({ row: last, final: true });
   });
 });

@@ -14,7 +14,7 @@
 
 import {
   amountValues, buyShopItem, canPlay, chooseCardReward, discardForMovement, endPlayerPhase, gemTargets, isBusy, isValidTarget, layerEffects,
-  leaveShop, shopPrice,
+  currentShop, leaveShop, shopPrice,
   movePlayerTo, playCard, playerMoveOptions, removeCardReward, skipReward, socketGemReward, takeTalismanReward, terrainAt, tick,
 } from '../app/game/actions';
 import { cardDef, cardMovement } from '../app/game/cards/definitions';
@@ -24,6 +24,7 @@ import type { Entity } from '../app/game/entities/types';
 import { GEM_SLOTS, gemDef, gemmedDef } from '../app/game/gems';
 import { type Cell, cellDistance, reachable } from '../app/game/map/navigation';
 import { gateRowOf } from '../app/game/map/tiles';
+import { priceOf } from '../app/game/shop';
 import { resolveStat } from '../app/game/stats';
 import { allies, enemies, type Game, type GameState, gemsOf, player, stat } from '../app/game/state';
 import { cardWorth } from './synergy';
@@ -106,11 +107,13 @@ function goalOf(game: Game): Cell {
       return { row: row!, col: col! };
     }
   }
-  // The shop, on the way, if there is anything there it can pay for.
-  const shop = state.shop;
-  if (shop && !shop.visited && shop.items.some((item, i) => !item.sold && state.coins >= (shopPrice(state, i) ?? Infinity))) {
-    return { row: shop.row, col: shop.col };
-  }
+  // The nearest shop it has not been into, if there is anything there it
+  // can pay for.
+  const here = cellOf(player(state));
+  const shop = state.shops
+    .filter((item) => !item.visited && item.items.some((ware) => !ware.sold && state.coins >= priceOf(ware, state.removalsBought)))
+    .sort((a, b) => cellDistance(here, a) - cellDistance(here, b))[0];
+  if (shop) return { row: shop.row, col: shop.col };
   const gate = state.gates.find((item) => item.final);
   const guardian = gate && state.entities.find((entity) => entity.id === gate.guardianId && !entity.dead);
   if (guardian) return cellOf(guardian);
@@ -482,14 +485,14 @@ function shop(game: Game): void {
   const { state } = game;
   const strikes = gemTargets(state).filter((card) => card.defId === 'strike').length;
   const worth = (i: number): number => {
-    const item = state.shop!.items[i]!;
+    const item = currentShop(state)!.items[i]!;
     if (item.kind === 'talisman') return 5;
     if (item.kind === 'removal') return strikes >= 3 ? 4 : 0;
     if (item.kind === 'gem') return 2;
     return byRarity() ? offerWorth(game, item.id!) : offerWorth(game, item.id!) * 1.5;
   };
   for (;;) {
-    const choices = state.shop!.items
+    const choices = currentShop(state)!.items
       .map((item, i) => ({ i, item, price: shopPrice(state, i) ?? Infinity }))
       .filter(({ i, item, price }) => !item.sold && price <= state.coins && worth(i) > 0)
       .sort((a, b) => worth(b.i) - worth(a.i));

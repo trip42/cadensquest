@@ -108,7 +108,7 @@ app/game/            the simulation — no Vue, no DOM (see the rule above)
   entities/            the player's definition, the ENTITIES registry, clips
   gems.ts talismans.ts rewards.ts   registries and reward rolling; gems.ts
                        also gemMods/gemmedDef (a gem changing its card)
-  shop.ts              a floor's shop: stock (rollStock), SHOP_PRICES
+  shop.ts              shops: stock (rollStock), SHOP_PRICES
   telemetry.ts         GameEvent, record(), the run tally
   cues.ts              what just happened, for the screen and speakers: cue()
   sandbox.ts           trials: a run with one thing arranged (?try=)
@@ -122,6 +122,8 @@ app/game/            the simulation — no Vue, no DOM (see the rule above)
     world.ts           chunk cache, bounded to the current floor; stackAt()
                        is the single read path
     audit.ts           invariant checks, used by tests
+    props.ts           PROPS (trees, a barn, a shop; filled from content)
+                       and placeProps, which stands them in a chunk
     navigation.ts      walkability, reachable() (Dijkstra), findPath() (A*)
 app/audio/           sound — synthesised, no files (see "Sound")
   synth.ts             recipe -> samples; pure, runs under test
@@ -146,7 +148,7 @@ app/components/      MapStage (canvas), GameCard, HandBar, RewardModal,
                      ShopModal, TalismanRail (left edge), AllyRail (right
                      edge: allies, look at one, release it), EnemyTip,
                      TileTip, GroundLines
-app/components/editor/  the editor's forms (Form*), EffectList (nested for
+app/components/editor/  the editor's forms (Form*, FormProp for props), EffectList (nested for
                      terrain), AmountInput, DeckBuilder (counts: the
                      starting deck, zone rosters), DeckSequence (an
                      enemy's deck, in order), pickers, Preview, Sprite
@@ -226,8 +228,9 @@ is why the chunk tests still work on raw `generateChunk` output.
 **A zone is its chunks, so floors are as long as their zones.** Zones are
 pure content (`content/zones.json`, in floor order): a name, a `palette`,
 a `terrain` (how the generator shapes the ground) and 1–8 `chunks`. Each
-chunk is 16 rows and says who spawns there (`enemies`, `density` of them)
-and who may stand on its last row (`guardians`, one chosen at random).
+chunk is 16 rows and says who spawns there (`enemies`, `density` of them),
+who may stand on its last row (`guardians`, one chosen at random) and what
+props stand in it (`props`; see **Props**).
 `installContent` refills `ZONES` and calls `layoutZones`, which fills
 `LAYOUT` — each floor's first row and first chunk, `floors`, `lastRow`,
 `maxStack` — the same object for the life of the page, like the registries.
@@ -276,6 +279,44 @@ rules in the generator:
   merges already-drifted strands, so its height is clamped against the
   banks as they were, not as they became.
 
+## Props
+
+Things standing on the map — trees, a barn, a shop — are content:
+`content/props.json` gives each an id, a name, a `type` and a picture (a
+cell of a sheet, `footprint` and `offsetY`, like an enemy's; the `props`
+sheet is `props.png`, 5 × 2). Each zone chunk lists its `props`: which
+one, `frequency` (the chance each tile it may stand on gets one, 0–1) and
+an optional `max` for the chunk. A frequency of 1 with a max of 1 is
+exactly one, somewhere — that is how each floor's last chunk gets its
+shop. The two types:
+
+- **`obstacle`** blocks its tile. `World.walkable` says no, so walking,
+  paths, knockback (a slam, like a wall), spawning, summoning, leaps and
+  marks all keep off it with no rule of their own. Hovering one names it.
+- **`shop`** is walked onto to trade (see **Coins and shops**).
+
+**Placed by the generator** (`placeProps`, called at the end of
+`generateChunk`), on a stream of its own (`hashSeed(seed, index, salt)`),
+so a chunk is still a pure function of (seed, index) and the ground of
+every seed is untouched; `Chunk.props` runs parallel to `rows`, and
+`World.propAt` reads it. Each entry in turn walks its candidate tiles in a
+shuffled order, rolls its frequency on each, and stops at its max.
+
+**A sixth invariant: an obstacle never cuts anything off.** Props never
+stand on a chunk's first or last row (the seams stay open), and an
+obstacle never on the trail. It is placed only if every tile that could
+be walked to from the trail before — four ways, ground or trail, a layer
+at most — still can after; otherwise that tile is skipped. The trail is
+continuous and never blocked, so the whole floor stays one walk.
+`test/props.test.ts` proves it with oaks at frequency 1 in every chunk over
+60 seeds.
+
+The renderer draws a prop straight after its tile's stack (`drawProp`),
+standing on the tile top as drawn, so it hides what is behind it, is hidden
+by what is in front, and goes down with the land under F and S. The editor
+has a Props tab (`FormProp`, previewed on a tile by `Standing` with
+`still`), a props list on each chunk, and the zone map marks obstacles.
+
 ## Floors
 
 A run goes down through the zones in order, one floor each, like the levels
@@ -308,7 +349,9 @@ of a dungeon. `state.floor` is the zone's index.
   trail, `START_ROW` rows in) and his allies on the nearest free tiles
   within four steps — any that do not fit are left behind — and clears the
   old floor: enemies, terrain (running every mark's `exit` first), hits,
-  gates, shop, queue. What he carries stays: deck, hand, health, coins,
+  gates, shops, queue, and which chunks were populated (so entering the
+  same floor again, as a zone trial on the first floor does, populates it
+  afresh). What he carries stays: deck, hand, health, coins,
   talismans, pending rewards, and his and his allies' Laters. Tests use it
   to start on any floor.
 
@@ -423,8 +466,8 @@ Three rules keep fights from being skippable:
 
 ## Content
 
-Cards, enemy cards, enemies, gems, talismans, zones (all of them: name,
-colours, terrain, chunks) and the starting deck are **JSON in `content/`**,
+Cards, enemy cards, enemies, gems, talismans, props, zones (all of them:
+name, colours, terrain, chunks) and the starting deck are **JSON in `content/`**,
 not code. What stays in code: the effect verbs (`resolveEffect`), the
 player's definition, sprite sheet files and glyphs. The editor can add a
 zone (a copy of the last floor), delete one (never the last), and move it
@@ -476,7 +519,7 @@ production builds (`pages:extend` hook) and the endpoint 404s there.
 
 **The zone map** (`editor/ZoneMap.vue`, in a zone's preview) shows the
 floor from above as the game's own code builds it — the generator,
-`ensureSpawns` walked chunk by chunk as a run would, guardians, shop and
+`ensureSpawns` walked chunk by chunk as a run would, guardians, props, shops and
 portal — on a seed you can change or re-roll. It installs the draft
 (`installDraft`, only when there are no errors) and redraws a moment after
 each edit. The first floor is exactly what `?seed=N` plays; a deeper floor
@@ -1015,16 +1058,22 @@ with a `coins` cue ("+N COINS" in yellow as it falls, and a clink) and
 `coins` on its `enemy_killed` event. Coins stay with the player down the
 floors, like the deck.
 
-**One shop per floor**, placed by `placeShop` when its chunk is first
-reached: on the trail `SHOP_ROWS_FROM_END` (10) rows before the end, so
-shopping never wakes the guardian. It is a terrain layer with `shop: true`
-(gold, never ages out; the tile tip says "A shop") plus `state.shop` (where,
-its stock, `visited`). Spawns skip its tile; the draw is still made, so every
-other enemy lands where it did before.
+**A shop is a prop** of type `shop` (see **Props**), so a floor has as many
+as its chunks put there — the committed content puts exactly one, anywhere
+walkable, in each floor's last chunk. It is not an obstacle. As its chunk is
+first populated, `placeShops` adds it to `state.shops` (where, its stock,
+`visited`) and lays a terrain layer with `shop: true` under it (never ages
+out; how the rules and the tile tip know it), which the renderer leaves
+undrawn: the building is what shows. `shopAt(state, cell)` finds one, and
+`currentShop` is the one the player stands on, which is the one he trades
+in. Spawns skip a shop's tile; the draw is still made. A shop near the end
+of a floor can be inside the guardian's waking line now: shopping there
+wakes it.
 
 **Stock** (`rollStock`) is three cards, a gem, a talisman and a removal,
-rolled from `hashSeed(seed, floor)` — its own stream, so adding shops moved
-nothing else in any seed. Prices are the dial, `SHOP_PRICES`; a removal
+rolled from `hashSeed(seed, floor, row, col)` — its own stream, so two
+shops on a floor stock different things and nothing else in any seed
+moves. Prices are the dial, `SHOP_PRICES`; a removal
 costs more for each one bought this run (`removalsBought`).
 
 **Trading.** Stepping onto the shop in the player's own phase opens it
@@ -1038,7 +1087,8 @@ once, and a gem or a removal queues as a reward that comes up after
 `ShopModal` shows everything on one screen on purpose: the fun is in
 weighing unlike things against each other.
 
-The bot heads for the shop while it can afford something there and buys
+The bot heads for the nearest shop it has not been into while it can
+afford something there and buys
 the dearest thing by a rough order of worth (`shop` in `sim/bot.ts`). At
 the committed prices it earns about 190 coins a run and spends about 120,
 mostly on removals.

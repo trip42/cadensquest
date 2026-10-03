@@ -13,6 +13,8 @@
    the generator can reason about ground and trail while the marsh and the
    highlands look nothing alike. */
 
+import type { ChunkProp } from './props';
+
 export type TileLetter = "G" | "D" | "W" | "R";
 export type TileKind = "ground" | "trail" | "water" | "rock";
 
@@ -81,6 +83,9 @@ export interface ZoneChunk {
    *  zone's last chunk it holds the way down; anywhere else it is a
    *  sub-boss. Empty: nobody. */
   guardians: string[];
+  /** What stands in it, and how often: trees, a barn, a shop. Placed by the
+   *  generator (`placeProps`). */
+  props: ChunkProp[];
 }
 
 /* A zone is a floor: its name, how it looks, how its ground is shaped, and

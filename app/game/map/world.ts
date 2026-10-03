@@ -7,6 +7,7 @@
    pure, a pruned chunk regenerates identically if it is ever needed again. */
 
 import { CHUNK_ROWS, MAP_WIDTH, type Chunk, generateChunk } from './generate';
+import { type PropDefinition, PROPS } from './props';
 import { isWalkable, LAYOUT, type Stack, stackHeight, VOID, type Zone, zoneForRow } from './tiles';
 
 export const chunkIndexForRow = (row: number): number => Math.floor(row / CHUNK_ROWS);
@@ -64,8 +65,18 @@ export class World {
     return stackHeight(this.stackAt(row, col));
   }
 
+  /** What stands here: a tree, a shop, or nothing. */
+  propAt(row: number, col: number): PropDefinition | null {
+    if (col < 0 || col >= MAP_WIDTH || !this.contains(row)) return null;
+    const index = chunkIndexForRow(row);
+    const id = this.chunk(index).props[row - index * CHUNK_ROWS]?.[col];
+    return (id && PROPS[id]) || null;
+  }
+
+  /** Ground or trail with no obstacle on it. Everything that moves, paths,
+   *  spawns or marks asks this, so an obstacle needs no rule of its own. */
   walkable(row: number, col: number): boolean {
-    return isWalkable(this.stackAt(row, col));
+    return isWalkable(this.stackAt(row, col)) && this.propAt(row, col)?.type !== 'obstacle';
   }
 
   zoneAt(row: number): Zone {

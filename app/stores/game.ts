@@ -26,6 +26,8 @@ import {
   buyShopItem,
   leaveShop,
   enterShop as enterShopHere,
+  currentShop,
+  shopAt,
   shopPrice,
   discardForMovement,
   endPlayerPhase,
@@ -336,15 +338,16 @@ export const useGameStore = defineStore('game', () => {
       talismans: state.talismans.map(talismanDef),
       reward: describeReward(current),
       coins: state.coins,
-      atShop: !state.shopOpen && !!state.shop && state.shop.row === self.row && state.shop.col === self.col,
+      atShop: !state.shopOpen && !!shopAt(state, { row: self.row, col: self.col }),
       shop: describeShop(current),
     };
   };
 
   function describeShop(current: Game): ShopItemView[] | null {
     const { state } = current;
-    if (!state.shopOpen || !state.shop) return null;
-    return state.shop.items.map((item, index) => {
+    const shop = currentShop(state);
+    if (!state.shopOpen || !shop) return null;
+    return shop.items.map((item, index) => {
       const price = shopPrice(state, index) ?? 0;
       return {
         index,
@@ -419,7 +422,7 @@ export const useGameStore = defineStore('game', () => {
       state.activeReward ? state.activeReward.reward.kind : '',
       state.pendingRewards.length,
       state.coins, state.shopOpen ? 1 : 0, state.removalsBought,
-      (state.shop?.items ?? []).map((item) => (item.sold ? 1 : 0)).join(''),
+      (currentShop(state)?.items ?? []).map((item) => (item.sold ? 1 : 0)).join(''),
     ].join('|');
   };
 
@@ -636,12 +639,16 @@ export const useGameStore = defineStore('game', () => {
     }));
   }
 
-  /* The tip for a marked tile, when nothing that has its own tip is
-     standing on it — an enemy's tip lists its ground itself. */
+  /* The tip for a marked tile, or one with a prop on it, when nothing that
+     has its own tip is standing on it — an enemy's tip lists its ground
+     itself. */
   function trackTileTip(): void {
     const cell = hoverCell.value;
     const foe = game && cell ? entityAt(game.state, cell.row, cell.col) : undefined;
-    const lines = cell && !(foe && foe.faction !== 'player' && !foe.dead) ? groundOf(cell) : [];
+    const prop = game && cell ? game.world.propAt(cell.row, cell.col) : null;
+    const lines = !cell || (foe && foe.faction !== 'player' && !foe.dead) ? []
+      : prop?.type === 'obstacle' ? [{ colour: '#8d9498', text: 'In the way: nothing can stand here or pass through' }]
+      : groundOf(cell);
     const point = lines.length && cell ? renderer?.tileTopOf(cell) : null;
     if (!point) {
       if (tileTip.value) tileTip.value = null;
@@ -651,7 +658,7 @@ export const useGameStore = defineStore('game', () => {
     const marks = game && cell ? terrainAt(game.state, cell) : [];
     const portal = marks.find((layer) => layer.portal)?.portal;
     const title = portal === 'out' ? 'The way out' : portal === 'down' ? 'The way down'
-      : marks.some((layer) => layer.shop) ? 'A shop' : 'Whoever is here';
+      : prop ? prop.name : 'Whoever is here';
     const next: TileTipView = { title, lines, x: Math.round(point.x), y: Math.round(point.y) };
     const old = tileTip.value;
     if (!old || old.title !== next.title || old.x !== next.x || old.y !== next.y || JSON.stringify(old.lines) !== JSON.stringify(next.lines)) {

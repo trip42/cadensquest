@@ -144,8 +144,8 @@ export interface GameState {
 
   /** Dropped by enemies as they fall, spent in shops. */
   coins: number;
-  /** This floor's shop, once its chunk has been reached. */
-  shop: Shop | null;
+  /** This floor's shops, each added as its chunk is first reached. */
+  shops: Shop[];
   /** The player is standing in the shop, trading: play holds, as for a
    *  reward. */
   shopOpen: boolean;
@@ -288,7 +288,7 @@ export function createGame(seed: number): Game {
     pendingRewards: [],
     activeReward: null,
     coins: 0,
-    shop: null,
+    shops: [],
     shopOpen: false,
     removalsBought: 0,
     spawnedChunks: [],

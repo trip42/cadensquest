@@ -12,7 +12,8 @@ import { STATIC_ANIMATIONS, type SpriteStyle } from '~/game/entities/types';
 import { HH, HW, TILE_H, TILE_W } from '~/render/iso';
 import { frameFor } from '~/render/sprites';
 
-const props = withDefaults(defineProps<{ sprite: SpriteStyle; chip?: string; scale?: number }>(), { scale: 1.5 });
+/* `still`: a prop, not a creature — no shadow, no bar, never mirrored. */
+const props = withDefaults(defineProps<{ sprite: SpriteStyle; chip?: string; scale?: number; still?: boolean }>(), { scale: 1.5 });
 
 const canvas = ref<HTMLCanvasElement | null>(null);
 let raf = 0;
@@ -77,10 +78,12 @@ function draw(): void {
   ctx.fill();
 
   // Its shadow, where its feet should be.
-  ctx.fillStyle = 'rgba(16, 30, 24, 0.3)';
-  ctx.beginPath();
-  ctx.ellipse(sx, sy, HW * 0.34, HH * 0.34, 0, 0, Math.PI * 2);
-  ctx.fill();
+  if (!props.still) {
+    ctx.fillStyle = 'rgba(16, 30, 24, 0.3)';
+    ctx.beginPath();
+    ctx.ellipse(sx, sy, HW * 0.34, HH * 0.34, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
   // The creature, as drawEntity stands it.
   const fit = Math.min(footprint.width / frame.sw, footprint.height / frame.sh);
@@ -90,9 +93,10 @@ function draw(): void {
   ctx.translate(sx, sy + nudge);
   // Enemies stand facing back up the ribbon (-1); art facing the other way
   // is mirrored, as in the game.
-  if (props.sprite.faces !== -1) ctx.scale(-1, 1);
+  if (!props.still && props.sprite.faces !== -1) ctx.scale(-1, 1);
   ctx.drawImage(frame.image, frame.sx, frame.sy, frame.sw, frame.sh, -w / 2, -h * frame.bottom, w, h);
   ctx.restore();
+  if (props.still) return;
 
   // The bar and chip hang off the top of the art, and follow the nudge.
   const crown = sy + nudge + h * (frame.top - frame.bottom);

@@ -3,47 +3,20 @@
 Things we tried, talked through or set aside, with enough notes to pick
 each one up without starting over. Nothing here is built unless it says so.
 
-## Props: trees, rocks, buildings
+## Props: what is left
 
-Static scenery standing on the map. The art has started:
-`app/assets/spritesheets/tree1.png` (a pine with rocks at its foot, 295 × 389,
-transparent), and `art-assets/buildings-and-trees.psd`.
+Props are built: content (`props.json`), placed per chunk by frequency and
+max, obstacles that block and never wall anything off, and shops as props
+(see CLAUDE.md, **Props**). Still open:
 
-**What a quick test showed** (built, looked at, then removed):
-
-- **Size and footing.** A tree about 0.9 of a tile wide, with its base a
-  little in front of the top face's centre, sits on the tile convincingly.
-- **Draw order.** Drawn straight after its tile's stack, a tree hides what
-  stands behind it and is hidden by what stands in front, with nothing else
-  needed.
-- **Height modes.** Flatten (F) and shorten (S) carried it down with the
-  land, because it was placed on the tile top as drawn.
-- **Where it was allowed.** Plain ground only, about one tile in fourteen,
-  chosen from the seed: `hash(row, col, seed)` in the renderer. It was kept
-  off the trail, water and rock, off a creature's tile, and off marked
-  tiles (shop, portal, fire).
-
-**To do it properly:**
-
-- **Props as obstacles belong in `app/game`, as part of the map**, not in
-  the renderer. Then walking, pathfinding (`reachable`, `findPath`),
-  spawning and knockback all know a tree is there. Either a new tile
-  letter, or a separate per-cell prop the world answers for (`propAt`), and
-  `isWalkable` says no.
-- **The generator's invariants come first.** The map guarantees a
-  connected landmass, a continuous trail, strands at least `MIN_STRAND`
-  wide, nothing stranded and everything traversable. A prop that blocks a
-  tile can break those. Safest: only on ground off the trail, never in a
-  strand at its minimum width, and run the audit over 200 seeds (see
-  CLAUDE.md, **Map**).
-- **Per zone, in content:** which props a zone has, and how densely — pines
-  in North Basin, ice spires on Frost Spire, reeds in the marsh. The zone
-  form and the zone map in the editor would show them.
-- **The shop as a building** instead of a gold tile: a prop standing on
-  the shop's tile, which today is easy to miss.
 - **Tall props hide things**, as peaks do. Shorten (S, or resting the
-  pointer on a tall stack) should squash them too.
-- **Knockback into a tree** could slam, like a wall does.
+  pointer on a tall stack) carries them down with the land but does not
+  squash them; it could, and resting on a tall tree could set it off.
+- **Rocks and other small props** that do not block — scenery only — would
+  be a third type.
+- **`tree1.png`** (a pine with rocks at its foot) is not on a sheet yet.
+- **Tilting a shop's stock** by zone or by prop (a barn that sells
+  movement cards) instead of every shop selling the same mix.
 
 ## Effects
 

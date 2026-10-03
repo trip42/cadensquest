@@ -13,6 +13,7 @@
 
 import cadenSheet from '~/assets/spritesheets/caden.png';
 import enemiesGrid from '~/assets/spritesheets/enemies-grid.png';
+import propsSheet from '~/assets/spritesheets/props.png';
 import type { AnimationClip, AnimationSet, SpriteStyle } from '../game/entities/types';
 
 /* Where each sheet lives, and the grid it is cut into. Cell width is derived
@@ -34,6 +35,8 @@ export interface SheetFile {
 export const SHEET_FILES: Record<string, SheetFile> = {
   enemies: { src: enemiesGrid, columns: 3, cellHeight: 300 },
   caden: { src: cadenSheet, columns: 8, rows: 4 },
+  /* Trees, a barn, a shop: things that stand on the map (props.json). */
+  props: { src: propsSheet, columns: 5, rows: 2 },
 };
 
 /** How many rows a sheet has, given its image's height in pixels. */

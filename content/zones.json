@@ -51,7 +51,27 @@
           "bug"
         ],
         "density": 6,
-        "guardians": []
+        "guardians": [],
+        "props": [
+          {
+            "prop": "barn",
+            "frequency": 0.02,
+            "max": 1
+          },
+          {
+            "prop": "oak",
+            "frequency": 0.03
+          },
+          {
+            "prop": "pine",
+            "frequency": 0.03
+          },
+          {
+            "prop": "apple_tree",
+            "frequency": 0.02,
+            "max": 2
+          }
+        ]
       },
       {
         "enemies": [
@@ -64,6 +84,21 @@
         "guardians": [
           "gloomslime",
           "cockatrice"
+        ],
+        "props": [
+          {
+            "prop": "oak",
+            "frequency": 0.03
+          },
+          {
+            "prop": "pine",
+            "frequency": 0.03
+          },
+          {
+            "prop": "apple_tree",
+            "frequency": 0.02,
+            "max": 2
+          }
         ]
       },
       {
@@ -76,6 +111,26 @@
         "density": 6,
         "guardians": [
           "warden"
+        ],
+        "props": [
+          {
+            "prop": "shop",
+            "frequency": 1,
+            "max": 1
+          },
+          {
+            "prop": "oak",
+            "frequency": 0.03
+          },
+          {
+            "prop": "pine",
+            "frequency": 0.03
+          },
+          {
+            "prop": "apple_tree",
+            "frequency": 0.02,
+            "max": 2
+          }
         ]
       }
     ]
@@ -131,7 +186,17 @@
           "bug"
         ],
         "density": 8,
-        "guardians": []
+        "guardians": [],
+        "props": [
+          {
+            "prop": "birch",
+            "frequency": 0.04
+          },
+          {
+            "prop": "oak",
+            "frequency": 0.02
+          }
+        ]
       },
       {
         "enemies": [
@@ -142,6 +207,16 @@
         "density": 9,
         "guardians": [
           "broodmother"
+        ],
+        "props": [
+          {
+            "prop": "birch",
+            "frequency": 0.04
+          },
+          {
+            "prop": "oak",
+            "frequency": 0.02
+          }
         ]
       },
       {
@@ -153,7 +228,17 @@
           "tree"
         ],
         "density": 9,
-        "guardians": []
+        "guardians": [],
+        "props": [
+          {
+            "prop": "birch",
+            "frequency": 0.04
+          },
+          {
+            "prop": "oak",
+            "frequency": 0.02
+          }
+        ]
       },
       {
         "enemies": [
@@ -165,6 +250,21 @@
         "density": 9,
         "guardians": [
           "wyrm"
+        ],
+        "props": [
+          {
+            "prop": "shop",
+            "frequency": 1,
+            "max": 1
+          },
+          {
+            "prop": "birch",
+            "frequency": 0.04
+          },
+          {
+            "prop": "oak",
+            "frequency": 0.02
+          }
         ]
       }
     ]
@@ -220,7 +320,17 @@
           "spider"
         ],
         "density": 10,
-        "guardians": []
+        "guardians": [],
+        "props": [
+          {
+            "prop": "pine",
+            "frequency": 0.05
+          },
+          {
+            "prop": "birch",
+            "frequency": 0.02
+          }
+        ]
       },
       {
         "enemies": [
@@ -232,6 +342,16 @@
         "guardians": [
           "ironshell",
           "broodmother"
+        ],
+        "props": [
+          {
+            "prop": "pine",
+            "frequency": 0.05
+          },
+          {
+            "prop": "birch",
+            "frequency": 0.02
+          }
         ]
       },
       {
@@ -242,7 +362,17 @@
           "whelp"
         ],
         "density": 12,
-        "guardians": []
+        "guardians": [],
+        "props": [
+          {
+            "prop": "pine",
+            "frequency": 0.05
+          },
+          {
+            "prop": "birch",
+            "frequency": 0.02
+          }
+        ]
       },
       {
         "enemies": [
@@ -252,7 +382,22 @@
           "whelp"
         ],
         "density": 12,
-        "guardians": []
+        "guardians": [],
+        "props": [
+          {
+            "prop": "shop",
+            "frequency": 1,
+            "max": 1
+          },
+          {
+            "prop": "pine",
+            "frequency": 0.05
+          },
+          {
+            "prop": "birch",
+            "frequency": 0.02
+          }
+        ]
       }
     ]
   },
@@ -307,7 +452,21 @@
           "spider"
         ],
         "density": 10,
-        "guardians": []
+        "guardians": [],
+        "props": [
+          {
+            "prop": "snowy_pine",
+            "frequency": 0.05
+          },
+          {
+            "prop": "snowy_birch",
+            "frequency": 0.02
+          },
+          {
+            "prop": "snowy_oak",
+            "frequency": 0.02
+          }
+        ]
       },
       {
         "enemies": [
@@ -319,6 +478,20 @@
         "guardians": [
           "ironshell",
           "broodmother"
+        ],
+        "props": [
+          {
+            "prop": "snowy_pine",
+            "frequency": 0.05
+          },
+          {
+            "prop": "snowy_birch",
+            "frequency": 0.02
+          },
+          {
+            "prop": "snowy_oak",
+            "frequency": 0.02
+          }
         ]
       },
       {
@@ -329,7 +502,21 @@
           "whelp"
         ],
         "density": 12,
-        "guardians": []
+        "guardians": [],
+        "props": [
+          {
+            "prop": "snowy_pine",
+            "frequency": 0.05
+          },
+          {
+            "prop": "snowy_birch",
+            "frequency": 0.02
+          },
+          {
+            "prop": "snowy_oak",
+            "frequency": 0.02
+          }
+        ]
       },
       {
         "enemies": [
@@ -339,7 +526,26 @@
           "whelp"
         ],
         "density": 12,
-        "guardians": []
+        "guardians": [],
+        "props": [
+          {
+            "prop": "shop",
+            "frequency": 1,
+            "max": 1
+          },
+          {
+            "prop": "snowy_pine",
+            "frequency": 0.05
+          },
+          {
+            "prop": "snowy_birch",
+            "frequency": 0.02
+          },
+          {
+            "prop": "snowy_oak",
+            "frequency": 0.02
+          }
+        ]
       }
     ]
   }

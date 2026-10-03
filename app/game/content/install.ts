@@ -17,6 +17,7 @@ import type { Effect, Trigger } from '../effects';
 import { ENEMY_IDS, ENTITIES, GUARDIAN_IDS } from '../entities/definitions';
 import { STATIC_ANIMATIONS } from '../entities/types';
 import { GEM_IDS, GEMS } from '../gems';
+import { PROPS } from '../map/props';
 import { layoutZones, type Zone, ZONES } from '../map/tiles';
 import { DEFAULT_REWARD_CONFIG } from '../rewards';
 import type { StatModifier } from '../stats';
@@ -86,6 +87,14 @@ export function installContent(content: Content): void {
   }]));
   refill(TALISMAN_IDS, content.talismans.filter((talisman) => talisman.enabled).map((talisman) => talisman.id));
 
+  // Props, before the zones that place them.
+  replaceAll(PROPS, content.props.map((prop) => [prop.id, {
+    id: prop.id,
+    name: prop.name,
+    type: prop.type,
+    sprite: { kind: 'sheet', faces: 1, ...prop.sprite },
+  }]));
+
   // The zones, in floor order, and where each floor lies. Refilled in place
   // like every registry, so anything holding ZONES or LAYOUT sees the new
   // ones; a world built before keeps its chunks, which a new run replaces.
@@ -98,6 +107,7 @@ export function installContent(content: Content): void {
       enemies: [...chunk.enemies],
       density: chunk.density,
       guardians: [...(chunk.guardians ?? [])],
+      props: (chunk.props ?? []).map((entry) => ({ ...entry })),
     })),
   })));
   layoutZones();

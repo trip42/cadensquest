@@ -1,22 +1,22 @@
 /* Shops, and the coins spent in them.
 
    Every enemy carries coins (`coins` on its definition) and drops them when
-   it falls. Each floor has one shop, on the trail a little before its
-   guardian wakes: step on to trade, step off and back on to trade again.
+   it falls. A shop is a prop (`content/props.json`, type `shop`) that zones
+   put in their chunks like any other, so a floor may have none, one or
+   several: step on to trade, step off and back on to trade again.
 
    A shop sells unlike things side by side — three cards, a gem, a talisman,
    and taking a card out of the deck — because the fun of a shop is weighing
    one against another, not picking the best of one kind.
 
-   What a shop stocks is a function of the seed and the floor, rolled on a
-   stream of its own (`hashSeed`), so adding shops left every seed's world,
-   enemies and drops exactly as they were. `SHOP_PRICES` is the dial. */
+   What a shop stocks is a function of the seed, the floor and its tile,
+   rolled on a stream of its own (`hashSeed`), so shops leave every seed's
+   enemies and drops as they were. `SHOP_PRICES` is the dial. */
 
 import { cardDef } from './cards/definitions';
 import type { Rarity } from './cards/types';
 import { rollReward } from './rewards';
 import { createRng, hashSeed } from './rng';
-import { gateRowOf } from './map/tiles';
 
 export type ShopKind = 'card' | 'gem' | 'talisman' | 'removal';
 
@@ -48,12 +48,6 @@ export const SHOP_PRICES = {
 /** The tile's colour: gold, like the coins. */
 export const SHOP_COLOUR = '#feae34';
 
-/** How many rows before a floor's end its shop stands: clear of the
- *  guardian's waking line, so shopping never wakes it. */
-export const SHOP_ROWS_FROM_END = 10;
-
-export const shopRowOf = (floor: number): number => gateRowOf(floor) - SHOP_ROWS_FROM_END;
-
 /** What an item costs now. A removal's price rises with each bought. */
 export function priceOf(item: ShopItem, removalsBought: number): number {
   switch (item.kind) {
@@ -64,9 +58,9 @@ export function priceOf(item: ShopItem, removalsBought: number): number {
   }
 }
 
-/** A floor's stock: three cards, a gem, a talisman and a removal. */
-export function rollStock(seed: number, floor: number): ShopItem[] {
-  const rng = createRng(hashSeed(seed, 0x5709, floor));
+/** A shop's stock: three cards, a gem, a talisman and a removal. */
+export function rollStock(seed: number, floor: number, row: number, col: number): ShopItem[] {
+  const rng = createRng(hashSeed(seed, 0x5709, floor, row, col));
   const only = (kind: ShopKind) => ({ card: 0, gem: 0, talisman: 0, removal: 0, [kind]: 1 });
   const items: ShopItem[] = [];
 

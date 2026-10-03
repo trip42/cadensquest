@@ -6,7 +6,7 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { cardMovement } from '~/game/cards/definitions';
 import type { CardDefinition } from '~/game/cards/types';
 import type {
-  CardData, Content, ContentFile, EnemyCardData, EnemyData, GemData, TalismanData, ZoneData,
+  CardData, Content, ContentFile, EnemyCardData, EnemyData, GemData, PropData, TalismanData, ZoneData,
 } from '~/game/content';
 import {
   amountOf, type AmountValues, describeEffect, describeMark, describeTileEffect, type Effect, isArea, isLater, isSummon, isTerrain, nowText,
@@ -152,6 +152,19 @@ const gemHost = computed(() => {
 });
 
 const talisman = computed(() => (props.file === 'talismans' ? (props.item as TalismanData) : null));
+
+const prop = computed(() => (props.file === 'props' ? (props.item as PropData) : null));
+/** Where a prop stands: each zone and chunk, how often, at most how many. */
+const propZones = computed(() => {
+  const id = prop.value?.id;
+  if (!id) return [];
+  return props.content.zones.flatMap((zone) => zone.chunks.flatMap((chunk, c) => (chunk.props ?? [])
+    .filter((entry) => entry.prop === id)
+    .map((entry, i) => ({
+      key: `${zone.id}-${c}-${i}`,
+      text: `${zone.name}, chunk ${c + 1} — ${Math.round(entry.frequency * 1000) / 10}% of tiles${entry.max !== undefined ? `, at most ${entry.max}` : ''}`,
+    }))));
+});
 
 const zone = computed(() => (props.file === 'zones' ? (props.item as ZoneData) : null));
 const zoneChunks = computed(() => (zone.value?.chunks ?? []).map((chunk, index, all) => ({
@@ -338,6 +351,25 @@ watch(() => [card.value?.name, card.value?.text, cardNow.value], measure);
       <p class="caption">As it sits on the rail, and its details on hover</p>
     </template>
 
+    <!-- A prop, standing on a tile as the map draws it, and where it stands. -->
+    <template v-else-if="prop">
+      <div class="arena">
+        <EditorStanding :sprite="{ kind: 'sheet', faces: 1, ...prop.sprite }" :scale="1.5" still />
+      </div>
+      <div class="panel foe-tip">
+        <p class="tip-name">{{ prop.name }}</p>
+        <p class="line">
+          <span class="px-tag" :class="{ 'is-grey': prop.type === 'obstacle' }">{{ prop.type.toUpperCase() }}</span>
+          {{ prop.type === 'shop' ? 'Step on to trade coins for cards, gems, a talisman or a removal.' : 'In the way: nothing can stand here or pass through.' }}
+        </p>
+      </div>
+      <div class="panel note">
+        <p class="note-title">Where it stands</p>
+        <p v-for="entry in propZones" :key="entry.key">{{ entry.text }}</p>
+        <p v-if="!propZones.length" class="muted">Nowhere yet — add it to a zone's chunk.</p>
+      </div>
+    </template>
+
     <!-- A zone: how it looks, then each chunk — who lives there and who guards it. -->
     <template v-else-if="zone">
       <p class="zone-name">{{ zone.name }}</p>
@@ -428,6 +460,7 @@ watch(() => [card.value?.name, card.value?.text, cardNow.value], measure);
 .hp { color: var(--px-red); }
 .line { margin-top: 8px !important; color: var(--px-soft); }
 .px-tag.is-red { background: var(--px-red); color: var(--px-text); }
+.px-tag.is-grey { background: var(--px-soft); }
 
 .gem-head { display: flex; align-items: center; gap: 8px; font-size: 16px; }
 .bead { width: 16px; height: 16px; border: 2px solid var(--px-ink); }

@@ -75,7 +75,7 @@ function crossCheck(content: Content): ContentIssue[] {
     issues.push({ level: 'warning', file, id, field, message });
 
   // Ids are unique within a file.
-  for (const file of ['cards', 'enemy-cards', 'enemies', 'gems', 'talismans'] as const) {
+  for (const file of ['cards', 'enemy-cards', 'enemies', 'gems', 'talismans', 'props'] as const) {
     const seen = new Set<string>();
     for (const item of content[file]) {
       if (seen.has(item.id)) error(file, item.id, `the id "${item.id}" is used twice`, 'id');
@@ -440,6 +440,11 @@ function crossCheck(content: Content): ContentIssue[] {
         const field = `chunks[${c}].guardians[${i}]`;
         if (!enemy) error('zones', zone.id, `${which} is guarded by "${enemyId}", which does not exist`, field);
         else if (!enemy.guardian) error('zones', zone.id, `"${enemyId}" guards ${which}, so it must be marked as a guardian`, field);
+      });
+      chunk.props?.forEach((entry, i) => {
+        if (!content.props.some((prop) => prop.id === entry.prop)) {
+          error('zones', zone.id, `${which} has the prop "${entry.prop}", which does not exist`, `chunks[${c}].props[${i}].prop`);
+        }
       });
       if (chunk.guardians?.length && !chunk.guardians.some((enemyId) => enemies.get(enemyId)?.enabled)) {
         warn('zones', zone.id, `every guardian of ${which} is disabled — nobody will stand there`, `chunks[${c}].guardians`);

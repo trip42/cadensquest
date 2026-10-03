@@ -1,0 +1,152 @@
+[
+  {
+    "id": "barn",
+    "name": "Barn",
+    "type": "obstacle",
+    "sprite": {
+      "sheet": "props",
+      "col": 0,
+      "row": 0,
+      "footprint": {
+        "width": 124,
+        "height": 110
+      },
+      "offsetY": 6
+    }
+  },
+  {
+    "id": "shop",
+    "name": "Shop",
+    "type": "shop",
+    "sprite": {
+      "sheet": "props",
+      "col": 1,
+      "row": 0,
+      "footprint": {
+        "width": 124,
+        "height": 110
+      },
+      "offsetY": 6
+    }
+  },
+  {
+    "id": "oak",
+    "name": "Oak",
+    "type": "obstacle",
+    "sprite": {
+      "sheet": "props",
+      "col": 2,
+      "row": 0,
+      "footprint": {
+        "width": 108,
+        "height": 120
+      },
+      "offsetY": 6
+    }
+  },
+  {
+    "id": "pine",
+    "name": "Pine",
+    "type": "obstacle",
+    "sprite": {
+      "sheet": "props",
+      "col": 3,
+      "row": 0,
+      "footprint": {
+        "width": 90,
+        "height": 132
+      },
+      "offsetY": 6
+    }
+  },
+  {
+    "id": "birch",
+    "name": "Birch",
+    "type": "obstacle",
+    "sprite": {
+      "sheet": "props",
+      "col": 4,
+      "row": 0,
+      "footprint": {
+        "width": 96,
+        "height": 124
+      },
+      "offsetY": 6
+    }
+  },
+  {
+    "id": "apple_tree",
+    "name": "Apple Tree",
+    "type": "obstacle",
+    "sprite": {
+      "sheet": "props",
+      "col": 0,
+      "row": 1,
+      "footprint": {
+        "width": 108,
+        "height": 120
+      },
+      "offsetY": 6
+    }
+  },
+  {
+    "id": "snowy_oak",
+    "name": "Snowy Oak",
+    "type": "obstacle",
+    "sprite": {
+      "sheet": "props",
+      "col": 1,
+      "row": 1,
+      "footprint": {
+        "width": 108,
+        "height": 120
+      },
+      "offsetY": 6
+    }
+  },
+  {
+    "id": "snowy_pine",
+    "name": "Snowy Pine",
+    "type": "obstacle",
+    "sprite": {
+      "sheet": "props",
+      "col": 2,
+      "row": 1,
+      "footprint": {
+        "width": 90,
+        "height": 132
+      },
+      "offsetY": 6
+    }
+  },
+  {
+    "id": "snowy_birch",
+    "name": "Snowy Birch",
+    "type": "obstacle",
+    "sprite": {
+      "sheet": "props",
+      "col": 3,
+      "row": 1,
+      "footprint": {
+        "width": 96,
+        "height": 124
+      },
+      "offsetY": 6
+    }
+  },
+  {
+    "id": "snowy_apple",
+    "name": "Snowy Apple Tree",
+    "type": "obstacle",
+    "sprite": {
+      "sheet": "props",
+      "col": 4,
+      "row": 1,
+      "footprint": {
+        "width": 108,
+        "height": 120
+      },
+      "offsetY": 6
+    }
+  }
+]

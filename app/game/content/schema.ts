@@ -252,6 +252,29 @@ export const zoneChunkSchema = z.strictObject({
   /** One is chosen at random for the chunk's last row. On the zone's last
    *  chunk it holds the way down. */
   guardians: z.array(idSchema).optional(),
+  /** What stands in it: each prop, the chance each tile it may stand on
+   *  gets one, and at most how many. */
+  props: z.array(z.strictObject({
+    prop: idSchema,
+    frequency: odds,
+    max: count(0, 160).optional(),
+  })).optional(),
+});
+
+/** Something standing on the map: a tree, a barn, a shop. Its type says
+ *  what it does — an obstacle blocks the tile, a shop is walked onto to
+ *  trade. */
+export const propSchema = z.strictObject({
+  id: idSchema,
+  name: nameSchema,
+  type: z.enum(['obstacle', 'shop']),
+  sprite: z.strictObject({
+    sheet: z.string().min(1),
+    col: count(0, 99),
+    row: count(0, 99),
+    footprint: z.strictObject({ width: count(8, 400), height: count(8, 400) }),
+    offsetY: z.number().optional(),
+  }),
 });
 
 /** A zone is a floor: its look, its ground, and its chunks in order. The
@@ -280,6 +303,7 @@ export const FILE_SCHEMAS = {
   enemies: z.array(enemySchema),
   gems: z.array(gemSchema),
   talismans: z.array(talismanSchema),
+  props: z.array(propSchema),
   zones: z.array(zoneSchema),
   run: runSchema,
 } as const;
@@ -293,6 +317,7 @@ export type EnemyData = z.infer<typeof enemySchema>;
 export type GemData = z.infer<typeof gemSchema>;
 export type TalismanData = z.infer<typeof talismanSchema>;
 export type ZoneData = z.infer<typeof zoneSchema>;
+export type PropData = z.infer<typeof propSchema>;
 export type RunData = z.infer<typeof runSchema>;
 export type EffectData = z.infer<typeof effectSchema>;
 export type AmountData = z.infer<typeof amountSchema>;
@@ -304,6 +329,7 @@ export interface Content {
   enemies: EnemyData[];
   gems: GemData[];
   talismans: TalismanData[];
+  props: PropData[];
   zones: ZoneData[];
   run: RunData;
 }

@@ -221,6 +221,7 @@ const saveLabel = computed(() => {
           <EditorFormEnemy v-else-if="editor.tab === 'enemies'" :item="item as never" :issues="itemIssues" :content="editor.draft" />
           <EditorFormGem v-else-if="editor.tab === 'gems'" :item="item as never" :issues="itemIssues" />
           <EditorFormTalisman v-else-if="editor.tab === 'talismans'" :item="item as never" :issues="itemIssues" />
+          <EditorFormProp v-else-if="editor.tab === 'props'" :item="item as never" :issues="itemIssues" />
           <EditorFormZone v-else-if="editor.tab === 'zones'" :item="item as never" :issues="itemIssues" :content="editor.draft" />
           <EditorFormRun v-else :content="editor.draft" :issues="itemIssues" />
         </template>

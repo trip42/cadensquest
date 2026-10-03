@@ -36,6 +36,7 @@ export const TABS: Array<{ file: ContentFile; label: string; one: string; trial?
   { file: 'enemy-cards', label: 'Enemy cards', one: 'enemy card', trial: 'enemy-card' },
   { file: 'gems', label: 'Gems', one: 'gem', trial: 'gem' },
   { file: 'talismans', label: 'Talismans', one: 'talisman', trial: 'talisman' },
+  { file: 'props', label: 'Props', one: 'prop' },
   { file: 'zones', label: 'Zones', one: 'zone', trial: 'zone' },
   { file: 'run', label: 'Starting deck', one: 'starting deck' },
 ];
@@ -63,6 +64,10 @@ const BLANK: Record<Exclude<Collection, 'zones'>, (id: string) => Record<string,
   talismans: (id) => ({
     id, name: 'New talisman', enabled: true, text: 'Draw one more card each turn.', icon: 'bag',
     modifiers: [{ stat: 'handSize', add: 1 }],
+  }),
+  props: (id) => ({
+    id, name: 'New prop', type: 'obstacle',
+    sprite: { sheet: 'props', col: 2, row: 0, footprint: { width: 108, height: 120 }, offsetY: 6 },
   }),
 };
 
@@ -229,6 +234,13 @@ export const useEditorStore = defineStore('editor', () => {
         zone.chunks.forEach((chunk, c) => {
           if (chunk.enemies.includes(id)) uses.push(`${zone.name}, chunk ${c + 1}`);
           if (chunk.guardians?.includes(id)) uses.push(`${zone.name}, chunk ${c + 1}'s guardians`);
+        });
+      }
+    }
+    if (file === 'props') {
+      for (const zone of content.zones) {
+        zone.chunks.forEach((chunk, c) => {
+          if (chunk.props?.some((entry) => entry.prop === id)) uses.push(`${zone.name}, chunk ${c + 1}`);
         });
       }
     }

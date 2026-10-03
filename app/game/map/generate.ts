@@ -21,7 +21,8 @@
    order, while still joining seamlessly to its neighbours. */
 
 import { chance, createRng, hashSeed, nextInt, type Rng } from '../rng';
-import { CHUNK_ROWS, type Stack, VOID, type Zone, zoneForRow } from './tiles';
+import { placeProps } from './props';
+import { CHUNK_ROWS, chunkOfFloor, type Stack, VOID, type Zone, zoneForRow } from './tiles';
 
 export const MAP_WIDTH = 10;
 // Lives with the zones, which are whole chunks; re-exported for everything
@@ -239,6 +240,8 @@ export interface Chunk {
   zone: Zone;
   /** CHUNK_ROWS rows of MAP_WIDTH cells. */
   rows: Stack[][];
+  /** What stands on each cell, parallel to `rows`: a prop id, or null. */
+  props: (string | null)[][];
 }
 
 /** Chunk `index` of the world grown from `seed`. Pure: same arguments in,
@@ -322,5 +325,8 @@ export function generateChunk(seed: number, index: number): Chunk {
   closing.spanHi = Math.max(SEAM_TRAIL[1], ...last.map((s) => s.trail));
   plan.push([closing]);
 
-  return { index, zone, rows: plan.map((strands) => paintRow(strands, rng, zone)) };
+  const rows = plan.map((strands) => paintRow(strands, rng, zone));
+  // Props last, on a stream of their own: the ground is exactly as it was.
+  const entries = index >= 0 ? zone.chunks[chunkOfFloor(index).k]?.props ?? [] : [];
+  return { index, zone, rows, props: placeProps(rows, entries, seed, index) };
 }

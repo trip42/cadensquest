@@ -46,7 +46,7 @@ import { rollDrop } from './rewards';
 import { describeModifier, resolveStat } from './stats';
 import { record } from './telemetry';
 import { createRng, hashSeed, nextInt, pick, shuffle } from './rng';
-import { priceOf, rollStock, SHOP_COLOUR, shopRowOf } from './shop';
+import { priceOf, rollStock, type Shop, SHOP_COLOUR } from './shop';
 import { talismanDef, talismanEffects } from './talismans';
 import { liveText, NO_BONUSES, type TextPart } from './text';
 import {
@@ -1648,8 +1648,11 @@ export function enterFloor(game: Game, floor: number): void {
   state.terrain = {};
   state.terrainHits = {};
   state.gates = [];
-  state.shop = null;
+  state.shops = [];
   state.shopOpen = false;
+  // Whatever was populated went with the old floor. Entering the same floor
+  // again (a zone trial on the first one) populates it afresh.
+  state.spawnedChunks = [];
   // What the player and the allies who came along are owed still comes due,
   // and the trails they are laying go on.
   state.later = state.later.filter((entry) => state.entities.some((entity) => entity.id === entry.actorId));
@@ -1774,7 +1777,7 @@ export function ensureSpawns(game: Game): void {
 
     const chunk = world.chunk(index);
     placeGuardians(game, index);
-    placeShop(game, index);
+    placeShops(game, index);
 
     const candidates: Cell[] = [];
     for (let local = 0; local < CHUNK_ROWS; local += 1) {
@@ -1794,9 +1797,9 @@ export function ensureSpawns(game: Game): void {
 
     for (let n = 0; n < entry.density; n += 1) {
       const spot = candidates[nextInt(state.rng, candidates.length)]!;
-      // Not on the shop: the way in stays clear. (The draw is still made, so
-      // every other spawn lands where it did before there were shops.)
-      if (entityAt(state, spot.row, spot.col) || shopUnder(state, spot)) continue;
+      // Not on a shop: the way in stays clear. (The draw is still made, so
+      // every other spawn lands where it would have.)
+      if (entityAt(state, spot.row, spot.col) || shopAt(state, spot)) continue;
       const id = pick(state.rng, roster);
       // A unique enemy that has already turned up this run is not drawn again.
       if (entityDef(id).unique && state.uniques.includes(id)) continue;
@@ -1969,35 +1972,40 @@ function resolveEnemy(game: Game, next: QueuedAction): void {
 const holding = (state: GameState): boolean =>
   !!state.activeReward || state.shopOpen || (state.phase === 'player' && state.queue.length > 0);
 
-/** Is this tile the floor's shop? */
-const shopUnder = (state: GameState, cell: Cell): boolean =>
-  !!state.shop && state.shop.row === cell.row && state.shop.col === cell.col;
+/** The shop on this tile, if there is one. */
+export const shopAt = (state: GameState, cell: Cell): Shop | undefined =>
+  state.shops.find((shop) => shop.row === cell.row && shop.col === cell.col);
 
-/* A floor's shop stands on the trail `SHOP_ROWS_FROM_END` rows before its
-   end, placed when that row's chunk is first reached. Its stock is rolled
-   from the seed on its own stream, so nothing else about the floor moves. */
-function placeShop(game: Game, chunkIndex: number): void {
+/** The shop the player is standing on — the one he trades in. */
+export const currentShop = (state: GameState): Shop | undefined => shopAt(state, entityCell(player(state)));
+
+/* A shop stands wherever the map put a shop prop (`placeProps`, from the
+   zone's chunks), and opens for trade when its chunk is first reached. Its
+   stock is rolled from the seed and its tile on a stream of its own, so
+   nothing else about the floor moves. The gold mark under it is what the
+   tile tip and the rules know it by. */
+function placeShops(game: Game, chunkIndex: number): void {
   const { state, world } = game;
-  const row = shopRowOf(state.floor);
-  if (Math.floor(row / CHUNK_ROWS) !== chunkIndex || !world.contains(row) || state.shop) return;
-  const cols = Array.from({ length: world.width }, (_, col) => col).filter((col) => world.walkable(row, col));
-  if (!cols.length) return;
-  const onTrail = cols.filter((col) => surfaceKind(world.stackAt(row, col)) === 'trail');
-  const choices = onTrail.length ? onTrail : cols;
-  const col = choices[Math.floor(choices.length / 2)]!;
-  state.shop = { floor: state.floor, row, col, items: rollStock(state.seed, state.floor), visited: false };
-  (state.terrain[terrainKey({ row, col })] ??= []).push({
-    id: nextUid('shop'), effects: [], colour: SHOP_COLOUR, rounds: 0, ownerId: state.playerId, shop: true,
-  });
+  for (let local = 0; local < CHUNK_ROWS; local += 1) {
+    const row = chunkIndex * CHUNK_ROWS + local;
+    for (let col = 0; col < world.width; col += 1) {
+      if (world.propAt(row, col)?.type !== 'shop' || shopAt(state, { row, col })) continue;
+      state.shops.push({ floor: state.floor, row, col, items: rollStock(state.seed, state.floor, row, col), visited: false });
+      (state.terrain[terrainKey({ row, col })] ??= []).push({
+        id: nextUid('shop'), effects: [], colour: SHOP_COLOUR, rounds: 0, ownerId: state.playerId, shop: true,
+      });
+    }
+  }
 }
 
 /** Step into the shop: play holds until he leaves. Only in his own phase —
  *  being shoved onto it in the enemies' opens nothing. */
 function openShop(game: Game): void {
   const { state } = game;
-  if (!state.shop || state.phase !== 'player' || state.activeReward || state.shopOpen) return;
+  const shop = currentShop(state);
+  if (!shop || state.phase !== 'player' || state.activeReward || state.shopOpen) return;
   state.shopOpen = true;
-  state.shop.visited = true;
+  shop.visited = true;
   cue(state, { type: 'shop', open: true });
   note(state, 'A shop.');
 }
@@ -2006,14 +2014,14 @@ function openShop(game: Game): void {
 export function enterShop(game: Game): boolean {
   const { state } = game;
   const self = player(state);
-  if (isBusy(state) || !shopUnder(state, entityCell(self))) return false;
+  if (isBusy(state) || !shopAt(state, entityCell(self))) return false;
   openShop(game);
   return state.shopOpen;
 }
 
 /** What the item at this place in the shop costs now. */
 export function shopPrice(state: GameState, index: number): number | null {
-  const item = state.shop?.items[index];
+  const item = currentShop(state)?.items[index];
   return item ? priceOf(item, state.removalsBought) : null;
 }
 
@@ -2022,7 +2030,7 @@ export function shopPrice(state: GameState, index: number): number | null {
    reward and comes up once he leaves the shop. */
 export function buyShopItem(game: Game, index: number): boolean {
   const { state } = game;
-  const shop = state.shop;
+  const shop = currentShop(state);
   const item = shop?.items[index];
   if (!state.shopOpen || !shop || !item || item.sold) return false;
   const price = priceOf(item, state.removalsBought);
@@ -2256,7 +2264,7 @@ export function tick(game: Game, dt: number): void {
         triggerTile(game, entity);
         if (entity.id === state.playerId) {
           watchGates(game);
-          if (!entity.dead && entity.motion === null && shopUnder(state, entityCell(entity))) {
+          if (!entity.dead && entity.motion === null && shopAt(state, entityCell(entity))) {
             entity.path = [];
             openShop(game);
           }

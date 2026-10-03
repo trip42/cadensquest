@@ -11,7 +11,8 @@
 
 import { tick } from '../game/actions';
 import { entityDef } from '../game/entities/definitions';
-import type { Entity } from '../game/entities/types';
+import { type Entity, STATIC_ANIMATIONS } from '../game/entities/types';
+import type { PropDefinition } from '../game/map/props';
 import type { Cell } from '../game/map/navigation';
 import { floorRows, KIND_OF, type FacePalette, LAYOUT, type TileKind, type TileLetter, VOID, ZONES } from '../game/map/tiles';
 import type { Game, TerrainLayer } from '../game/state';
@@ -573,7 +574,8 @@ export class MapRenderer implements Stage {
       }
     }
 
-    const marks = this.game.state.terrain[`${row},${col}`];
+    // A shop's mark is how the rules know it; the building is what shows.
+    const marks = this.game.state.terrain[`${row},${col}`]?.filter((mark) => !mark.shop);
     if (marks?.length) this.drawMarks(sx, ty, marks, row, col, now);
     if (marks?.some((mark) => mark.portal)) this.drawPortal(sx, ty, row, col, now);
 
@@ -596,6 +598,29 @@ export class MapRenderer implements Stage {
       diamondPath(ctx, sx, ty);
       ctx.stroke();
     }
+
+    const prop = this.game.world.propAt(row, col);
+    if (prop) this.drawProp(sx, ty, prop);
+  }
+
+  /* A prop standing on its tile, the way a creature stands: the art fitted
+     inside its footprint, its foot on the middle of the tile top as drawn
+     (so flatten and shorten carry it down with the land), nudged by
+     `offsetY`. Drawn straight after its stack, it hides what stands behind
+     and is hidden by what stands in front, with nothing else needed. */
+  private drawProp(sx: number, ty: number, prop: PropDefinition): void {
+    const style = prop.sprite;
+    if (style.kind !== 'sheet') return;
+    const frame = frameFor(style, STATIC_ANIMATIONS, STATIC_ANIMATIONS.idle, 0);
+    if (!frame) return;
+    const fit = Math.min(style.footprint.width / frame.sw, style.footprint.height / frame.sh);
+    const width = frame.sw * fit;
+    const height = frame.sh * fit;
+    this.ctx.drawImage(
+      frame.image,
+      frame.sx, frame.sy, frame.sw, frame.sh,
+      sx - width / 2, ty + (style.offsetY ?? 0) - height * frame.bottom, width, height,
+    );
   }
 
   /* A marked tile, drawn in three layers so it reads as something sitting

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /* A zone's floor, seen from above: the ground the generator makes for it,
-   in its colours, chunk by chunk — and where its enemies, guardians, shop
-   and way down land. Built by the game's own code on the draft (installed
+   in its colours, chunk by chunk — and where its enemies, guardians, props,
+   shops and way down land. Built by the game's own code on the draft (installed
    while this is shown), so what it shows is what a run would get.
 
    For the first floor it is exactly what `?seed=N` plays. Deeper floors are
@@ -31,7 +31,9 @@ interface Survey {
   rows: string[][];
   arrival: { row: number; col: number };
   enemies: Array<{ row: number; col: number; id: string; guardian: boolean }>;
-  shop: { row: number; col: number } | null;
+  shops: Array<{ row: number; col: number }>;
+  /** Obstacles: trees, a barn. */
+  blocks: Array<{ row: number; col: number }>;
   portal: { row: number; col: number } | null;
   chunks: Array<{ drawn: Map<string, number>; guardian: string | null; final: boolean }>;
 }
@@ -53,8 +55,12 @@ function survey(zoneId: string, at: number): Survey | null {
   }
 
   const rows: string[][] = [];
+  const blocks: Survey['blocks'] = [];
   for (let row = first; row <= last; row += 1) {
     rows.push(Array.from({ length: game.world.width }, (_, col) => game.world.stackAt(row, col)));
+    for (let col = 0; col < game.world.width; col += 1) {
+      if (game.world.propAt(row, col)?.type === 'obstacle') blocks.push({ row, col });
+    }
   }
   const guardians = new Set(game.state.gates.map((gate) => gate.guardianId));
   const enemies = game.state.entities
@@ -80,8 +86,8 @@ function survey(zoneId: string, at: number): Survey | null {
     return { drawn, guardian, final: k === zone.chunks.length - 1 };
   });
   return {
-    name: zone.name, first, rows, arrival, enemies, chunks, portal,
-    shop: game.state.shop ? { row: game.state.shop.row, col: game.state.shop.col } : null,
+    name: zone.name, first, rows, arrival, enemies, chunks, portal, blocks,
+    shops: game.state.shops.map((shop) => ({ row: shop.row, col: shop.col })),
   };
 }
 
@@ -150,12 +156,18 @@ function draw(): void {
     ctx.strokeStyle = ring;
     ctx.stroke();
   };
+  // Obstacles: a dark block filling most of the cell.
+  ctx.fillStyle = 'rgba(24, 20, 37, 0.7)';
+  for (const block of map.blocks) {
+    const { x, y } = at(block);
+    ctx.fillRect(x - CELL_W / 2 + 2, y - CELL_H / 2 + 1, CELL_W - 4, CELL_H - 2);
+  }
   for (const enemy of map.enemies) {
     if (enemy.guardian) dot(enemy, 6, '#e43b44', '#feae34');
     else dot(enemy, 3, '#e43b44');
   }
-  if (map.shop) {
-    const { x, y } = at(map.shop);
+  for (const shop of map.shops) {
+    const { x, y } = at(shop);
     ctx.fillStyle = '#feae34';
     ctx.fillRect(x - 4, y - 4, 8, 8);
     ctx.strokeStyle = '#1b1b2b';
@@ -212,6 +224,7 @@ watch(() => editor.draft, () => {
         <span><i class="key foe" /> enemy</span>
         <span><i class="key boss" /> guardian</span>
         <span><i class="key shop" /> shop</span>
+        <span><i class="key block" /> obstacle</span>
         <span v-if="result?.portal"><i class="key portal" /> way down, open</span>
       </p>
       <ul class="chunks">
@@ -236,6 +249,7 @@ watch(() => editor.draft, () => {
 .key.boss { background: #e43b44; outline: 2px solid #feae34; }
 .key.shop { background: #feae34; border-radius: 0; }
 .key.portal { background: #fff; }
+.key.block { background: rgba(24, 20, 37, 0.7); border-radius: 0; border-color: #8d9498; }
 .chunks { margin: 0; padding: 0; list-style: none; font-size: 12px; display: grid; gap: 3px; }
 .chunks b { display: inline-block; width: 16px; }
 .muted { margin: 0; font-size: 11px; opacity: 0.7; }

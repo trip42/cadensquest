@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /* A zone is a floor: its chunks in order — who spawns in each, how many,
-   and who may stand on its last row — then how it looks and how its ground
-   is shaped. Where it comes in the run is its place in the list. */
+   who may stand on its last row, and what props stand in it — then how it
+   looks and how its ground is shaped. Where it comes in the run is its place in the list. */
 import { computed } from 'vue';
 import type { Content, ContentIssue, ZoneData } from '~/game/content';
 import { useEditorStore } from '~/stores/editor';
@@ -45,8 +45,10 @@ function tryFrom(index: number): void {
 
 function addChunk(): void {
   const last = props.item.chunks.at(-1);
-  // A new chunk goes before the last, which keeps the way down.
-  const fresh = { enemies: [...(last?.enemies ?? [])], density: last?.density ?? 6, guardians: [] };
+  // A new chunk goes before the last, which keeps the way down. It takes the
+  // last one's scenery, but not its shops.
+  const scenery = (last?.props ?? []).filter((entry) => propType(entry.prop) !== 'shop').map((entry) => ({ ...entry }));
+  const fresh = { enemies: [...(last?.enemies ?? [])], density: last?.density ?? 6, guardians: [], props: scenery };
   props.item.chunks.splice(Math.max(0, props.item.chunks.length - 1), 0, fresh);
 }
 function removeChunk(index: number): void {
@@ -60,11 +62,30 @@ function moveChunk(index: number, by: number): void {
 }
 const chunkName = (index: number) => {
   const count = props.item.chunks.length;
-  if (count === 1) return 'the whole floor: you arrive, shop and leave here';
+  if (count === 1) return 'the whole floor: you arrive and leave here';
   if (index === 0) return 'where you arrive';
-  if (index === count - 1) return 'the last stretch, with the shop and the way down';
+  if (index === count - 1) return 'the last stretch, with the way down';
   return 'on the way';
 };
+
+/* ------------------------------ props ---------------------------------- */
+
+const propType = (id: string) => props.content.props.find((prop) => prop.id === id)?.type;
+type Chunk = ZoneData['chunks'][number];
+function addProp(chunk: Chunk): void {
+  const first = props.content.props.find((prop) => prop.type === 'obstacle') ?? props.content.props[0];
+  if (!first) return;
+  (chunk.props ??= []).push({ prop: first.id, frequency: 0.03 });
+}
+function removeProp(chunk: Chunk, index: number): void {
+  chunk.props?.splice(index, 1);
+  if (!chunk.props?.length) delete chunk.props;
+}
+/** Max is optional: an empty box means no limit. */
+function setMax(entry: NonNullable<Chunk['props']>[number], value: string): void {
+  if (value === '') delete entry.max;
+  else entry.max = Math.max(0, Math.round(Number(value)));
+}
 
 /* ------------------------------ looks and ground ----------------------- */
 
@@ -117,6 +138,23 @@ const TERRAIN: Array<{ key: keyof ZoneData['terrain']; label: string; step: numb
         </span>
         <EditorDeckBuilder v-if="chunk.guardians" :deck="chunk.guardians" :options="guardians" noun="guardian" :problems="at(`chunks[${index}].guardians`)" />
         <button v-else type="button" class="btn small" @click="chunk.guardians = []">+ Guardians</button>
+        <span class="chunk-label">Props — the chance each tile gets one, and at most how many in the chunk (empty: no limit). Obstacles keep off the trail and never wall anything off; 1 and at most 1 is exactly one, somewhere.</span>
+        <div v-for="(entry, p) in chunk.props ?? []" :key="p" class="prop-row">
+          <select v-model="entry.prop" :aria-label="`Prop ${p + 1}`">
+            <option v-for="prop in content.props" :key="prop.id" :value="prop.id">{{ prop.name }} ({{ prop.type }})</option>
+          </select>
+          <label class="prop-num">
+            <span>chance a tile</span>
+            <input v-model.number="entry.frequency" type="number" min="0" max="1" step="0.01">
+          </label>
+          <label class="prop-num">
+            <span>at most</span>
+            <input :value="entry.max ?? ''" type="number" min="0" max="160" placeholder="any" @input="setMax(entry, ($event.target as HTMLInputElement).value)">
+          </label>
+          <button type="button" class="icon-btn" aria-label="Remove prop" @click="removeProp(chunk, p)">✕</button>
+          <span v-for="problem in at(`chunks[${index}].props[${p}]`)" :key="problem" class="prop-problem">{{ problem }}</span>
+        </div>
+        <button type="button" class="btn small" :disabled="!content.props.length" @click="addProp(chunk)">+ Prop</button>
       </div>
       <button type="button" class="btn small" :disabled="item.chunks.length >= 8" @click="addChunk">+ Add a chunk</button>
     </div>
@@ -161,6 +199,10 @@ const TERRAIN: Array<{ key: keyof ZoneData['terrain']; label: string; step: numb
 .chunk-name { color: var(--ed-muted); font-size: 12px; flex: 1; }
 .chunk-tools { display: flex; gap: 4px; }
 .chunk-label { color: var(--ed-muted); font-size: 12px; }
+.prop-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.prop-num { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--ed-muted); }
+.prop-num input { width: 64px; }
+.prop-problem { flex-basis: 100%; color: var(--ed-error, #e43b44); font-size: 12px; }
 .kinds { display: grid; gap: 8px; }
 .kind { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 .kind strong { width: 56px; text-transform: capitalize; }
