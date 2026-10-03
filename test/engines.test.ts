@@ -152,6 +152,44 @@ describe('oil', () => {
     expect(terrainAt(game.state, target)).toHaveLength(1);
   });
 
+  it('poured on fire, catches at once and burns as that fire, across the slick it joins', () => {
+    const game = quiet();
+    const self = player(game.state);
+    const here = entityCell(self);
+    const near = [...reachable(game.world, here, 3).values()].filter((entry) => entry.cost === 2).map((entry) => entry.cell);
+    const target = near[0]!;
+    // A puddle of old oil two steps off, touching the new pour but not the fire.
+    const puddle = [...reachable(game.world, target, 2).values()]
+      .find((entry) => entry.cost === 2 && Math.abs(entry.cell.row - target.row) + Math.abs(entry.cell.col - target.col) === 2)!.cell;
+    play(game, define('puddle_t', [{ kind: 'terrain', rounds: 4, colour: '#3e2731', element: 'oil', effects: [] }], { targeting: 'cell', range: 99 }), puddle);
+    const fire: Effect = { kind: 'terrain', rounds: 3, colour: '#e43b44', element: 'fire', effects: [{ kind: 'damage', amount: 2 }] };
+    play(game, define('fire_t', [fire], { targeting: 'cell', range: 3 }), target);
+    expect(terrainAt(game.state, puddle).map((layer) => layer.element)).toEqual(['oil']);
+    const oil: Effect = { kind: 'terrain', rounds: 4, colour: '#3e2731', element: 'oil', effects: [], radius: 1 };
+    play(game, define('oil_t', [oil], { targeting: 'cell', range: 3 }), target);
+    const lit = Object.entries(game.state.terrain).filter(([, layers]) => layers.some((layer) => layer.element === 'fire'));
+    expect(lit.length).toBeGreaterThan(2);
+    expect(terrainAt(game.state, puddle).map((layer) => layer.element)).toEqual(['fire']);
+    // No oil is left anywhere, and every tile burns once, as the fire it met.
+    for (const [key, layers] of lit) {
+      expect(layers.map((layer) => layer.element), key).toEqual(['fire']);
+      expect(layers[0]!.rounds, key).toBe(3);
+      expect(layers[0]!.effects, key).toEqual([{ kind: 'damage', amount: 2 }]);
+      expect(layers[0]!.ownerId, key).toBe(self.id);
+    }
+    expect(Object.values(game.state.terrain).flat().some((layer) => layer.element === 'oil')).toBe(false);
+  });
+
+  it('poured away from any fire, stays oil', () => {
+    const game = quiet();
+    const here = entityCell(player(game.state));
+    const target = [...reachable(game.world, here, 3).values()].find((entry) => entry.cost === 2)!.cell;
+    play(game, define('oil_t', [{ kind: 'terrain', rounds: 4, colour: '#3e2731', element: 'oil', effects: [], radius: 1 }], { targeting: 'cell', range: 3 }), target);
+    const elements = Object.values(game.state.terrain).flat().map((layer) => layer.element);
+    expect(elements).toContain('oil');
+    expect(elements).not.toContain('fire');
+  });
+
   it('may be an empty mark in content', () => {
     const content = structuredClone(readContentFiles()) as unknown as Content;
     content.cards[0]!.effects = [{ kind: 'terrain', rounds: 4, colour: '#3e2731', element: 'oil', effects: [] }];

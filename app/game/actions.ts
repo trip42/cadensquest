@@ -755,16 +755,39 @@ function markTile(game: Game, effect: TerrainEffect, play: Play): void {
   // whole slick with it.
   const within = cellsWithin(game, cell, effect.radius ?? 0);
   const spots = effect.element === 'fire' ? ignite(game, within) : within;
-  if (spots.length) cue(state, { type: 'mark', cells: spots, colour: effect.colour });
-  for (const spot of spots) {
+  layMarks(game, spots, effect.colour, () => {
     const layer: TerrainLayer = { id: nextUid('mark'), effects, colour: effect.colour, rounds, ownerId: actor.id };
     if (effect.element) layer.element = effect.element;
     if (enter || exit) Object.assign(layer, { enter, exit, inside: [] });
+    return layer;
+  });
+
+  // Oil poured on fire catches at once, and the fire takes the whole slick
+  // it now touches — the same spread as fire lit on oil, the other way
+  // round. It burns as the fire it met: the longest-lasting one under it.
+  if (effect.element === 'oil') {
+    const burning = (spot: Cell) => terrainAt(state, spot).filter((layer) => layer.element === 'fire');
+    const fires = spots.flatMap(burning);
+    if (!fires.length) return;
+    const fire = fires.reduce((best, layer) => (layer.rounds > best.rounds ? layer : best));
+    const caught = ignite(game, spots.filter((spot) => burning(spot).length)).filter((spot) => !burning(spot).length);
+    layMarks(game, caught, fire.colour, () => {
+      const layer: TerrainLayer = { ...fire, id: nextUid('mark'), effects: [...fire.effects] };
+      if (fire.enter || fire.exit) layer.inside = [];
+      return layer;
+    });
+  }
+}
+
+/* Put a fresh mark on each spot. Whoever is standing there gets it now, and
+   that is their hit from this tile for the round. */
+function layMarks(game: Game, spots: readonly Cell[], colour: string, make: () => TerrainLayer): void {
+  const { state } = game;
+  if (spots.length) cue(state, { type: 'mark', cells: [...spots], colour });
+  for (const spot of spots) {
+    const layer = make();
     const key = terrainKey(spot);
     (state.terrain[key] ??= []).push(layer);
-
-    // Immediate: whoever is standing there gets the new mark now, and that
-    // is their hit from this tile for the round.
     const occupant = entityAt(state, spot.row, spot.col);
     if (occupant && !occupant.dead) {
       state.terrainHits[`${occupant.id}@${key}`] = state.turn;

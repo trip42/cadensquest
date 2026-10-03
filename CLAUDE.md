@@ -693,7 +693,11 @@ under them — and a death by fire is still credited to whoever lit it.
 - **Oil** (`"element": "oil"`) does nothing alone, and may be a mark with
   no effects. Fire lit on an oiled tile spreads across the whole connected
   slick at once (`ignite`: a four-way flood fill in `markTile`); each oiled
-  tile it reaches burns, and loses its oil.
+  tile it reaches burns, and loses its oil. It works the other way round
+  too: oil poured on a burning tile catches at once, and the fire takes the
+  whole slick it now touches, old oil included. The new fire is a copy of
+  the one it met (the longest-lasting, if several): its damage, its rounds
+  left, and whoever lit it, for the kill credit.
 - **The fire stats** are `fireDamage` (0), `fireMultiplier` (1),
   `fireRounds` (0) and `fireWard` (0), read from the player's stat table
   (talismans and boons) and applied to *every* fire. A fire's hit is (its
