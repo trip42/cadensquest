@@ -3,12 +3,36 @@
    once here and named by every card, gem, talisman or enemy that marks a
    tile with it. The card says what the tile does and for how long; this
    says what it is called, whether it counts as fire, and how it looks. */
+import { computed } from 'vue';
 import type { ContentIssue, TerrainTypeData } from '~/game/content';
-import { MARK_SHAPES } from '~/game/terrain';
+import { MARK_SHAPES, REACTION_KINDS, REACTION_TEXT, type ReactionKind } from '~/game/terrain';
+import { useEditorStore } from '~/stores/editor';
 import { problemsAt } from '~/utils/editorProblems';
 
 const props = defineProps<{ item: TerrainTypeData; issues: ContentIssue[] }>();
 const at = (field: string) => problemsAt(props.issues, field);
+
+/* ------------------------------ reactions ------------------------------ */
+
+const editor = useEditorStore();
+/** Every other type, to react with. */
+const others = computed(() => (editor.draft?.terrain ?? []).filter((type) => type.id !== props.item.id));
+
+function addReaction(): void {
+  const first = others.value[0];
+  if (!first) return;
+  (props.item.reactions ??= []).push({ does: 'spreadsThrough' as ReactionKind, with: first.id });
+}
+function removeReaction(index: number): void {
+  props.item.reactions?.splice(index, 1);
+  if (!props.item.reactions?.length) delete props.item.reactions;
+}
+/** Spreading is optional: 0 or empty, it stays where it is laid. */
+function setSpread(raw: string): void {
+  const value = Math.min(1, Math.max(0, Number(raw) || 0));
+  if (value) props.item.spread = value;
+  else delete props.item.spread;
+}
 
 type Look = TerrainTypeData['look'];
 /** The number dials, each a slider with its value beside it. */
@@ -55,6 +79,27 @@ function setFire(on: boolean): void {
     <input :value="item.text ?? ''" type="text" placeholder="nothing — its effects say it" @input="setText(($event.target as HTMLInputElement).value)">
   </EditorField>
 
+  <EditorField group label="Reactions" hint="What happens when it meets another type on a tile, whichever was laid first. Fire spreads through oil: fire lit on a slick and oil poured on a fire alike." :problems="at('reactions')">
+    <div v-for="(reaction, r) in item.reactions ?? []" :key="r" class="reaction">
+      <span>{{ item.name }}</span>
+      <select v-model="reaction.does" aria-label="Reaction">
+        <option v-for="kind in REACTION_KINDS" :key="kind" :value="kind">{{ REACTION_TEXT[kind] }}</option>
+      </select>
+      <select v-model="reaction.with" aria-label="Other type">
+        <option v-for="type in others" :key="type.id" :value="type.id">{{ type.name }}</option>
+      </select>
+      <button type="button" class="icon-btn" aria-label="Remove reaction" @click="removeReaction(r)">✕</button>
+    </div>
+    <button type="button" class="btn small" :disabled="!others.length" @click="addReaction">+ Reaction</button>
+  </EditorField>
+
+  <EditorField label="Spreads each round" hint="The chance, each round, that it creeps onto each neighbouring tile. The copy lasts a round less than it has left, so a spread dies out. 0: it stays where it is laid." :problems="at('spread')">
+    <span class="dial">
+      <input :value="item.spread ?? 0" type="range" min="0" max="1" step="0.05" @input="setSpread(($event.target as HTMLInputElement).value)">
+      <output>{{ item.spread ?? 0 }}</output>
+    </span>
+  </EditorField>
+
   <fieldset class="group">
     <legend>Looks</legend>
     <div class="form-grid">
@@ -96,4 +141,5 @@ function setFire(on: boolean): void {
 .dial input { flex: 1; min-width: 0; }
 .dial output { width: 36px; text-align: right; font-variant-numeric: tabular-nums; font-size: 12px; }
 .muted { color: var(--ed-muted); font-size: 12px; }
+.reaction { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
 </style>

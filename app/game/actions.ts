@@ -39,16 +39,17 @@ import {
   type MoveOptions,
   pathCost,
   reachable,
+  sameCell,
 } from './map/navigation';
 import { chunkOfFloor, floorRows, LAYOUT, START_ROW, surfaceKind, ZONES } from './map/tiles';
 import { chunkIndexForRow } from './map/world';
 import { rollDrop } from './rewards';
 import { describeModifier, resolveStat } from './stats';
 import { record } from './telemetry';
-import { createRng, hashSeed, nextInt, pick, shuffle } from './rng';
+import { createRng, hashSeed, nextFloat, nextInt, pick, shuffle } from './rng';
 import { priceOf, rollStock, type Shop, SHOP_COLOUR } from './shop';
 import { talismanDef, talismanEffects } from './talismans';
-import { isFireType, terrainType } from './terrain';
+import { isFireType, type ReactionKind, TERRAIN, terrainType } from './terrain';
 import { liveText, NO_BONUSES, type TextPart } from './text';
 import {
   arrivalOn,
@@ -740,32 +741,18 @@ function markTile(game: Game, effect: TerrainEffect, play: Play): void {
   const exit = effect.exit?.length ? fix(effect.exit) : undefined;
 
   // Every tile in the radius gets a mark of its own, so each counts down,
-  // stacks and hits on its own like any other. Fire lit on oil takes the
-  // whole slick with it.
-  const within = cellsWithin(game, cell, effect.radius ?? 0);
-  const spots = lit ? ignite(game, within) : within;
+  // stacks and hits on its own like any other — once the tile's other marks
+  // have had their say (`meet`). A type that spreads through another takes
+  // that whole patch with it at once: fire lit on oil, the slick.
+  const within = cellsWithin(game, cell, effect.radius ?? 0).filter((spot) => meet(game, effect.type, spot));
+  const spots = spreadAcross(game, effect.type, within);
   const colour = terrainType(effect.type)?.look.colour ?? '#ffffff';
   layMarks(game, spots, colour, () => {
     const layer: TerrainLayer = { id: nextUid('mark'), effects, colour, rounds, ownerId: actor.id, type: effect.type };
     if (enter || exit) Object.assign(layer, { enter, exit, inside: [] });
     return layer;
   });
-
-  // Oil poured on fire catches at once, and the fire takes the whole slick
-  // it now touches — the same spread as fire lit on oil, the other way
-  // round. It burns as the fire it met: the longest-lasting one under it.
-  if (effect.type === 'oil') {
-    const burning = (spot: Cell) => terrainAt(state, spot).filter((layer) => isFireType(layer.type));
-    const fires = spots.flatMap(burning);
-    if (!fires.length) return;
-    const fire = fires.reduce((best, layer) => (layer.rounds > best.rounds ? layer : best));
-    const caught = ignite(game, spots.filter((spot) => burning(spot).length)).filter((spot) => !burning(spot).length);
-    layMarks(game, caught, fire.colour, () => {
-      const layer: TerrainLayer = { ...fire, id: nextUid('mark'), effects: [...fire.effects] };
-      if (fire.enter || fire.exit) layer.inside = [];
-      return layer;
-    });
-  }
+  catchFrom(game, effect.type, spots);
 }
 
 /* Put a fresh mark on each spot. Whoever is standing there gets it now, and
@@ -786,40 +773,146 @@ function layMarks(game: Game, spots: readonly Cell[], colour: string, make: () =
   }
 }
 
-/* Fire lit on oil spreads across the whole connected slick at once — a
-   flood fill over oiled tiles, four ways, from every oiled tile it was lit
-   on. Each oiled tile it reaches burns, and its oil is gone. Returns the
-   tiles to set alight: those it was lit on, and the slick. */
-function ignite(game: Game, lit: Cell[]): Cell[] {
+/** Salt for the stream that decides where marks spread. */
+const SPREAD_STREAM = 0x5bd1;
+
+/* Once a round, as marks count down, each mark whose type spreads may
+   creep onto each neighbouring tile (four ways, walkable, not already
+   holding its type): `spread` is the chance. The copy lasts a round less
+   than the mark has left, so a spread dies out, and it meets what is there
+   like any mark laid — a creeping fire still takes an oil slick. Whoever
+   stands where it lands is hit at once, as by any new mark. The dice are
+   their own stream, from the seed, the round and the tile, so a type that
+   does not spread moves nothing in any seed. */
+function spreadTerrain(game: Game): void {
+  const { state, world } = game;
+  const growth: Array<{ cell: Cell; source: TerrainLayer }> = [];
+  for (const [key, layers] of Object.entries(state.terrain)) {
+    const [row, col] = key.split(',').map(Number) as [number, number];
+    for (const layer of layers) {
+      const chance = terrainType(layer.type)?.spread ?? 0;
+      if (!chance || layer.rounds <= 1) continue;
+      ([[1, 0], [-1, 0], [0, 1], [0, -1]] as const).forEach(([dr, dc], dir) => {
+        const cell = { row: row + dr, col: col + dc };
+        if (!world.walkable(cell.row, cell.col)) return;
+        if (terrainAt(state, cell).some((other) => other.type === layer.type)) return;
+        if (growth.some((item) => sameCell(item.cell, cell) && item.source.type === layer.type)) return;
+        const roll = nextFloat(createRng(hashSeed(state.seed, SPREAD_STREAM, state.turn, row, col, dir)));
+        if (roll < chance) growth.push({ cell, source: layer });
+      });
+    }
+  }
+  for (const { cell, source } of growth) {
+    const type = source.type!;
+    if (!meet(game, type, cell)) continue;
+    const spots = spreadAcross(game, type, [cell]);
+    layMarks(game, spots, source.colour, () => {
+      const layer: TerrainLayer = { ...source, id: nextUid('mark'), effects: [...source.effects], rounds: source.rounds - 1 };
+      if (source.enter || source.exit) layer.inside = [];
+      return layer;
+    });
+    catchFrom(game, type, spots);
+  }
+}
+
+/* ------------------------------ reactions ------------------------------- */
+
+/* What happens when marks of two types meet on a tile is content: each
+   terrain type lists its `reactions` (game/terrain.ts). A reaction holds
+   whichever of the two was laid first, so "fire spreads through oil" is
+   fire lit on a slick and oil poured on a fire alike. */
+
+/** Take every mark of these types off a tile, taking back what their
+ *  `enter` gave anyone on it. */
+function clearTypes(game: Game, cell: Cell, types: ReadonlySet<string>): void {
   const { state } = game;
-  const oiled = (cell: Cell) => terrainAt(state, cell).some((layer) => layer.type === 'oil');
-  const seen = new Set(lit.map(terrainKey));
-  const spots = [...lit];
-  const queue = lit.filter(oiled);
-  const slick = [...queue];
+  const key = terrainKey(cell);
+  const layers = state.terrain[key] ?? [];
+  for (const layer of layers) if (layer.type && types.has(layer.type)) emptyMark(game, layer);
+  const left = layers.filter((layer) => !layer.type || !types.has(layer.type));
+  if (left.length) state.terrain[key] = left;
+  else delete state.terrain[key];
+}
+
+/** Does a mark of either type `remove`, or `cancel` with, or refuse to be
+ *  laid on the other? */
+const reacts = (from: string | undefined, does: ReactionKind, to: string | undefined): boolean =>
+  !!terrainType(from)?.reactions?.some((reaction) => reaction.does === does && reaction.with === to);
+
+/* A mark of `type` about to be laid on this tile meets the marks already
+   there. Returns whether it is laid at all:
+
+     - it cannot be laid on something it refuses, or that removes it
+       (water puts fire out before it catches);
+     - it and something it cancels with both go;
+     - whatever it removes is taken off first. */
+function meet(game: Game, type: string, cell: Cell): boolean {
+  const here = [...new Set(terrainAt(game.state, cell).map((layer) => layer.type).filter((id): id is string => !!id))];
+  if (here.some((other) => reacts(type, 'refuses', other) || reacts(other, 'removes', type))) return false;
+  const cancelled = here.filter((other) => reacts(type, 'cancels', other) || reacts(other, 'cancels', type));
+  if (cancelled.length) {
+    clearTypes(game, cell, new Set(cancelled));
+    note(game.state, `The ${terrainType(type)?.name.toLowerCase() ?? 'mark'} and the ${cancelled.map((id) => terrainType(id)?.name.toLowerCase() ?? id).join(' and the ')} cancel out.`);
+    return false;
+  }
+  const removed = here.filter((other) => reacts(type, 'removes', other));
+  if (removed.length) clearTypes(game, cell, new Set(removed));
+  return true;
+}
+
+/* A mark of `type` laid on these tiles takes with it every patch of what it
+   spreads through that they touch — a flood fill, four ways, across tiles
+   holding it — and that patch is used up as it goes. Returns the tiles to
+   mark: those given, and every patch tile. */
+function spreadAcross(game: Game, type: string, from: readonly Cell[]): Cell[] {
+  const { state } = game;
+  const through = new Set((terrainType(type)?.reactions ?? []).filter((reaction) => reaction.does === 'spreadsThrough').map((reaction) => reaction.with));
+  if (!through.size) return [...from];
+  const holds = (cell: Cell) => terrainAt(state, cell).some((layer) => !!layer.type && through.has(layer.type));
+  const seen = new Set(from.map(terrainKey));
+  const spots = [...from];
+  const queue = from.filter(holds);
+  const patch = [...queue];
   while (queue.length) {
     const here = queue.pop()!;
     for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
       const next = { row: here.row + dr, col: here.col + dc };
       const key = terrainKey(next);
-      if (seen.has(key) || !oiled(next)) continue;
+      if (seen.has(key) || !holds(next)) continue;
       seen.add(key);
       spots.push(next);
       queue.push(next);
-      slick.push(next);
+      patch.push(next);
     }
   }
-  // The oil burns away as it catches.
-  for (const cell of slick) {
-    const key = terrainKey(cell);
-    const layers = state.terrain[key] ?? [];
-    for (const layer of layers) if (layer.type === 'oil') emptyMark(game, layer);
-    const left = layers.filter((layer) => layer.type !== 'oil');
-    if (left.length) state.terrain[key] = left;
-    else delete state.terrain[key];
+  const names = new Set<string>();
+  for (const cell of patch) {
+    for (const layer of terrainAt(state, cell)) if (layer.type && through.has(layer.type)) names.add(terrainType(layer.type)?.name.toLowerCase() ?? layer.type);
+    clearTypes(game, cell, through);
   }
-  if (slick.length) note(state, 'The oil catches.');
+  if (names.size) note(state, `The ${[...names].join(' and the ')} catches.`);
   return spots;
+}
+
+/* The other way round: a mark of `type` laid where something that spreads
+   through it already is — oil poured on a fire. It catches at once, and
+   that mark takes the whole patch it now touches. Each new mark is a copy
+   of the one it met: the longest-lasting, if there are several. */
+function catchFrom(game: Game, type: string, spots: readonly Cell[]): void {
+  const { state } = game;
+  for (const other of Object.values(TERRAIN)) {
+    if (!other.reactions?.some((reaction) => reaction.does === 'spreadsThrough' && reaction.with === type)) continue;
+    const holding = (spot: Cell) => terrainAt(state, spot).filter((layer) => layer.type === other.id);
+    const met = spots.flatMap(holding);
+    if (!met.length) continue;
+    const source = met.reduce((best, layer) => (layer.rounds > best.rounds ? layer : best));
+    const caught = spreadAcross(game, other.id, spots.filter((spot) => holding(spot).length)).filter((spot) => !holding(spot).length);
+    layMarks(game, caught, source.colour, () => {
+      const layer: TerrainLayer = { ...source, id: nextUid('mark'), effects: [...source.effects] };
+      if (source.enter || source.exit) layer.inside = [];
+      return layer;
+    });
+  }
 }
 
 /* What a tile does to whoever is on it: each effect as if they had played
@@ -1808,6 +1901,7 @@ export function beginTurn(game: Game): void {
   // A new round: marks count down, and every tile may hit again; summons
   // with a lifetime count down too.
   ageTerrain(game);
+  spreadTerrain(game);
   ageSummons(state);
   ageBoons(state);
   ageTrails(state);

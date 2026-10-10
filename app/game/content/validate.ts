@@ -89,6 +89,17 @@ function crossCheck(content: Content): ContentIssue[] {
   const gems = new Map(content.gems.map((gem) => [gem.id, gem]));
   const talismans = new Map(content.talismans.map((talisman) => [talisman.id, talisman]));
   const terrainTypes = new Map(content.terrain.map((type) => [type.id, type]));
+  for (const type of content.terrain) {
+    const seen = new Set<string>();
+    type.reactions?.forEach((reaction, i) => {
+      const field = `reactions[${i}].with`;
+      if (reaction.with === type.id) error('terrain', type.id, 'a type cannot react with itself', field);
+      else if (!terrainTypes.has(reaction.with)) error('terrain', type.id, `reacts with "${reaction.with}", which is not a terrain type`, field);
+      const key = `${reaction.does}:${reaction.with}`;
+      if (seen.has(key)) warn('terrain', type.id, 'the same reaction is listed twice', field);
+      seen.add(key);
+    });
+  }
 
   // A boon raises the player's stats; an enemy has none.
   const offSide = (kind: string, side: 'player' | 'enemy') =>

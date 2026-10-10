@@ -57,6 +57,34 @@ export const DEFAULT_LOOK: MarkLook = {
   border: 1.5,
 };
 
+/* What a mark of one type does when it meets a mark of another on a tile,
+   whichever was laid first. Content, not code: fire and oil are two types
+   and one reaction.
+
+     spreadsThrough  takes the whole connected patch of the other at once,
+                     using it up (fire through an oil slick)
+     removes         takes the other off the tile (water puts out fire); a
+                     mark it removes is never laid on it
+     cancels         both go
+     refuses         cannot be laid where the other is */
+export const REACTION_KINDS = ['spreadsThrough', 'removes', 'cancels', 'refuses'] as const;
+export type ReactionKind = (typeof REACTION_KINDS)[number];
+
+/** How each reaction reads, between the two types' names: "Fire spreads
+ *  through every connected Oil". */
+export const REACTION_TEXT: Record<ReactionKind, string> = {
+  spreadsThrough: 'spreads through every connected',
+  removes: 'removes',
+  cancels: 'cancels out with',
+  refuses: 'cannot be laid on',
+};
+
+export interface Reaction {
+  does: ReactionKind;
+  /** The other terrain type. */
+  with: string;
+}
+
 export interface TerrainType {
   id: string;
   name: string;
@@ -66,6 +94,11 @@ export interface TerrainType {
   /** Counts as fire: heated, lengthened, warded, flared and counted by the
    *  fire cards and stats. */
   fire?: boolean;
+  /** What it does when it meets other types on a tile. */
+  reactions?: Reaction[];
+  /** Each round, the chance it creeps onto each neighbouring tile — a copy
+   *  lasting a round less than it has left, so a spread dies out. */
+  spread?: number;
   look: MarkLook;
 }
 

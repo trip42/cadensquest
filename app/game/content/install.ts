@@ -89,7 +89,11 @@ export function installContent(content: Content): void {
   refill(TALISMAN_IDS, content.talismans.filter((talisman) => talisman.enabled).map((talisman) => talisman.id));
 
   // Terrain types: what each mark is, and how it looks.
-  replaceAll(TERRAIN, content.terrain.map((type) => [type.id, { ...type, look: { ...type.look } }]));
+  replaceAll(TERRAIN, content.terrain.map((type) => [type.id, {
+    ...type,
+    look: { ...type.look },
+    reactions: type.reactions?.map((reaction) => ({ ...reaction })),
+  }]));
 
   // Props, before the zones that place them.
   replaceAll(PROPS, content.props.map((prop) => [prop.id, {

@@ -744,6 +744,24 @@ the validator refuses one in content.
   own shapes in their own colours (`drawBadges`); past that a count says
   how many. The user chose this over stacking plates, laying them side by
   side or taking turns; the tooltip lists every mark.
+- **Reactions** (`reactions` on a type, data, in `markTile`): what a mark
+  does when it meets another type on a tile, **whichever was laid first**.
+  `spreadsThrough` takes the whole connected patch of the other at once
+  (`spreadAcross`, a four-way flood fill) and uses it up, and the other way
+  round a mark laid where something spreads through it catches as a copy
+  of the longest-lasting one it met (`catchFrom`). `removes` takes the
+  other off (and a mark it removes is never laid on it), `cancels` takes
+  both, `refuses` is not laid there. The last three are settled per tile
+  before anything is laid (`meet`), so nobody is hit by a mark that is gone
+  the same instant. The validator wants the other type to exist and not to
+  be itself. Fire and oil are one reaction: Fire `spreadsThrough` Oil.
+- **Spreading** (`spread`, 0..1 on a type): once a round, right after marks
+  count down (`spreadTerrain` in `beginTurn`), each mark of the type may
+  creep onto each walkable neighbour without one, a copy with a round
+  less, so a spread dies out. It meets what is there like any mark laid.
+  The roll is its own stream (`hashSeed(seed, SPREAD_STREAM, turn, tile,
+  direction)`), so a type that does not spread moves nothing in any seed.
+  Like fire, spreading has no side: it reaches the player too.
 
 **Enter and exit.** A mark may also carry `enter` and `exit` lists (and
 then its `effects` may be empty; the validator wants at least one of the
@@ -765,13 +783,12 @@ every burning tile, whoever lit it — the Whelp's under you as much as yours
 under them — and a death by fire is still credited to whoever lit it.
 
 - **Oil** (the type `oil`) does nothing alone, and may be a mark with
-  no effects. Fire lit on an oiled tile spreads across the whole connected
-  slick at once (`ignite`: a four-way flood fill in `markTile`); each oiled
-  tile it reaches burns, and loses its oil. It works the other way round
-  too: oil poured on a burning tile catches at once, and the fire takes the
-  whole slick it now touches, old oil included. The new fire is a copy of
-  the one it met (the longest-lasting, if several): its damage, its rounds
-  left, and whoever lit it, for the kill credit.
+  no effects (its type has `text`). Fire lit on an oiled tile spreads
+  across the whole connected slick at once, each oiled tile burning and
+  losing its oil; oil poured on a burning tile catches, and the fire takes
+  the whole slick it now touches, old oil included, as a copy of the fire
+  it met: its damage, its rounds left, and whoever lit it, for the kill
+  credit. All of it is the one reaction above, not code.
 - **The fire stats** are `fireDamage` (0), `fireMultiplier` (1),
   `fireRounds` (0) and `fireWard` (0), read from the player's stat table
   (talismans and boons) and applied to *every* fire. A fire's hit is (its

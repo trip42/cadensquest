@@ -3,6 +3,12 @@
     "id": "fire",
     "name": "Fire",
     "fire": true,
+    "reactions": [
+      {
+        "does": "spreadsThrough",
+        "with": "oil"
+      }
+    ],
     "look": {
       "colour": "#e43b44",
       "shape": "circle",

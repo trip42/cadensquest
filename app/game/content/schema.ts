@@ -15,7 +15,7 @@ import {
 } from '../effects';
 import { REWARD_KINDS } from '../rewards';
 import { STAT_KEYS, type StatKey } from '../stats';
-import { MARK_SHAPES } from '../terrain';
+import { MARK_SHAPES, REACTION_KINDS } from '../terrain';
 
 const count = (min = 0, max = 999) => z.number().int('must be a whole number').min(min).max(max);
 
@@ -270,6 +270,13 @@ export const terrainTypeSchema = z.strictObject({
   text: z.string().optional(),
   /** Counts as fire, for the fire cards and stats. */
   fire: z.boolean().optional(),
+  /** What it does when it meets another type on a tile. */
+  reactions: z.array(z.strictObject({
+    does: z.enum(REACTION_KINDS),
+    with: idSchema,
+  })).optional(),
+  /** Each round, the chance it creeps onto each neighbouring tile. */
+  spread: z.number().min(0).max(1).optional(),
   look: z.strictObject({
     colour: colourSchema,
     shape: z.enum(MARK_SHAPES),

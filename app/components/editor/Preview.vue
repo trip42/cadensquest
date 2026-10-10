@@ -21,6 +21,7 @@ import { glyph } from '~/render/glyphs';
 // find it by auto-import (see CLAUDE.md).
 import ZoneMap from './ZoneMap.vue';
 import { useEditorStore } from '~/stores/editor';
+import { REACTION_TEXT } from '~/game/terrain';
 
 const props = defineProps<{
   file: ContentFile;
@@ -161,6 +162,20 @@ const terrain = computed(() => (props.file === 'terrain' ? (props.item as Terrai
 const otherLooks = computed(() => props.content.terrain.filter((type) => type !== terrain.value).slice(0, 2).map((type) => type.look));
 const editorStore = useEditorStore();
 const terrainUses = computed(() => (terrain.value ? editorStore.usesOf('terrain', terrain.value.id) : []));
+/** Its reactions and spreading, as sentences — and the reactions other
+ *  types have to it. */
+const terrainRules = computed(() => {
+  const type = terrain.value;
+  if (!type) return [];
+  const nameOf = (id: string) => props.content.terrain.find((item) => item.id === id)?.name ?? id;
+  return [
+    ...(type.reactions ?? []).map((reaction) => `${type.name} ${REACTION_TEXT[reaction.does]} ${nameOf(reaction.with)}.`),
+    ...props.content.terrain.flatMap((other) => (other.reactions ?? [])
+      .filter((reaction) => reaction.with === type.id)
+      .map((reaction) => `${other.name} ${REACTION_TEXT[reaction.does]} ${type.name}.`)),
+    ...(type.spread ? [`Each round, ${Math.round(type.spread * 100)}% chance to creep onto each neighbouring tile.`] : []),
+  ];
+});
 
 const prop = computed(() => (props.file === 'props' ? (props.item as PropData) : null));
 /** Where a prop stands: each zone and chunk, how often, at most how many. */
@@ -376,6 +391,10 @@ watch(() => [card.value?.name, card.value?.text, cardNow.value], measure);
           <span v-if="terrain.fire" class="px-tag is-red">FIRE</span>
           {{ terrain.text || 'What it does comes from the card that lays it.' }}
         </p>
+      </div>
+      <div v-if="terrainRules.length" class="panel note">
+        <p class="note-title">Rules</p>
+        <p v-for="rule in terrainRules" :key="rule">{{ rule }}</p>
       </div>
       <div class="panel note">
         <p class="note-title">Laid by</p>
