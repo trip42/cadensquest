@@ -762,6 +762,9 @@ the validator refuses one in content.
   The roll is its own stream (`hashSeed(seed, SPREAD_STREAM, turn, tile,
   direction)`), so a type that does not spread moves nothing in any seed.
   Like fire, spreading has no side: it reaches the player too.
+- **Poison** is the first type built only from content: a purple hexagon
+  that spreads (0.25), laid by Toxic Spill (2 damage a round for 3 rounds).
+  Fire `removes` Poison, so a fire burns it away.
 
 **Enter and exit.** A mark may also carry `enter` and `exit` lists (and
 then its `effects` may be empty; the validator wants at least one of the

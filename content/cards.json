@@ -1305,6 +1305,30 @@
     ]
   },
   {
+    "id": "toxic_spill",
+    "name": "Toxic Spill",
+    "enabled": true,
+    "rarity": "normal",
+    "art": "drop",
+    "cost": 1,
+    "targeting": "cell",
+    "range": 3,
+    "text": "Poison a tile within 3 for {1} rounds: {1.1} damage to whoever is on it. It creeps.",
+    "effects": [
+      {
+        "kind": "terrain",
+        "rounds": 3,
+        "type": "poison",
+        "effects": [
+          {
+            "kind": "damage",
+            "amount": 2
+          }
+        ]
+      }
+    ]
+  },
+  {
     "id": "echo",
     "name": "Echo",
     "enabled": true,

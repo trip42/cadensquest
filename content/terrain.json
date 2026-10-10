@@ -7,6 +7,10 @@
       {
         "does": "spreadsThrough",
         "with": "oil"
+      },
+      {
+        "does": "removes",
+        "with": "poison"
       }
     ],
     "look": {
@@ -69,6 +73,25 @@
       "particles": 9,
       "particleHeight": 38,
       "border": 1.5
+    }
+  },
+  {
+    "id": "poison",
+    "name": "Poison",
+    "spread": 0.25,
+    "look": {
+      "colour": "#a052c4",
+      "shape": "hexagon",
+      "size": 0.6,
+      "height": 6,
+      "spin": 0.08,
+      "bounceSpeed": 3,
+      "bounceHeight": 1.5,
+      "particles": 14,
+      "particleHeight": 24,
+      "particleColour": "#b6d53c",
+      "border": 1.5,
+      "borderColour": "#b6d53c"
     }
   }
 ]
