@@ -37,7 +37,7 @@ function settle(game: Game): void {
   for (let i = 0; i < 600; i += 1) tick(game, 1 / 60);
 }
 
-const embers: TerrainEffect = { kind: 'terrain', rounds: 2, colour: '#e43b44', element: 'fire', effects: [{ kind: 'damage', amount: 1 }], radius: 2 };
+const embers: TerrainEffect = { kind: 'terrain', rounds: 2, type: 'fire', effects: [{ kind: 'damage', amount: 1 }], radius: 2 };
 const TRAIL: Effect = { kind: 'trail', rounds: 3, mark: embers };
 
 /** A walk of two steps from the player: the cell after one, and after two. */
@@ -60,11 +60,11 @@ describe('trails', () => {
     game.state.movement = 5;
     expect(movePlayerTo(game, second)).toBe(true);
     settle(game);
-    expect(terrainAt(game.state, start).map((layer) => layer.element)).toEqual(['fire']);
-    expect(terrainAt(game.state, first).map((layer) => layer.element)).toEqual(['fire']);
+    expect(terrainAt(game.state, start).map((layer) => layer.type)).toEqual(['fire']);
+    expect(terrainAt(game.state, first).map((layer) => layer.type)).toEqual(['fire']);
     expect(terrainAt(game.state, second)).toEqual([]);
     // The radius is ignored: only the tiles walked from.
-    const marked = Object.values(game.state.terrain).filter((layers) => layers.some((layer) => layer.element === 'fire'));
+    const marked = Object.values(game.state.terrain).filter((layers) => layers.some((layer) => layer.type === 'fire'));
     expect(marked).toHaveLength(2);
   });
 

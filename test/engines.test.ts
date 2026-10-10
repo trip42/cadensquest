@@ -82,7 +82,7 @@ describe('triggers aim where an enemy fell', () => {
     const self = player(game.state);
     TALISMANS.test_pyre = {
       id: 'test_pyre', name: 'Pyre', text: '', icon: 'flame',
-      triggers: [{ on: 'enemyDefeated', effects: [{ kind: 'terrain', rounds: 2, colour: '#e43b44', element: 'fire', effects: [{ kind: 'damage', amount: 2 }] }] }],
+      triggers: [{ on: 'enemyDefeated', effects: [{ kind: 'terrain', rounds: 2, type: 'fire', effects: [{ kind: 'damage', amount: 2 }] }] }],
     };
     game.state.talismans.push('test_pyre');
     const here = entityCell(self);
@@ -92,7 +92,7 @@ describe('triggers aim where an enemy fell', () => {
     game.state.entities.push(foe);
     play(game, define('hit_t', [{ kind: 'damage', amount: 5 }], { targeting: 'enemy', range: 1 }), cell);
     expect(foe.dead).toBe(true);
-    expect(terrainAt(game.state, cell).map((layer) => layer.element)).toEqual(['fire']);
+    expect(terrainAt(game.state, cell).map((layer) => layer.type)).toEqual(['fire']);
     expect(terrainAt(game.state, here)).toEqual([]);
   });
 });
@@ -139,15 +139,15 @@ describe('oil', () => {
     const here = entityCell(self);
     const near = [...reachable(game.world, here, 3).values()].filter((entry) => entry.cost === 2).map((entry) => entry.cell);
     const target = near[0]!;
-    const oil: Effect = { kind: 'terrain', rounds: 4, colour: '#3e2731', element: 'oil', effects: [], radius: 1 };
+    const oil: Effect = { kind: 'terrain', rounds: 4, type: 'oil', effects: [], radius: 1 };
     play(game, define('oil_t', [oil], { targeting: 'cell', range: 3 }), target);
-    const slick = Object.entries(game.state.terrain).filter(([, layers]) => layers.some((layer) => layer.element === 'oil')).map(([key]) => key);
+    const slick = Object.entries(game.state.terrain).filter(([, layers]) => layers.some((layer) => layer.type === 'oil')).map(([key]) => key);
     expect(slick.length).toBeGreaterThan(1);
     // Light the one tile: the whole slick burns, and the oil is gone.
-    play(game, define('fire_t', [{ kind: 'terrain', rounds: 2, colour: '#e43b44', element: 'fire', effects: [{ kind: 'damage', amount: 2 }] }], { targeting: 'cell', range: 3 }), target);
+    play(game, define('fire_t', [{ kind: 'terrain', rounds: 2, type: 'fire', effects: [{ kind: 'damage', amount: 2 }] }], { targeting: 'cell', range: 3 }), target);
     for (const key of slick) {
       const layers = game.state.terrain[key]!;
-      expect(layers.map((layer) => layer.element), key).toEqual(['fire']);
+      expect(layers.map((layer) => layer.type), key).toEqual(['fire']);
     }
     expect(terrainAt(game.state, target)).toHaveLength(1);
   });
@@ -161,38 +161,38 @@ describe('oil', () => {
     // A puddle of old oil two steps off, touching the new pour but not the fire.
     const puddle = [...reachable(game.world, target, 2).values()]
       .find((entry) => entry.cost === 2 && Math.abs(entry.cell.row - target.row) + Math.abs(entry.cell.col - target.col) === 2)!.cell;
-    play(game, define('puddle_t', [{ kind: 'terrain', rounds: 4, colour: '#3e2731', element: 'oil', effects: [] }], { targeting: 'cell', range: 99 }), puddle);
-    const fire: Effect = { kind: 'terrain', rounds: 3, colour: '#e43b44', element: 'fire', effects: [{ kind: 'damage', amount: 2 }] };
+    play(game, define('puddle_t', [{ kind: 'terrain', rounds: 4, type: 'oil', effects: [] }], { targeting: 'cell', range: 99 }), puddle);
+    const fire: Effect = { kind: 'terrain', rounds: 3, type: 'fire', effects: [{ kind: 'damage', amount: 2 }] };
     play(game, define('fire_t', [fire], { targeting: 'cell', range: 3 }), target);
-    expect(terrainAt(game.state, puddle).map((layer) => layer.element)).toEqual(['oil']);
-    const oil: Effect = { kind: 'terrain', rounds: 4, colour: '#3e2731', element: 'oil', effects: [], radius: 1 };
+    expect(terrainAt(game.state, puddle).map((layer) => layer.type)).toEqual(['oil']);
+    const oil: Effect = { kind: 'terrain', rounds: 4, type: 'oil', effects: [], radius: 1 };
     play(game, define('oil_t', [oil], { targeting: 'cell', range: 3 }), target);
-    const lit = Object.entries(game.state.terrain).filter(([, layers]) => layers.some((layer) => layer.element === 'fire'));
+    const lit = Object.entries(game.state.terrain).filter(([, layers]) => layers.some((layer) => layer.type === 'fire'));
     expect(lit.length).toBeGreaterThan(2);
-    expect(terrainAt(game.state, puddle).map((layer) => layer.element)).toEqual(['fire']);
+    expect(terrainAt(game.state, puddle).map((layer) => layer.type)).toEqual(['fire']);
     // No oil is left anywhere, and every tile burns once, as the fire it met.
     for (const [key, layers] of lit) {
-      expect(layers.map((layer) => layer.element), key).toEqual(['fire']);
+      expect(layers.map((layer) => layer.type), key).toEqual(['fire']);
       expect(layers[0]!.rounds, key).toBe(3);
       expect(layers[0]!.effects, key).toEqual([{ kind: 'damage', amount: 2 }]);
       expect(layers[0]!.ownerId, key).toBe(self.id);
     }
-    expect(Object.values(game.state.terrain).flat().some((layer) => layer.element === 'oil')).toBe(false);
+    expect(Object.values(game.state.terrain).flat().some((layer) => layer.type === 'oil')).toBe(false);
   });
 
   it('poured away from any fire, stays oil', () => {
     const game = quiet();
     const here = entityCell(player(game.state));
     const target = [...reachable(game.world, here, 3).values()].find((entry) => entry.cost === 2)!.cell;
-    play(game, define('oil_t', [{ kind: 'terrain', rounds: 4, colour: '#3e2731', element: 'oil', effects: [], radius: 1 }], { targeting: 'cell', range: 3 }), target);
-    const elements = Object.values(game.state.terrain).flat().map((layer) => layer.element);
+    play(game, define('oil_t', [{ kind: 'terrain', rounds: 4, type: 'oil', effects: [], radius: 1 }], { targeting: 'cell', range: 3 }), target);
+    const elements = Object.values(game.state.terrain).flat().map((layer) => layer.type);
     expect(elements).toContain('oil');
     expect(elements).not.toContain('fire');
   });
 
   it('may be an empty mark in content', () => {
     const content = structuredClone(readContentFiles()) as unknown as Content;
-    content.cards[0]!.effects = [{ kind: 'terrain', rounds: 4, colour: '#3e2731', element: 'oil', effects: [] }];
+    content.cards[0]!.effects = [{ kind: 'terrain', rounds: 4, type: 'oil', effects: [] }];
     expect(validateContent(content as never).issues.filter((issue) => issue.level === 'error')).toEqual([]);
   });
 });

@@ -42,7 +42,7 @@ function play(game: Game, cardId: string, target: Cell | null): boolean {
 
 /** +1 power on entering, lose it on leaving, for `rounds` rounds. */
 const rally = (rounds = 3): Effect => ({
-  kind: 'terrain', rounds, colour: '#fee761', effects: [],
+  kind: 'terrain', rounds, type: 'rallying_ground', effects: [],
   enter: [{ kind: 'power', amount: 1 }], exit: [{ kind: 'losePower', amount: 1 }],
 });
 
@@ -126,7 +126,7 @@ describe('entering and leaving a mark', () => {
     const game = quiet();
     const self = player(game.state);
     self.power = 4;
-    define('drain', [{ kind: 'terrain', rounds: 3, colour: '#5a6988', effects: [], exit: [{ kind: 'losePower', amount: { of: 'power' } }] }], { targeting: 'self', range: 0 });
+    define('drain', [{ kind: 'terrain', rounds: 3, type: 'spring', effects: [], exit: [{ kind: 'losePower', amount: { of: 'power' } }] }], { targeting: 'self', range: 0 });
     play(game, 'drain', null);
     stepOnto(game, cellAt(game, 1));
     // Fixed from its maker when marked: the power it had then.
@@ -135,7 +135,7 @@ describe('entering and leaving a mark', () => {
 
   it('leaves plain marks alone: no one is tracked', () => {
     const game = quiet();
-    define('fire', [{ kind: 'terrain', rounds: 3, colour: '#e43b44', effects: [{ kind: 'damage', amount: 1 }] }], { targeting: 'self', range: 0 });
+    define('fire', [{ kind: 'terrain', rounds: 3, type: 'spring', effects: [{ kind: 'damage', amount: 1 }] }], { targeting: 'self', range: 0 });
     play(game, 'fire', null);
     const [layer] = terrainAt(game.state, entityCell(player(game.state)));
     expect(layer!.inside).toBeUndefined();
@@ -151,9 +151,9 @@ describe('enter and exit in content', () => {
   it('refuses a mark with nothing in it, and verbs that cannot go on a tile', () => {
     const content = structuredClone(readContentFiles()) as unknown as Content;
     const card = content.cards.find((item) => item.id === 'rallying_ground')!;
-    card.effects = [{ kind: 'terrain', rounds: 3, colour: '#fee761', effects: [] }];
+    card.effects = [{ kind: 'terrain', rounds: 3, type: 'rallying_ground', effects: [] }];
     expect(validateContent(content as never).issues.some((issue) => issue.message.includes('at least one effect'))).toBe(true);
-    card.effects = [{ kind: 'terrain', rounds: 3, colour: '#fee761', effects: [], enter: [{ kind: 'tame', amount: 3 }] }];
+    card.effects = [{ kind: 'terrain', rounds: 3, type: 'rallying_ground', effects: [], enter: [{ kind: 'tame', amount: 3 }] }];
     expect(validateContent(content as never).issues.some((issue) => issue.field?.endsWith('enter[0].kind'))).toBe(true);
   });
 });

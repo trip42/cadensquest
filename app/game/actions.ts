@@ -48,6 +48,7 @@ import { record } from './telemetry';
 import { createRng, hashSeed, nextInt, pick, shuffle } from './rng';
 import { priceOf, rollStock, type Shop, SHOP_COLOUR } from './shop';
 import { talismanDef, talismanEffects } from './talismans';
+import { isFireType, terrainType } from './terrain';
 import { liveText, NO_BONUSES, type TextPart } from './text';
 import {
   arrivalOn,
@@ -502,7 +503,7 @@ export function amountValues(state: GameState, actor: Entity, x = 0): AmountValu
 function firesNear(state: GameState, here: Cell): number {
   let count = 0;
   for (const [key, layers] of Object.entries(state.terrain)) {
-    if (!layers.some((layer) => layer.element === 'fire')) continue;
+    if (!layers.some((layer) => isFireType(layer.type))) continue;
     const [row, col] = key.split(',').map(Number);
     if (cellDistance({ row: row!, col: col! }, here) <= FIRES_WITHIN) count += 1;
   }
@@ -726,7 +727,8 @@ function markTile(game: Game, effect: TerrainEffect, play: Play): void {
 
   const values = amountValues(state, actor, play.x);
   // Every fire lit burns `fireRounds` longer, whoever lights it.
-  const rounds = amountOf(effect.rounds, values) + (effect.element === 'fire' ? stat(state, 'fireRounds') : 0);
+  const lit = isFireType(effect.type);
+  const rounds = amountOf(effect.rounds, values) + (lit ? stat(state, 'fireRounds') : 0);
   if (rounds <= 0) return;
   // A gem's multiplier reaches the fire the card lights, too.
   const fix = (list: TerrainEffect['effects']) => list.map((tile) => {
@@ -741,10 +743,10 @@ function markTile(game: Game, effect: TerrainEffect, play: Play): void {
   // stacks and hits on its own like any other. Fire lit on oil takes the
   // whole slick with it.
   const within = cellsWithin(game, cell, effect.radius ?? 0);
-  const spots = effect.element === 'fire' ? ignite(game, within) : within;
-  layMarks(game, spots, effect.colour, () => {
-    const layer: TerrainLayer = { id: nextUid('mark'), effects, colour: effect.colour, rounds, ownerId: actor.id };
-    if (effect.element) layer.element = effect.element;
+  const spots = lit ? ignite(game, within) : within;
+  const colour = terrainType(effect.type)?.look.colour ?? '#ffffff';
+  layMarks(game, spots, colour, () => {
+    const layer: TerrainLayer = { id: nextUid('mark'), effects, colour, rounds, ownerId: actor.id, type: effect.type };
     if (enter || exit) Object.assign(layer, { enter, exit, inside: [] });
     return layer;
   });
@@ -752,8 +754,8 @@ function markTile(game: Game, effect: TerrainEffect, play: Play): void {
   // Oil poured on fire catches at once, and the fire takes the whole slick
   // it now touches — the same spread as fire lit on oil, the other way
   // round. It burns as the fire it met: the longest-lasting one under it.
-  if (effect.element === 'oil') {
-    const burning = (spot: Cell) => terrainAt(state, spot).filter((layer) => layer.element === 'fire');
+  if (effect.type === 'oil') {
+    const burning = (spot: Cell) => terrainAt(state, spot).filter((layer) => isFireType(layer.type));
     const fires = spots.flatMap(burning);
     if (!fires.length) return;
     const fire = fires.reduce((best, layer) => (layer.rounds > best.rounds ? layer : best));
@@ -790,7 +792,7 @@ function layMarks(game: Game, spots: readonly Cell[], colour: string, make: () =
    tiles to set alight: those it was lit on, and the slick. */
 function ignite(game: Game, lit: Cell[]): Cell[] {
   const { state } = game;
-  const oiled = (cell: Cell) => terrainAt(state, cell).some((layer) => layer.element === 'oil');
+  const oiled = (cell: Cell) => terrainAt(state, cell).some((layer) => layer.type === 'oil');
   const seen = new Set(lit.map(terrainKey));
   const spots = [...lit];
   const queue = lit.filter(oiled);
@@ -811,8 +813,8 @@ function ignite(game: Game, lit: Cell[]): Cell[] {
   for (const cell of slick) {
     const key = terrainKey(cell);
     const layers = state.terrain[key] ?? [];
-    for (const layer of layers) if (layer.element === 'oil') emptyMark(game, layer);
-    const left = layers.filter((layer) => layer.element !== 'oil');
+    for (const layer of layers) if (layer.type === 'oil') emptyMark(game, layer);
+    const left = layers.filter((layer) => layer.type !== 'oil');
     if (left.length) state.terrain[key] = left;
     else delete state.terrain[key];
   }
@@ -836,12 +838,12 @@ function applyTile(game: Game, entity: Entity, layers: readonly TerrainLayer[]):
 /** Is this creature kept out of this mark's damage — the player, by
  *  `fireWard`, from a fire? */
 const warded = (state: GameState, entity: Entity, layer: TerrainLayer): boolean =>
-  layer.element === 'fire' && entity.id === state.playerId && stat(state, 'fireWard') >= 1;
+  isFireType(layer.type) && entity.id === state.playerId && stat(state, 'fireWard') >= 1;
 
 /** Every fire on the floor, by tile. */
 function fires(state: GameState): Array<{ cell: Cell; layers: TerrainLayer[] }> {
   return Object.entries(state.terrain).flatMap(([key, layers]) => {
-    const burning = layers.filter((layer) => layer.element === 'fire');
+    const burning = layers.filter((layer) => isFireType(layer.type));
     if (!burning.length) return [];
     const [row, col] = key.split(',').map(Number);
     return [{ cell: { row: row!, col: col! }, layers: burning }];
@@ -894,7 +896,7 @@ export const fireHit = (state: GameState, amount: number, extra = 0): number =>
  *  fire stats. `list` is which of its lists: its effects, enter or exit.
  *  For the rules, the tile's tooltip and the bot alike. */
 export function layerEffects(state: GameState, layer: TerrainLayer, list: readonly TileEffect[] = layer.effects): TileEffect[] {
-  if (layer.element !== 'fire') return [...list];
+  if (!isFireType(layer.type)) return [...list];
   return list.map((effect) => (effect.kind === 'damage' ? { kind: 'damage', amount: fireHit(state, effect.amount) } : effect));
 }
 

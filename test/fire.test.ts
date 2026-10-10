@@ -11,6 +11,7 @@ import { createGame, type Game, makeCard, makeEntity, player, resetUids } from '
 import { GEMS } from '~/game/gems';
 import { type TalismanDefinition, TALISMANS } from '~/game/talismans';
 import { readContentFiles } from './setup';
+import { isFireType } from '~/game/terrain';
 
 afterEach(() => loadContent(readContentFiles()));
 
@@ -41,7 +42,7 @@ function play(game: Game, cardId: string, target: Cell | null = null): boolean {
 }
 
 const fire = (damage: number, rounds = 3): Effect =>
-  ({ kind: 'terrain', rounds, colour: '#e43b44', element: 'fire', effects: [{ kind: 'damage', amount: damage }] });
+  ({ kind: 'terrain', rounds, type: 'fire', effects: [{ kind: 'damage', amount: damage }] });
 
 /** A sturdy enemy standing on a cell. */
 function dummy(game: Game, cell: Cell) {
@@ -52,19 +53,20 @@ function dummy(game: Game, cell: Cell) {
 }
 
 describe('fire', () => {
-  it('carries its element onto the tile', () => {
+  it('carries its type onto the tile', () => {
     const game = quiet();
     const cell = cellAt(game, 2);
     define('fire_t', [fire(3)]);
-    define('mark_t', [{ kind: 'terrain', rounds: 3, colour: '#e43b44', effects: [{ kind: 'damage', amount: 3 }] }]);
+    define('mark_t', [{ kind: 'terrain', rounds: 3, type: 'spring', effects: [{ kind: 'damage', amount: 3 }] }]);
     play(game, 'fire_t', cell);
     play(game, 'mark_t', cell);
-    expect(terrainAt(game.state, cell).map((layer) => layer.element)).toEqual(['fire', undefined]);
+    expect(terrainAt(game.state, cell).map((layer) => layer.type)).toEqual(['fire', 'spring']);
+    expect(terrainAt(game.state, cell).map((layer) => isFireType(layer.type))).toEqual([true, false]);
   });
 
   it('is what Fire, Wildfire and the Whelp\'s Scorch make', () => {
     for (const card of [CARDS.fire!, CARDS.wildfire!, INTENTS.whelp_scorch!]) {
-      expect(card.effects.some((effect) => effect.kind === 'terrain' && effect.element === 'fire'), card.id).toBe(true);
+      expect(card.effects.some((effect) => effect.kind === 'terrain' && effect.type === 'fire'), card.id).toBe(true);
     }
   });
 });
@@ -106,7 +108,7 @@ describe('the fire stats', () => {
   it('leave marks that are not fire alone', () => {
     const game = quiet();
     const cell = cellAt(game, 2);
-    define('mark_t', [{ kind: 'terrain', rounds: 3, colour: '#e43b44', effects: [{ kind: 'damage', amount: 3 }] }]);
+    define('mark_t', [{ kind: 'terrain', rounds: 3, type: 'spring', effects: [{ kind: 'damage', amount: 3 }] }]);
     hold(game, [{ stat: 'fireDamage', add: 5 }]);
     const enemy = dummy(game, cell);
     play(game, 'mark_t', cell);
@@ -156,7 +158,7 @@ describe('Rekindle and Flare', () => {
     play(game, 'fire_t', mine);
     play(game, 'fire_t', theirs);
     terrainAt(game.state, theirs)[0]!.ownerId = 'someone_else';
-    define('spring_t', [{ kind: 'terrain', rounds: 2, colour: '#63c74d', effects: [{ kind: 'heal', amount: 1 }] }]);
+    define('spring_t', [{ kind: 'terrain', rounds: 2, type: 'spring', effects: [{ kind: 'heal', amount: 1 }] }]);
     play(game, 'spring_t', mine);
     define('rekindle_t', [{ kind: 'rekindle', amount: 3 }], { targeting: 'self', range: 0 });
     play(game, 'rekindle_t');
@@ -213,7 +215,7 @@ describe('counting fires and allies', () => {
     const game = quiet();
     const self = player(game.state);
     define('fire_t', [fire(3)]);
-    define('spring_t', [{ kind: 'terrain', rounds: 2, colour: '#63c74d', effects: [{ kind: 'heal', amount: 1 }] }]);
+    define('spring_t', [{ kind: 'terrain', rounds: 2, type: 'spring', effects: [{ kind: 'heal', amount: 1 }] }]);
     play(game, 'fire_t', cellAt(game, 1));
     play(game, 'fire_t', cellAt(game, 3));
     play(game, 'spring_t', cellAt(game, 2));
@@ -250,7 +252,7 @@ describe('a gem that marks', () => {
       game.state.hand.push(card);
       expect(playCard(game, card.uid, target)).toBe(true);
     }
-    expect(terrainAt(game.state, entityCell(enemy)).map((layer) => layer.element)).toEqual(['fire']);
+    expect(terrainAt(game.state, entityCell(enemy)).map((layer) => layer.type)).toEqual(['fire']);
     expect(terrainAt(game.state, entityCell(self))).toEqual([]);
   });
 });

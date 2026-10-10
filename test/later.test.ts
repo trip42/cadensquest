@@ -295,7 +295,7 @@ describe('a Later that summons, marks, bursts and more', () => {
     const wolf = makeEntity('wolf', self.row + 1, self.col);
     game.state.entities.push(wolf);
     define('slow_fuse', [later(1, [
-      { kind: 'terrain', rounds: 2, colour: '#feae34', effects: [{ kind: 'block', amount: 2 }] },
+      { kind: 'terrain', rounds: 2, type: 'spring', effects: [{ kind: 'block', amount: 2 }] },
       { kind: 'area', radius: 1, colour: '#feae34', affects: 'foes', effects: [{ kind: 'damage', amount: 4 }] },
     ])]);
     play(game, 'slow_fuse');

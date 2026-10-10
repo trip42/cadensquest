@@ -39,7 +39,7 @@ function play(game: Game, cardId: string, target: Cell | null): boolean {
   return playCard(game, card.uid, target);
 }
 
-const burn = (damage: number, rounds = 3): Effect => ({ kind: 'terrain', rounds, colour: '#e43b44', effects: [{ kind: 'damage', amount: damage }] });
+const burn = (damage: number, rounds = 3): Effect => ({ kind: 'terrain', rounds, type: 'rallying_ground', effects: [{ kind: 'damage', amount: damage }] });
 
 /** Walk the player one step onto a cell and let the step finish. */
 function stepOnto(game: Game, cell: Cell): void {
@@ -54,11 +54,13 @@ describe('marking a tile', () => {
     const game = quiet();
     const cell = cellAt(game, 2);
     define('fire_a', [burn(3)]);
-    define('spring_a', [{ kind: 'terrain', rounds: 1, colour: '#63c74d', effects: [{ kind: 'heal', amount: 2 }] }]);
+    define('spring_a', [{ kind: 'terrain', rounds: 1, type: 'spring', effects: [{ kind: 'heal', amount: 2 }] }]);
     expect(play(game, 'fire_a', cell)).toBe(true);
     expect(play(game, 'spring_a', cell)).toBe(true);
     const layers = terrainAt(game.state, cell);
-    expect(layers.map((layer) => layer.colour)).toEqual(['#e43b44', '#63c74d']);
+    // Each its own type, and the type's colour.
+    expect(layers.map((layer) => layer.type)).toEqual(['rallying_ground', 'spring']);
+    expect(layers.map((layer) => layer.colour)).toEqual(['#fee761', '#63c74d']);
     expect(layers.map((layer) => layer.rounds)).toEqual([3, 1]);
   });
 
@@ -66,7 +68,7 @@ describe('marking a tile', () => {
     const game = quiet();
     game.state.energy = 3;
     const cell = cellAt(game, 2);
-    define('fire_x', [{ kind: 'terrain', rounds: { of: 'x' }, colour: '#e43b44', effects: [{ kind: 'damage', amount: { of: 'x', times: 2 } }] }], { cost: 'X' });
+    define('fire_x', [{ kind: 'terrain', rounds: { of: 'x' }, type: 'spring', effects: [{ kind: 'damage', amount: { of: 'x', times: 2 } }] }], { cost: 'X' });
     play(game, 'fire_x', cell);
     expect(terrainAt(game.state, cell)[0]).toMatchObject({ rounds: 3, effects: [{ kind: 'damage', amount: 6 }] });
   });
@@ -87,7 +89,7 @@ describe('marking a tile', () => {
     const game = quiet();
     const self = player(game.state);
     self.hp = 20;
-    define('spring_self', [{ kind: 'terrain', rounds: 2, colour: '#63c74d', effects: [{ kind: 'heal', amount: 5 }] }], { targeting: 'self', range: 0 });
+    define('spring_self', [{ kind: 'terrain', rounds: 2, type: 'spring', effects: [{ kind: 'heal', amount: 5 }] }], { targeting: 'self', range: 0 });
     play(game, 'spring_self', null);
     expect(terrainAt(game.state, entityCell(self))).toHaveLength(1);
     expect(self.hp).toBe(25);

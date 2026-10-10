@@ -20,6 +20,7 @@ import {
   validateContent,
 } from '~/game/content';
 import { trialText, type TrialKind } from '~/game/sandbox';
+import { DEFAULT_LOOK } from '~/game/terrain';
 
 /** The files that are lists of things, as opposed to run.json. */
 export type Collection = Exclude<ContentFile, 'run'>;
@@ -36,6 +37,7 @@ export const TABS: Array<{ file: ContentFile; label: string; one: string; trial?
   { file: 'enemy-cards', label: 'Enemy cards', one: 'enemy card', trial: 'enemy-card' },
   { file: 'gems', label: 'Gems', one: 'gem', trial: 'gem' },
   { file: 'talismans', label: 'Talismans', one: 'talisman', trial: 'talisman' },
+  { file: 'terrain', label: 'Terrain', one: 'terrain type' },
   { file: 'props', label: 'Props', one: 'prop' },
   { file: 'zones', label: 'Zones', one: 'zone', trial: 'zone' },
   { file: 'run', label: 'Starting deck', one: 'starting deck' },
@@ -64,6 +66,10 @@ const BLANK: Record<Exclude<Collection, 'zones'>, (id: string) => Record<string,
   talismans: (id) => ({
     id, name: 'New talisman', enabled: true, text: 'Draw one more card each turn.', icon: 'bag',
     modifiers: [{ stat: 'handSize', add: 1 }],
+  }),
+  terrain: (id) => ({
+    id, name: 'New terrain',
+    look: { ...DEFAULT_LOOK, colour: '#b36bd9' },
   }),
   props: (id) => ({
     id, name: 'New prop', type: 'obstacle',
@@ -236,6 +242,22 @@ export const useEditorStore = defineStore('editor', () => {
           if (chunk.guardians?.includes(id)) uses.push(`${zone.name}, chunk ${c + 1}'s guardians`);
         });
       }
+    }
+    if (file === 'terrain') {
+      // Every mark, wherever it sits: in a Later, a burst, a trail.
+      const marks = (effects: readonly unknown[] = []): number => effects.reduce<number>((sum, raw) => {
+        const effect = raw as { kind: string; type?: string; mark?: { type: string }; effects?: unknown[] };
+        if (effect.kind === 'terrain') return sum + (effect.type === id ? 1 : 0);
+        if (effect.kind === 'trail') return sum + (effect.mark?.type === id ? 1 : 0);
+        return sum + (effect.kind === 'later' || effect.kind === 'area' ? marks(effect.effects) : 0);
+      }, 0);
+      for (const card of content.cards) if (marks(card.effects)) uses.push(card.name);
+      for (const card of content['enemy-cards']) if (marks(card.effects)) uses.push(`${card.name} (enemy card)`);
+      for (const gem of content.gems) if (marks(gem.effects)) uses.push(`${gem.name} (gem)`);
+      for (const talisman of content.talismans) {
+        if (talisman.triggers?.some((trigger) => marks(trigger.effects))) uses.push(`${talisman.name} (talisman)`);
+      }
+      for (const enemy of content.enemies) if (marks(enemy.onDeath)) uses.push(`${enemy.name}, as it falls`);
     }
     if (file === 'props') {
       for (const zone of content.zones) {

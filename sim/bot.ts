@@ -27,6 +27,7 @@ import { gateRowOf } from '../app/game/map/tiles';
 import { priceOf } from '../app/game/shop';
 import { resolveStat } from '../app/game/stats';
 import { allies, enemies, type Game, type GameState, gemsOf, player, stat } from '../app/game/state';
+import { isFireType } from '../app/game/terrain';
 import { cardWorth } from './synergy';
 
 /** Seconds per tick when fast-forwarding animations. */
@@ -150,7 +151,7 @@ function markWorth(state: GameState, cell: Cell): number {
     if (layer.portal) worth += 30;
     // Heat counts, as the rules will land it.
     for (const effect of layerEffects(state, layer)) {
-      if (effect.kind === 'damage') worth -= warded && layer.element === 'fire' ? 0 : effect.amount;
+      if (effect.kind === 'damage') worth -= warded && isFireType(layer.type) ? 0 : effect.amount;
       else if (effect.kind === 'heal') worth += Math.min(effect.amount, self.maxHp - self.hp) * 0.6;
       else if (effect.kind === 'block') worth += effect.amount * 0.3;
       else if (effect.kind === 'draw' || effect.kind === 'energy') worth += effect.amount;

@@ -11,7 +11,7 @@
 import { computed } from 'vue';
 import type { ContentIssue, EffectData } from '~/game/content';
 import {
-  AREA_INFO, BOON_INFO, EFFECT_INFO, EFFECT_KINDS, type EffectKind, ELEMENTS, LATER_INFO, laterVerb, SUMMON_INFO, TERRAIN_INFO,
+  AREA_INFO, BOON_INFO, EFFECT_INFO, EFFECT_KINDS, type EffectKind, LATER_INFO, laterVerb, SUMMON_INFO, TERRAIN_INFO,
   TRAIL_INFO,
 } from '~/game/effects';
 import { STAT_KEYS, STAT_NAMES } from '~/game/stats';
@@ -59,18 +59,15 @@ function setBoonMode(effect: { add?: unknown; mul?: number }, mode: string): voi
 /** What can be summoned: every enemy in the draft but the guardians. */
 const editor = useEditorStore();
 const summonable = computed(() => (editor.draft?.enemies ?? []).filter((enemy) => !enemy.guardian));
+/** The terrain types a mark can be, from the Terrain tab. */
+const terrainTypes = computed(() => editor.draft?.terrain ?? []);
+const colourOf = (type: string) => terrainTypes.value.find((item) => item.id === type)?.look.colour ?? '#ffffff';
 
 /** A terrain mark's radius is optional: 0 or left out is the one tile. */
 function setRadius(effect: { radius?: number }, raw: string): void {
   const value = Math.max(0, Math.min(3, Math.round(Number(raw) || 0)));
   if (value) effect.radius = value;
   else delete effect.radius;
-}
-
-/** A mark's element is optional: left out, it is just a mark. */
-function setElement(effect: { element?: string }, value: string): void {
-  if (value) effect.element = value;
-  else delete effect.element;
 }
 
 /** A burst's `affects` is optional: left out, it hits everyone. */
@@ -99,7 +96,7 @@ function rowProblems(index: number): string[] {
 function setKind(index: number, kind: string): void {
   const current = props.effects[index]!;
   if (kind === 'terrain') {
-    props.effects[index] = { kind: 'terrain', rounds: 3, colour: '#e43b44', effects: [{ kind: 'damage', amount: 3 }] };
+    props.effects[index] = { kind: 'terrain', rounds: 3, type: terrainTypes.value[0]?.id ?? 'fire', effects: [{ kind: 'damage', amount: 3 }] };
   } else if (kind === 'area') {
     props.effects[index] = { kind: 'area', radius: 1, colour: '#feae34', effects: [{ kind: 'damage', amount: 4 }] };
   } else if (kind === 'later') {
@@ -109,7 +106,7 @@ function setKind(index: number, kind: string): void {
     props.effects[index] = { kind: 'summon', entity: first?.id ?? 'bug', amount: first?.maxHp ?? 6 };
   } else if (kind === 'trail') {
     props.effects[index] = {
-      kind: 'trail', rounds: 3, mark: { kind: 'terrain', rounds: 2, colour: '#e43b44', effects: [{ kind: 'damage', amount: 1 }], element: 'fire' },
+      kind: 'trail', rounds: 3, mark: { kind: 'terrain', rounds: 2, type: 'fire', effects: [{ kind: 'damage', amount: 1 }] },
     };
   } else if (kind === 'boon') {
     props.effects[index] = { kind: 'boon', stat: 'fireDamage', add: 2, rounds: 2 };
@@ -165,12 +162,10 @@ function move(index: number, by: number): void {
           <EditorAmountInput :effect="effect" field="rounds" :side="side" />
           <span class="op">rounds, each tile left is marked for</span>
           <EditorAmountInput :effect="effect.mark" field="rounds" :side="side" />
-          <span class="op">rounds, coloured</span>
-          <input v-model="effect.mark.colour" type="color" aria-label="Tile colour">
-          <span class="op">made of</span>
-          <select :value="effect.mark.element ?? ''" aria-label="Element" @change="setElement(effect.mark, ($event.target as HTMLSelectElement).value)">
-            <option value="">nothing special</option>
-            <option v-for="element in ELEMENTS" :key="element" :value="element">{{ element }}</option>
+          <span class="op">rounds, as</span>
+          <i class="swatch" :style="{ background: colourOf(effect.mark.type) }" />
+          <select v-model="effect.mark.type" aria-label="Terrain type" title="Defined on the Terrain tab: how it looks, and whether it counts as fire.">
+            <option v-for="type in terrainTypes" :key="type.id" :value="type.id">{{ type.name }}</option>
           </select>
         </span>
       </template>
@@ -195,15 +190,13 @@ function move(index: number, by: number): void {
         <span class="terrain-head">
           <span class="op">for</span>
           <EditorAmountInput :effect="effect" field="rounds" :side="side" />
-          <span class="op">rounds, coloured</span>
-          <input v-model="effect.colour" type="color" aria-label="Tile colour">
+          <span class="op">rounds, as</span>
+          <i class="swatch" :style="{ background: colourOf(effect.type) }" />
+          <select v-model="effect.type" aria-label="Terrain type" title="Defined on the Terrain tab: how it looks, and whether it counts as fire.">
+            <option v-for="type in terrainTypes" :key="type.id" :value="type.id">{{ type.name }}</option>
+          </select>
           <span class="op">over radius</span>
           <input :value="effect.radius ?? 0" type="number" min="0" max="3" class="num small" aria-label="Radius" @input="setRadius(effect, ($event.target as HTMLInputElement).value)">
-          <span class="op">made of</span>
-          <select :value="effect.element ?? ''" aria-label="Element" title="Fire is heated, lengthened and flared by the fire cards and stats, whoever lit it." @change="setElement(effect, ($event.target as HTMLSelectElement).value)">
-            <option value="">nothing special</option>
-            <option v-for="element in ELEMENTS" :key="element" :value="element">{{ element }}</option>
-          </select>
         </span>
       </template>
       <template v-else-if="effect.kind === 'area'">
@@ -290,6 +283,7 @@ function move(index: number, by: number): void {
 </template>
 
 <style scoped>
+.swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px solid rgba(255, 255, 255, 0.3); }
 .effects { display: flex; flex-direction: column; gap: 6px; }
 .effect {
   display: grid;

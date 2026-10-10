@@ -12,7 +12,7 @@ import type { Entity } from "./entities/types";
 import { floorRows, START_ROW, surfaceKind } from "./map/tiles";
 import { World } from "./map/world";
 import { createRng, type Rng, shuffle } from "./rng";
-import type { Effect, Element, TerrainEffect, TileEffect } from "./effects";
+import type { Effect, TerrainEffect, TileEffect } from "./effects";
 import { emptyTally, type GameEvent, record, type RunTally } from "./telemetry";
 import type { Reward } from "./rewards";
 import { resolveStat, type StatKey, type StatModifier } from "./stats";
@@ -45,9 +45,9 @@ export interface TerrainLayer {
   inside?: string[];
   colour: string;
   rounds: number;
-  /** What it is made of: fire is heated, lengthened and flared by the fire
-   *  cards and stats, whoever lit it. */
-  element?: Element;
+  /** Its terrain type (`game/terrain.ts`): what it is, how it looks, and
+   *  whether it counts as fire. None for a portal or a shop. */
+  type?: string;
   /** Who marked it, so a death by fire is credited to them. */
   ownerId: string;
   /** A way off the floor rather than a hazard: `down` to the next floor,

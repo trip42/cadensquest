@@ -22,6 +22,7 @@ import { layoutZones, type Zone, ZONES } from '../map/tiles';
 import { DEFAULT_REWARD_CONFIG } from '../rewards';
 import type { StatModifier } from '../stats';
 import { TALISMAN_IDS, TALISMANS } from '../talismans';
+import { TERRAIN } from '../terrain';
 import type { Content } from './schema';
 import { formatIssue, validateContent } from './validate';
 
@@ -86,6 +87,9 @@ export function installContent(content: Content): void {
     triggers: talisman.triggers as Trigger[] | undefined,
   }]));
   refill(TALISMAN_IDS, content.talismans.filter((talisman) => talisman.enabled).map((talisman) => talisman.id));
+
+  // Terrain types: what each mark is, and how it looks.
+  replaceAll(TERRAIN, content.terrain.map((type) => [type.id, { ...type, look: { ...type.look } }]));
 
   // Props, before the zones that place them.
   replaceAll(PROPS, content.props.map((prop) => [prop.id, {

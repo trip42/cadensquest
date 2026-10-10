@@ -73,8 +73,10 @@ import {
   type Phase,
   player,
   stat,
+  type TerrainLayer,
   wholeDeck,
 } from '~/game/state';
+import { terrainType } from '~/game/terrain';
 import { cellKey, type HighlightKind, type MapRenderer } from '~/render/renderer';
 
 /* One shape for a card wherever it is shown: in hand, among spoils, or in
@@ -617,10 +619,21 @@ export const useGameStore = defineStore('game', () => {
   /* The tip follows the enemy under the pointer. Updated from the render
      loop because the camera can move under a still mouse, but only written
      when something actually changed, so it does not churn every frame. */
-  /** A tile's marks, one line each: "take 3 damage · 2 rounds". */
+  /** A tile's marks, one line each: "Fire: take 3 damage · 2 rounds". A
+   *  mark that does nothing by itself says what its type is for. */
   function groundOf(cell: Cell): GroundLine[] {
     if (!game) return [];
     const { state } = game;
+    const markLine = (layer: TerrainLayer): string => {
+      const type = terrainType(layer.type);
+      const empty = !layer.effects.length && !layer.enter && !layer.exit;
+      const what = empty && type?.text ? type.text : describeMark(
+        layerEffects(state, layer),
+        layer.enter && layerEffects(state, layer, layer.enter),
+        layer.exit && layerEffects(state, layer, layer.exit),
+      );
+      return type ? `${type.name}: ${what}` : what;
+    };
     return terrainAt(state, cell).map((layer) => ({
       colour: layer.colour,
       text: layer.portal === 'out'
@@ -629,13 +642,7 @@ export const useGameStore = defineStore('game', () => {
           ? `Step on to go down to ${ZONES[state.floor + 1]?.name ?? 'the next floor'}`
           : layer.shop
           ? 'Step on to trade coins for cards, gems, a talisman or a removal'
-          : layer.element === 'oil' && !layer.effects.length && !layer.enter && !layer.exit
-          ? `Oil: fire lit on it spreads across the slick · ${layer.rounds} round${layer.rounds === 1 ? '' : 's'}`
-          : `${describeMark(
-            layerEffects(state, layer),
-            layer.enter && layerEffects(state, layer, layer.enter),
-            layer.exit && layerEffects(state, layer, layer.exit),
-          )} · ${layer.rounds} round${layer.rounds === 1 ? '' : 's'}`,
+          : `${markLine(layer)} · ${layer.rounds} round${layer.rounds === 1 ? '' : 's'}`,
     }));
   }
 

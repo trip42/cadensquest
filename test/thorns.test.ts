@@ -104,7 +104,7 @@ describe('thorns', () => {
     const wolf = wolfAt(game, 1);
     wolf.thorns = 3;
     const hp = player(game.state).hp;
-    define('scorch', [{ kind: 'terrain', rounds: 2, colour: '#e43b44', effects: [{ kind: 'damage', amount: 2 }] }], { targeting: 'cell', range: 1 });
+    define('scorch', [{ kind: 'terrain', rounds: 2, type: 'spring', effects: [{ kind: 'damage', amount: 2 }] }], { targeting: 'cell', range: 1 });
     play(game, 'scorch', entityCell(wolf));
     expect(wolf.hp).toBe(wolf.maxHp - 2);
     expect(player(game.state).hp).toBe(hp);

@@ -10,11 +10,12 @@
 import { z } from 'zod';
 import { RARITIES, TARGETINGS } from '../cards/types';
 import {
-  AMOUNT_SOURCE_KEYS, AREA_AFFECTS, type AmountSource, type AreaAffects, EFFECT_KINDS, type EffectKind, type Element, ELEMENTS,
+  AMOUNT_SOURCE_KEYS, AREA_AFFECTS, type AmountSource, type AreaAffects, EFFECT_KINDS, type EffectKind,
   TRIGGER_POINTS,
 } from '../effects';
 import { REWARD_KINDS } from '../rewards';
 import { STAT_KEYS, type StatKey } from '../stats';
+import { MARK_SHAPES } from '../terrain';
 
 const count = (min = 0, max = 999) => z.number().int('must be a whole number').min(min).max(max);
 
@@ -49,14 +50,13 @@ const colourSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'a colour like #d9544
 export const terrainEffectSchema = z.strictObject({
   kind: z.literal('terrain'),
   rounds: amountSchema,
-  colour: colourSchema,
+  /** Its terrain type, from terrain.json: what it is and how it looks. */
+  type: idSchema,
   effects: z.array(simpleEffectSchema),
   enter: z.array(simpleEffectSchema).optional(),
   exit: z.array(simpleEffectSchema).optional(),
   /** Mark every tile within this many steps of the target too. */
   radius: count(0, 3).optional(),
-  /** What it is made of: "fire" for the fire cards and stats to find. */
-  element: z.enum(ELEMENTS as [Element, ...Element[]]).optional(),
 });
 
 /** Effects that land on whoever played it, `rounds` rounds from now, with
@@ -261,6 +261,31 @@ export const zoneChunkSchema = z.strictObject({
   })).optional(),
 });
 
+/** A terrain type: what a marked tile is, defined once and named by every
+ *  mark of it — its name, how it looks, and whether it counts as fire. */
+export const terrainTypeSchema = z.strictObject({
+  id: idSchema,
+  name: nameSchema,
+  /** For the tooltip when a mark of it does nothing by itself (oil). */
+  text: z.string().optional(),
+  /** Counts as fire, for the fire cards and stats. */
+  fire: z.boolean().optional(),
+  look: z.strictObject({
+    colour: colourSchema,
+    shape: z.enum(MARK_SHAPES),
+    size: z.number().min(0.2).max(1),
+    height: z.number().min(0).max(60),
+    spin: z.number().min(-3).max(3),
+    bounceSpeed: z.number().min(0).max(12),
+    bounceHeight: z.number().min(0).max(20),
+    particles: count(0, 40),
+    particleHeight: z.number().min(0).max(120),
+    particleColour: colourSchema.optional(),
+    border: z.number().min(0).max(6),
+    borderColour: colourSchema.optional(),
+  }),
+});
+
 /** Something standing on the map: a tree, a barn, a shop. Its type says
  *  what it does — an obstacle blocks the tile, a shop is walked onto to
  *  trade. */
@@ -304,6 +329,7 @@ export const FILE_SCHEMAS = {
   gems: z.array(gemSchema),
   talismans: z.array(talismanSchema),
   props: z.array(propSchema),
+  terrain: z.array(terrainTypeSchema),
   zones: z.array(zoneSchema),
   run: runSchema,
 } as const;
@@ -318,6 +344,7 @@ export type GemData = z.infer<typeof gemSchema>;
 export type TalismanData = z.infer<typeof talismanSchema>;
 export type ZoneData = z.infer<typeof zoneSchema>;
 export type PropData = z.infer<typeof propSchema>;
+export type TerrainTypeData = z.infer<typeof terrainTypeSchema>;
 export type RunData = z.infer<typeof runSchema>;
 export type EffectData = z.infer<typeof effectSchema>;
 export type AmountData = z.infer<typeof amountSchema>;
@@ -330,6 +357,7 @@ export interface Content {
   gems: GemData[];
   talismans: TalismanData[];
   props: PropData[];
+  terrain: TerrainTypeData[];
   zones: ZoneData[];
   run: RunData;
 }

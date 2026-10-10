@@ -13,6 +13,7 @@ import { tick } from '../game/actions';
 import { entityDef } from '../game/entities/definitions';
 import { type Entity, STATIC_ANIMATIONS } from '../game/entities/types';
 import type { PropDefinition } from '../game/map/props';
+import { terrainType } from '../game/terrain';
 import type { Cell } from '../game/map/navigation';
 import { floorRows, KIND_OF, type FacePalette, LAYOUT, type TileKind, type TileLetter, VOID, ZONES } from '../game/map/tiles';
 import type { Game, TerrainLayer } from '../game/state';
@@ -42,6 +43,7 @@ import {
 } from './iso';
 import { BACKDROP_DIM, backdropFor } from './backdrops';
 import { Juice, type Stage } from './juice';
+import { drawBadges, drawMark, MAX_BADGES, plainLook } from './marks';
 import { frameFor, type SourceFrame } from './sprites';
 
 export type HighlightKind = 'move' | 'target' | 'path' | 'hover';
@@ -623,121 +625,31 @@ export class MapRenderer implements Stage {
     );
   }
 
-  /* A marked tile, drawn in three layers so it reads as something sitting
-     on the ground rather than a tint of it:
-
-       - a faint stain on the tile itself, which reads as the shadow of —
-       - a plate hovering a few units above the tile, bobbing slowly, with a
-         stripe across it for each mark in the mark's own colour (fire and
-         a healing spring on one tile read as red and green, not a blend)
-         and highlights drifting over it the way the water's do —
-       - motes in the marks' colours rising off it and fading.
-
-     Past three marks the three newest show, and a count says how many.
-     Positions come from `hash`, so each tile's motes are its own and never
-     crawl as the camera moves; time only drives the motion. */
+  /* A marked tile, each mark drawn from its terrain type's look
+     (`render/marks.ts`). The newest is drawn in full; any others on the
+     same tile stand round it as small badges of their own shapes and
+     colours, so several marks never blur into one — and past a handful a
+     count says how many. The tooltip lists them all. */
   private drawMarks(sx: number, ty: number, marks: readonly TerrainLayer[], row: number, col: number, now: number): void {
     const ctx = this.ctx;
-    const shown = marks.slice(-3);
-    const phase = (row + col) * 0.9;
     const t = now / 1000;
+    const at = { x: sx, y: ty, row, col };
+    const looks = marks.map((mark) => terrainType(mark.type)?.look ?? plainLook(mark.colour));
+    drawMark(ctx, looks.at(-1)!, at, t, this.palette.ink);
+    drawBadges(ctx, looks.slice(0, -1), at, t, this.palette.ink);
 
-    // The stain: the stripes, faintly, in a circle on the tile itself —
-    // the largest circle that sits inside the tile's diamond.
-    this.stripes(sx, ty, 0.7, shown, 0.28);
-
-    // The plate: a smaller circle, raised and bobbing.
-    const lift = 11 + Math.sin(t * 2 + phase) * 2;
-    const py = ty - lift;
-    const scale = 0.62;
-    const rx = HW * scale;
-    const ry = HH * scale;
-
-    // Its side: the front of a short cylinder from the ground up to the
-    // plate — the first mark's colour on the left half, the newest on the
-    // right — brightest at the base and fading upward.
-    const halves: Array<[number, string]> = [[-1, shown[0]!.colour], [1, shown.at(-1)!.colour]];
-    for (const [side, colour] of halves) {
-      const glow = ctx.createLinearGradient(0, ty + ry, 0, py);
-      glow.addColorStop(0, withAlpha(colour, 0.5));
-      glow.addColorStop(1, withAlpha(colour, 0.08));
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(side < 0 ? sx - rx - 1 : sx, py - ry, rx + 1, ty - py + ry * 2 + 1);
-      ctx.clip();
-      ctx.fillStyle = glow;
-      ctx.beginPath();
-      ctx.moveTo(sx - rx, py);
-      ctx.lineTo(sx - rx, ty);
-      ctx.ellipse(sx, ty, rx, ry, 0, Math.PI, 0, true);     // front of the base
-      ctx.lineTo(sx + rx, py);
-      ctx.ellipse(sx, py, rx, ry, 0, 0, Math.PI, false);    // front of the plate
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-    }
-
-    this.stripes(sx, py, scale, shown, 0.62);
-
-    // Highlights drifting across it, as on the water.
-    ctx.save();
-    markCircle(ctx, sx, py, scale);
-    ctx.clip();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    for (let i = 0; i < 2; i += 1) {
-      const y = py + Math.sin(t * 1.4 + phase + i * 2.4) * HH * 0.3 + (i - 0.5) * 6;
-      ctx.moveTo(sx - HW * 0.28, y);
-      ctx.lineTo(sx + HW * 0.28, y);
-    }
-    ctx.stroke();
-    ctx.restore();
-
-    // Its rim, in the newest mark's colour, and a darker lip under it for
-    // thickness.
-    ctx.save();
-    ctx.globalAlpha = 0.5;
-    ctx.strokeStyle = this.palette.ink;
-    ctx.lineWidth = 2;
-    markCircle(ctx, sx, py + 2, scale);
-    ctx.stroke();
-    ctx.globalAlpha = 0.95;
-    ctx.strokeStyle = shown.at(-1)!.colour;
-    ctx.lineWidth = 1.5;
-    markCircle(ctx, sx, py, scale);
-    ctx.stroke();
-    ctx.restore();
-
-    // Motes rising off it, each a mark's colour, fading as they climb.
-    const MOTES = 9;
-    const RISE = 38;
-    ctx.save();
-    for (let i = 0; i < MOTES; i += 1) {
-      const a = hash(row, col, i + 300) * 2 - 1;
-      const b = hash(row, col, i + 340) * 2 - 1;
-      const speed = 0.35 + hash(row, col, i + 380) * 0.3;
-      const age = (t * speed + hash(row, col, i + 420)) % 1;
-      const mark = shown[i % shown.length]!;
-      ctx.globalAlpha = 0.85 * (1 - age);
-      ctx.fillStyle = mark.colour;
-      const x = sx + (a - b) * HW * 0.45 * scale;
-      const y = py + (a + b) * HH * 0.45 * scale - age * RISE;
-      ctx.fillRect(Math.round(x) - 2, Math.round(y) - 2, 4, 4);
-    }
-    ctx.restore();
-
-    if (marks.length > shown.length) {
+    if (marks.length > MAX_BADGES + 1) {
       const { ink, text, font } = this.palette;
       ctx.font = `8px ${font}`;
       const label = `×${marks.length}`;
       const w = Math.ceil(ctx.measureText(label).width) + 6;
+      const y = ty + HH * 0.55;
       ctx.fillStyle = ink;
-      ctx.fillRect(Math.round(sx - w / 2), Math.round(py - 6), w, 11);
+      ctx.fillRect(Math.round(sx - w / 2), Math.round(y - 6), w, 11);
       ctx.fillStyle = text;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(label, sx, py);
+      ctx.fillText(label, sx, y);
       ctx.textAlign = 'start';
       ctx.textBaseline = 'alphabetic';
     }
@@ -878,21 +790,6 @@ export class MapRenderer implements Stage {
 
   /** A circle (an ellipse, seen at this angle) filled with a vertical
    *  stripe per mark. */
-  private stripes(sx: number, sy: number, scale: number, marks: readonly TerrainLayer[], alpha: number): void {
-    const ctx = this.ctx;
-    const w = TILE_W * scale;
-    const band = w / marks.length;
-    ctx.save();
-    markCircle(ctx, sx, sy, scale);
-    ctx.clip();
-    ctx.globalAlpha = alpha;
-    marks.forEach((mark, i) => {
-      ctx.fillStyle = mark.colour;
-      ctx.fillRect(sx - w / 2 + i * band, sy - (TILE_H * scale) / 2, band + 0.5, TILE_H * scale);
-    });
-    ctx.restore();
-  }
-
   /** One block: two walls, and a top face only when nothing is stacked on
    *  it. A buried block never sinks, so no seam can open above it. */
   private drawBlock(
@@ -1354,12 +1251,6 @@ export class MapRenderer implements Stage {
 }
 
 /** Where a character is right now — between two cells while it walks. */
-/** A #rrggbb colour as rgba, at this opacity. */
-function withAlpha(hex: string, alpha: number): string {
-  const value = Number.parseInt(hex.slice(1), 16);
-  return `rgba(${(value >> 16) & 0xff}, ${(value >> 8) & 0xff}, ${value & 0xff}, ${alpha})`;
-}
-
 /** A circle lying flat on the ground, which the projection turns into an
  *  ellipse half as tall as it is wide — the tile's own proportions. At
  *  scale 1 it passes through the tile's corners; 0.7 sits inside it. */

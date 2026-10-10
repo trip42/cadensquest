@@ -315,14 +315,13 @@
       {
         "kind": "terrain",
         "rounds": 3,
-        "colour": "#e43b44",
+        "type": "fire",
         "effects": [
           {
             "kind": "damage",
             "amount": 3
           }
-        ],
-        "element": "fire"
+        ]
       }
     ]
   },
@@ -340,7 +339,7 @@
       {
         "kind": "terrain",
         "rounds": 3,
-        "colour": "#63c74d",
+        "type": "spring",
         "effects": [
           {
             "kind": "heal",
@@ -472,15 +471,14 @@
         "rounds": {
           "of": "x"
         },
-        "colour": "#f77622",
+        "type": "fire",
         "effects": [
           {
             "kind": "damage",
             "amount": 2
           }
         ],
-        "radius": 1,
-        "element": "fire"
+        "radius": 1
       }
     ]
   },
@@ -720,7 +718,7 @@
       {
         "kind": "terrain",
         "rounds": 3,
-        "colour": "#fee761",
+        "type": "rallying_ground",
         "effects": [],
         "enter": [
           {
@@ -833,14 +831,13 @@
       {
         "kind": "terrain",
         "rounds": 2,
-        "colour": "#e43b44",
+        "type": "fire",
         "effects": [
           {
             "kind": "damage",
             "amount": 2
           }
-        ],
-        "element": "fire"
+        ]
       }
     ]
   },
@@ -939,14 +936,13 @@
         "mark": {
           "kind": "terrain",
           "rounds": 2,
-          "colour": "#e43b44",
+          "type": "fire",
           "effects": [
             {
               "kind": "damage",
               "amount": 1
             }
-          ],
-          "element": "fire"
+          ]
         }
       }
     ]
@@ -989,14 +985,13 @@
       {
         "kind": "terrain",
         "rounds": 2,
-        "colour": "#e43b44",
+        "type": "fire",
         "effects": [
           {
             "kind": "damage",
             "amount": 3
           }
-        ],
-        "element": "fire"
+        ]
       }
     ]
   },
@@ -1303,10 +1298,9 @@
       {
         "kind": "terrain",
         "rounds": 4,
-        "colour": "#3e2731",
+        "type": "oil",
         "effects": [],
-        "radius": 1,
-        "element": "oil"
+        "radius": 1
       }
     ]
   },

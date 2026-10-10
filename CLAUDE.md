@@ -109,6 +109,8 @@ app/game/            the simulation — no Vue, no DOM (see the rule above)
   gems.ts talismans.ts rewards.ts   registries and reward rolling; gems.ts
                        also gemMods/gemmedDef (a gem changing its card)
   shop.ts              shops: stock (rollStock), SHOP_PRICES
+  terrain.ts           TERRAIN (terrain types, filled from content): a
+                       mark's name, look (MarkLook) and fire flag
   telemetry.ts         GameEvent, record(), the run tally
   cues.ts              what just happened, for the screen and speakers: cue()
   sandbox.ts           trials: a run with one thing arranged (?try=)
@@ -137,6 +139,8 @@ app/render/          canvas renderer — DOM, still no Vue
   sprites.ts           SHEET_FILES registry, frameFor, placeholder art
   backdrops.ts         each floor's background picture, found by its name
   glyphs.ts            placeholder line art for cards and talismans
+  marks.ts             a marked tile from its type's look: drawMark,
+                       drawBadges, shapePath (the map and the editor)
   renderer.ts          frame loop, depth order, highlights, entities, marked
                        tiles (drawMarks), ally/summon rings, chips
 app/stores/game.ts   bridge: raw game in, view snapshot out, tooltips
@@ -469,7 +473,7 @@ Two rules keep fights from being skippable:
 
 ## Content
 
-Cards, enemy cards, enemies, gems, talismans, props, zones (all of them:
+Cards, enemy cards, enemies, gems, talismans, terrain types, props, zones (all of them:
 name, colours, terrain, chunks) and the starting deck are **JSON in `content/`**,
 not code. What stays in code: the effect verbs (`resolveEffect`), the
 player's definition, sprite sheet files and glyphs. The editor can add a
@@ -644,8 +648,9 @@ from `EFFECT_INFO`: `damage`, `block`, `loseBlock`, `heal`, `power`,
 `losePower`, `thorns`, `movement`, `energy`, `draw`, `step` (Leap),
 `advance`, `tame`, `mend`, `push` (Knockback), `pull`, `rekindle`, `flare`,
 `echo`, `command`.
-**Terrain** is `{ kind: "terrain", rounds, colour, effects: [simple...],
-enter?, exit?, radius? }`.
+**Terrain** is `{ kind: "terrain", rounds, type, effects: [simple...],
+enter?, exit?, radius? }`, `type` naming a terrain type (see **Terrain
+types**).
 **Summon** is `{ kind: "summon", entity, amount, rounds? }`. **Area** is
 `{ kind: "area", radius, colour, affects?, effects: [simple...] }`.
 **Later** is `{ kind: "later", rounds, effects: [simple...] }`. **Boon** is
@@ -708,15 +713,37 @@ once per round per tile**, so crossing fire burns once, standing in it
 burns every round, and pacing a healing tile heals once a round. Enemies do
 not path around marks, on purpose: fire is a way to route them. A
 cell-targeted card that only marks may target an occupied tile; one that
-leaps still needs an empty one. Drawing: `drawMarks` — a faint round stain,
-a round plate hovering above it (bobbing, with drifting highlights) joined
-to the ground by a glowing cylinder, and rising motes; a stripe per mark in
-its colour (newest three, then a count), never a blend. Circles are
-ellipses at the tile's 2:1 proportions (`markCircle`); the shared
-`diamondPath` is left alone because every tile top and highlight uses it.
-Tuning dials are at the top of `drawMarks`. Hovering a tile (`TileTip`) or
-a creature on one lists the effects and rounds left, never the card that
-made them.
+leaps still needs an empty one. Drawing is the type's look (see **Terrain
+types**). Hovering a tile (`TileTip`) or a creature on one lists each
+mark as its type's name, its effects and rounds left ("Fire: take 3
+damage · 2 rounds"), never the card that made it.
+
+**Terrain types.** What a mark *is* — Fire, Oil, Spring — is content,
+`content/terrain.json`, with its own editor tab: a name, an optional `text`
+(what it is for, shown on the tooltip when the mark itself does nothing;
+a type with text may be laid with no effects, as oil is), `fire` (counts
+as fire, below), and a `look`. Every terrain effect names one (`type`),
+and the layer it lays copies the type and its colour, for cues and
+tooltips. The card still says what the tile does and for how long, so
+Kindle and Wildfire are both Fire with different damage. A mark naming a
+type that is not there (a test's own card) is drawn plain and is not fire;
+the validator refuses one in content.
+
+- **The look** (`MarkLook`): colour, shape (circle, square, diamond,
+  triangle, hexagon, star, cross, ring), size, height, spin (turns a
+  second), bounce speed and height, particles and their height and colour,
+  border thickness and colour. `DEFAULT_LOOK` is how every mark looked
+  before looks existed. `render/marks.ts` draws it — a faint stain of the
+  shape on the tile, the plate floating over it with drifting highlights
+  and a rim, a glow joining them, motes rising — and both the renderer and
+  the editor's live preview (`MarkPreview`) call it, so the tab shows what
+  a run draws. Shapes lie flat at the tile's 2:1 proportions and spin on
+  the ground (`shapePath`).
+- **Several marks on one tile**: the newest is drawn in full, and up to
+  `MAX_BADGES` (4) others stand round its front as small copies of their
+  own shapes in their own colours (`drawBadges`); past that a count says
+  how many. The user chose this over stacking plates, laying them side by
+  side or taking turns; the tooltip lists every mark.
 
 **Enter and exit.** A mark may also carry `enter` and `exit` lists (and
 then its `effects` may be empty; the validator wants at least one of the
@@ -730,13 +757,14 @@ once-a-round guard, so pair a gain with an exit that takes it back:
 Rallying Ground is +1 power on entering and Lose 1 power on leaving, which
 the card text reads as "whoever stands on it deals 1 more damage".
 
-**Fire.** A mark may say what it is made of: `"element": "fire"`, copied
-onto its `TerrainLayer`. Fire, Wildfire and the Whelp's Scorch are fire.
+**Fire.** A terrain type may count as fire (`"fire": true`), and so may
+every mark of it (`isFireType`). Fire, Wildfire and the Whelp's Scorch
+are the type Fire.
 Fire has no side: anything that heats, lengthens or counts fire works on
 every burning tile, whoever lit it — the Whelp's under you as much as yours
 under them — and a death by fire is still credited to whoever lit it.
 
-- **Oil** (`"element": "oil"`) does nothing alone, and may be a mark with
+- **Oil** (the type `oil`) does nothing alone, and may be a mark with
   no effects. Fire lit on an oiled tile spreads across the whole connected
   slick at once (`ignite`: a four-way flood fill in `markTile`); each oiled
   tile it reaches burns, and loses its oil. It works the other way round

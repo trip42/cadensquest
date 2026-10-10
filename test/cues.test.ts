@@ -124,10 +124,11 @@ describe('cues', () => {
     const game = quiet();
     const spot = away(game, 2);
     const wolf = foe(game, spot);
-    define('fire', [{ kind: 'terrain', rounds: 2, colour: '#e43b44', effects: [{ kind: 'damage', amount: 3 }] }], { targeting: 'cell', range: 3 });
+    define('fire', [{ kind: 'terrain', rounds: 2, type: 'spring', effects: [{ kind: 'damage', amount: 3 }] }], { targeting: 'cell', range: 3 });
     const marked = during(game, () => play(game, 'fire', spot));
     expect(types(marked)).toEqual(['play', 'mark', 'hit']);
-    expect(marked[1]).toMatchObject({ cells: [spot], colour: '#e43b44' });
+    // The mark's colour is its type's: Spring's green.
+    expect(marked[1]).toMatchObject({ cells: [spot], colour: '#63c74d' });
     expect(marked[2]).toMatchObject({ target: wolf.id, via: 'tile', amount: 3 });
 
     define('blast', [{ kind: 'area', radius: 1, colour: '#feae34', effects: [{ kind: 'damage', amount: 4 }] }], { targeting: 'cell', range: 3 });

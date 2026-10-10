@@ -12,6 +12,7 @@
 import { cardDef } from '../app/game/cards/definitions';
 import type { CardDefinition, CardInstance } from '../app/game/cards/types';
 import { type Effect, isArea, isBoon, isLater, isScaled, isSummon, isTerrain, isTrail, type SimpleEffect } from '../app/game/effects';
+import { isFireType } from '../app/game/terrain';
 import { gemDef } from '../app/game/gems';
 
 export type Tag = 'fire' | 'power' | 'ally' | 'shove';
@@ -40,11 +41,11 @@ export function roleOf(effects: readonly Effect[]): Role {
       // What the tile gives whoever is on it counts too: Rallying Ground's
       // power on entering is power.
       for (const tile of [...effect.effects, ...(effect.enter ?? [])]) if (tile.kind === 'power') gives.add('power');
-      if (effect.element === 'fire') gives.add('fire');
+      if (isFireType(effect.type)) gives.add('fire');
       // Oil is nothing until a fire finds it.
-      if (effect.element === 'oil') needs.add('fire');
+      if (effect.type === 'oil') needs.add('fire');
     } else if (isTrail(effect)) {
-      if (effect.mark.element === 'fire') gives.add('fire');
+      if (isFireType(effect.mark.type)) gives.add('fire');
     } else if (isSummon(effect)) {
       gives.add('ally');
     } else if (isBoon(effect)) {

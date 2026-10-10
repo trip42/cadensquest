@@ -2,11 +2,12 @@
 /* What the thing being edited looks like in the game, drawn with the
    game's own pieces — the real card component, the real sprite crop, the
    HUD's own panels — from the unsaved draft, so every keystroke shows. */
+import EditorMarkPreview from '~/components/editor/MarkPreview.vue';
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { cardMovement } from '~/game/cards/definitions';
 import type { CardDefinition } from '~/game/cards/types';
 import type {
-  CardData, Content, ContentFile, EnemyCardData, EnemyData, GemData, PropData, TalismanData, ZoneData,
+  CardData, Content, ContentFile, EnemyCardData, EnemyData, GemData, PropData, TalismanData, TerrainTypeData, ZoneData,
 } from '~/game/content';
 import {
   amountOf, type AmountValues, describeEffect, describeMark, describeTileEffect, type Effect, isArea, isLater, isSummon, isTerrain, nowText,
@@ -19,6 +20,7 @@ import { glyph } from '~/render/glyphs';
 // By hand: a dev server started before this component existed would not
 // find it by auto-import (see CLAUDE.md).
 import ZoneMap from './ZoneMap.vue';
+import { useEditorStore } from '~/stores/editor';
 
 const props = defineProps<{
   file: ContentFile;
@@ -72,7 +74,8 @@ const marks = computed(() => {
     const rounds = amountOf(effect.rounds, values);
     const fix = (list: typeof effect.effects = []) => list.map((tile) => ({ kind: tile.kind, amount: amountOf(tile.amount, values) }));
     const text = describeMark(fix(effect.effects), fix(effect.enter), fix(effect.exit));
-    return { colour: effect.colour, text: `${text} · ${rounds} round${rounds === 1 ? '' : 's'}` };
+    const type = props.content.terrain.find((item) => item.id === effect.type);
+    return { colour: type?.look.colour ?? '#ffffff', text: `${type ? `${type.name}: ` : ''}${text} · ${rounds} round${rounds === 1 ? '' : 's'}` };
   });
 });
 /* What a burst does to each creature it catches, from the same sample
@@ -152,6 +155,12 @@ const gemHost = computed(() => {
 });
 
 const talisman = computed(() => (props.file === 'talismans' ? (props.item as TalismanData) : null));
+
+const terrain = computed(() => (props.file === 'terrain' ? (props.item as TerrainTypeData) : null));
+/** The other types, to show how this one stands among them on one tile. */
+const otherLooks = computed(() => props.content.terrain.filter((type) => type !== terrain.value).slice(0, 2).map((type) => type.look));
+const editorStore = useEditorStore();
+const terrainUses = computed(() => (terrain.value ? editorStore.usesOf('terrain', terrain.value.id) : []));
 
 const prop = computed(() => (props.file === 'props' ? (props.item as PropData) : null));
 /** Where a prop stands: each zone and chunk, how often, at most how many. */
@@ -349,6 +358,30 @@ watch(() => [card.value?.name, card.value?.text, cardNow.value], measure);
         </div>
       </div>
       <p class="caption">As it sits on the rail, and its details on hover</p>
+    </template>
+
+    <!-- A terrain type: its mark on a tile, alone and among others. -->
+    <template v-else-if="terrain">
+      <div class="arena">
+        <EditorMarkPreview :look="terrain.look" :scale="1.5" />
+      </div>
+      <p class="caption">As the map draws it</p>
+      <div class="arena">
+        <EditorMarkPreview :look="terrain.look" :others="otherLooks" :scale="1" />
+      </div>
+      <p class="caption">Newest on a tile with others: they stand round it as badges</p>
+      <div class="panel foe-tip">
+        <p class="tip-name">{{ terrain.name }}</p>
+        <p class="line">
+          <span v-if="terrain.fire" class="px-tag is-red">FIRE</span>
+          {{ terrain.text || 'What it does comes from the card that lays it.' }}
+        </p>
+      </div>
+      <div class="panel note">
+        <p class="note-title">Laid by</p>
+        <p v-for="use in terrainUses" :key="use">{{ use }}</p>
+        <p v-if="!terrainUses.length" class="muted">Nothing yet — pick it on a card's terrain effect.</p>
+      </div>
     </template>
 
     <!-- A prop, standing on a tile as the map draws it, and where it stands. -->

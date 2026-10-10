@@ -191,15 +191,14 @@
           {
             "kind": "terrain",
             "rounds": 2,
-            "colour": "#e43b44",
+            "type": "fire",
             "effects": [
               {
                 "kind": "damage",
                 "amount": 2
               }
             ],
-            "radius": 1,
-            "element": "fire"
+            "radius": 1
           }
         ]
       }

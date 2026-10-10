@@ -146,7 +146,7 @@ describe('terrain with a radius', () => {
   it('marks every walkable tile in the diamond, each on its own', () => {
     const game = quiet();
     const { center } = crowd(game);
-    define('wildfire', [{ kind: 'terrain', rounds: 2, colour: '#e43b44', radius: 1, effects: [{ kind: 'damage', amount: 2 }] }]);
+    define('wildfire', [{ kind: 'terrain', rounds: 2, type: 'spring', radius: 1, effects: [{ kind: 'damage', amount: 2 }] }]);
     play(game, 'wildfire', center);
     for (const cell of cellsWithin(game, center, 1)) expect(terrainAt(game.state, cell)).toHaveLength(1);
     expect(terrainAt(game.state, cellsAt(game, 6)[0]!)).toEqual([]);

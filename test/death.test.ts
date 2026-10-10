@@ -71,7 +71,7 @@ describe('as a creature falls', () => {
       ...entityDef('wolf'),
       onDeath: [
         { kind: 'area', radius: 1, colour: '#e43b44', effects: [{ kind: 'damage', amount: 4 }] },
-        { kind: 'terrain', rounds: 2, colour: '#f77622', effects: [{ kind: 'damage', amount: 2 }], element: 'fire' },
+        { kind: 'terrain', rounds: 2, type: 'fire', effects: [{ kind: 'damage', amount: 2 }] },
       ],
     };
     const wolf = beside(game, 'wolf');

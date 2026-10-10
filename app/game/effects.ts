@@ -103,13 +103,15 @@ export interface SimpleEffect {
    tile, so crossing fire burns once, standing in it burns every round, and
    pacing a healing spring heals once a round. Marking an occupied tile
    hits whoever is there at once. Marks on one tile stack as layers, each
-   with its own colour and its own rounds left. */
+   with its own type and its own rounds left. */
 export interface TerrainEffect {
   kind: 'terrain';
   /** How many rounds the mark lasts. A round ends as a new turn starts. */
   rounds: Amount;
-  /** The tile's tint while marked, like "#e43b44". */
-  colour: string;
+  /** What it is — "fire", "oil" — a terrain type from content
+   *  (`game/terrain.ts`): its name, its look, and whether it counts as
+   *  fire. */
+  type: string;
   /** What happens to whoever is on it. Simple effects only. */
   effects: SimpleEffect[];
   /** Once, as a creature arrives on the tile, or when the tile is marked
@@ -123,16 +125,7 @@ export interface TerrainEffect {
   /** Mark every tile within this many steps of the target too, not just
    *  the target — a whole burning area. 0 or left out: the one tile. */
   radius?: number;
-  /** What the mark is made of, for the cards and stats that care: "fire"
-   *  is heated, lengthened and flared by them. Left out, it is just a mark. */
-  element?: Element;
 }
-
-/* What a mark can be made of. Fire has no side: whatever boosts, lengthens
-   or counts fire works on every burning tile, whoever lit it. Oil does
-   nothing alone; fire lit on it spreads across the whole slick at once. */
-export type Element = 'fire' | 'oil';
-export const ELEMENTS: Element[] = ['fire', 'oil'];
 
 /** Every simple effect a burst carries, those inside a Later included. */
 export const burstEffects = (effect: AreaEffect): SimpleEffect[] =>

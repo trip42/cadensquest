@@ -1,0 +1,68 @@
+[
+  {
+    "id": "fire",
+    "name": "Fire",
+    "fire": true,
+    "look": {
+      "colour": "#e43b44",
+      "shape": "circle",
+      "size": 0.62,
+      "height": 11,
+      "spin": 0,
+      "bounceSpeed": 2,
+      "bounceHeight": 2,
+      "particles": 9,
+      "particleHeight": 38,
+      "border": 1.5
+    }
+  },
+  {
+    "id": "oil",
+    "name": "Oil",
+    "text": "does nothing by itself; fire lit on it spreads across the whole slick at once, and oil poured on fire catches",
+    "look": {
+      "colour": "#3e2731",
+      "shape": "circle",
+      "size": 0.62,
+      "height": 11,
+      "spin": 0,
+      "bounceSpeed": 2,
+      "bounceHeight": 2,
+      "particles": 9,
+      "particleHeight": 38,
+      "border": 1.5
+    }
+  },
+  {
+    "id": "spring",
+    "name": "Spring",
+    "look": {
+      "colour": "#63c74d",
+      "shape": "circle",
+      "size": 0.62,
+      "height": 11,
+      "spin": 0,
+      "bounceSpeed": 2,
+      "bounceHeight": 2,
+      "particles": 9,
+      "particleHeight": 38,
+      "border": 1.5
+    }
+  },
+  {
+    "id": "rallying_ground",
+    "name": "Rallying Ground",
+    "look": {
+      "colour": "#fee761",
+      "shape": "circle",
+      "size": 0.62,
+      "height": 11,
+      "spin": 0,
+      "bounceSpeed": 2,
+      "bounceHeight": 2,
+      "particles": 9,
+      "particleHeight": 38,
+      "border": 1.5
+    }
+  }
+]

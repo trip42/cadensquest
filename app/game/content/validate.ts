@@ -75,7 +75,7 @@ function crossCheck(content: Content): ContentIssue[] {
     issues.push({ level: 'warning', file, id, field, message });
 
   // Ids are unique within a file.
-  for (const file of ['cards', 'enemy-cards', 'enemies', 'gems', 'talismans', 'props'] as const) {
+  for (const file of ['cards', 'enemy-cards', 'enemies', 'gems', 'talismans', 'props', 'terrain'] as const) {
     const seen = new Set<string>();
     for (const item of content[file]) {
       if (seen.has(item.id)) error(file, item.id, `the id "${item.id}" is used twice`, 'id');
@@ -88,6 +88,7 @@ function crossCheck(content: Content): ContentIssue[] {
   const enemies = new Map(content.enemies.map((enemy) => [enemy.id, enemy]));
   const gems = new Map(content.gems.map((gem) => [gem.id, gem]));
   const talismans = new Map(content.talismans.map((talisman) => [talisman.id, talisman]));
+  const terrainTypes = new Map(content.terrain.map((type) => [type.id, type]));
 
   // A boon raises the player's stats; an enemy has none.
   const offSide = (kind: string, side: 'player' | 'enemy') =>
@@ -176,6 +177,10 @@ function crossCheck(content: Content): ContentIssue[] {
       const effect = outer.kind === 'trail' ? outer.mark : outer;
       const here = outer.kind === 'trail' ? `${at}[${i}].mark` : `${at}[${i}]`;
       if (effect.kind !== 'terrain' && effect.kind !== 'area') return;
+      const type = effect.kind === 'terrain' ? terrainTypes.get(effect.type) : undefined;
+      if (effect.kind === 'terrain' && !type) {
+        error(file, id, `marks the tile with "${effect.type}", which is not a terrain type`, `${here}.type`);
+      }
       const where = effect.kind === 'area' ? 'in a burst' : 'on a tile';
       const lists = effect.kind === 'terrain' ? (['effects', 'enter', 'exit'] as const) : (['effects'] as const);
       for (const list of lists) {
@@ -191,9 +196,10 @@ function crossCheck(content: Content): ContentIssue[] {
           }
         });
       }
-      // Oil does nothing until fire finds it, so it may be empty.
-      if (effect.kind === 'terrain' && effect.element !== 'oil' && !effect.effects.length && !effect.enter?.length && !effect.exit?.length) {
-        error(file, id, 'a marked tile needs at least one effect', `${here}.effects`);
+      // A type that says what it is for (oil: fire spreads across it) may
+      // be laid with nothing on it.
+      if (effect.kind === 'terrain' && !type?.text?.trim() && !effect.effects.length && !effect.enter?.length && !effect.exit?.length) {
+        error(file, id, 'a marked tile needs at least one effect, unless its terrain type has text saying what it is for', `${here}.effects`);
       }
     });
   };
