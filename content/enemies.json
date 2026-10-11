@@ -195,7 +195,7 @@
     "name": "Warden",
     "enabled": true,
     "guardian": true,
-    "maxHp": 44,
+    "maxHp": 64,
     "sprite": {
       "sheet": "enemies",
       "col": 1,
@@ -280,7 +280,8 @@
     "id": "tree",
     "name": "Bogmaw",
     "enabled": true,
-    "maxHp": 20,
+    "guardian": true,
+    "maxHp": 52,
     "sprite": {
       "sheet": "enemies",
       "col": 0,
@@ -293,10 +294,20 @@
       "offsetY": 5
     },
     "deck": [
-      "bug_bite",
-      "bug_skitter"
+      "tree_lash",
+      "tree_root",
+      "tree_lash",
+      "tree_seed"
     ],
-    "coins": 30
+    "reward": {
+      "weights": {
+        "card": 0,
+        "gem": 0,
+        "talisman": 1,
+        "removal": 0
+      }
+    },
+    "coins": 35
   },
   {
     "id": "gloomslime",
@@ -460,5 +471,159 @@
     "deck": [
       "slime_ooze"
     ]
+  },
+  {
+    "id": "super_slime",
+    "name": "Super Slime",
+    "enabled": true,
+    "guardian": true,
+    "maxHp": 28,
+    "sprite": {
+      "sheet": "enemies",
+      "col": 2,
+      "row": 0,
+      "faces": 1,
+      "footprint": {
+        "width": 96,
+        "height": 56
+      },
+      "offsetY": 6
+    },
+    "deck": [
+      "super_slime_engulf",
+      "super_slime_harden",
+      "super_slime_engulf"
+    ],
+    "reward": {
+      "weights": {
+        "card": 70,
+        "gem": 30,
+        "talisman": 0,
+        "removal": 0
+      },
+      "cardRarity": {
+        "normal": 10,
+        "rare": 60,
+        "mythic": 30
+      }
+    },
+    "coins": 18,
+    "onDeath": [
+      {
+        "kind": "summon",
+        "entity": "slime",
+        "amount": 10
+      },
+      {
+        "kind": "summon",
+        "entity": "slime",
+        "amount": 10
+      }
+    ]
+  },
+  {
+    "id": "general_tso",
+    "name": "General Tso",
+    "enabled": true,
+    "guardian": true,
+    "maxHp": 36,
+    "sprite": {
+      "sheet": "enemies",
+      "col": 0,
+      "row": 4,
+      "faces": 1,
+      "footprint": {
+        "width": 74,
+        "height": 84
+      }
+    },
+    "deck": [
+      "tso_throw_eggs",
+      "tso_lay_eggs",
+      "tso_throw_eggs"
+    ],
+    "reward": {
+      "weights": {
+        "card": 0,
+        "gem": 0,
+        "talisman": 1,
+        "removal": 0
+      }
+    },
+    "coins": 35
+  },
+  {
+    "id": "snapjaw",
+    "name": "Snapjaw",
+    "enabled": true,
+    "maxHp": 15,
+    "sprite": {
+      "sheet": "enemies",
+      "col": 1,
+      "row": 9,
+      "faces": 1,
+      "footprint": {
+        "width": 72,
+        "height": 66
+      }
+    },
+    "deck": [
+      "snapjaw_lurk",
+      "snapjaw_snap",
+      "snapjaw_snap"
+    ],
+    "coins": 7
+  },
+  {
+    "id": "frost_golem",
+    "name": "Frost Golem",
+    "enabled": true,
+    "guardian": true,
+    "maxHp": 48,
+    "sprite": {
+      "sheet": "enemies",
+      "col": 1,
+      "row": 8,
+      "faces": 1,
+      "footprint": {
+        "width": 104,
+        "height": 100
+      }
+    },
+    "deck": [
+      "frost_golem_slam",
+      "frost_golem_freeze",
+      "frost_golem_slam"
+    ],
+    "reward": {
+      "weights": {
+        "card": 0,
+        "gem": 0,
+        "talisman": 1,
+        "removal": 0
+      }
+    },
+    "coins": 45
+  },
+  {
+    "id": "magma_golem",
+    "name": "Magma Golem",
+    "enabled": true,
+    "maxHp": 18,
+    "sprite": {
+      "sheet": "enemies",
+      "col": 2,
+      "row": 8,
+      "faces": 1,
+      "footprint": {
+        "width": 84,
+        "height": 82
+      }
+    },
+    "deck": [
+      "magma_golem_stomp",
+      "magma_golem_crush"
+    ],
+    "coins": 9
   }
 ]

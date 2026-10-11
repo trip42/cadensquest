@@ -5,16 +5,16 @@ import { all, startingDeck, type Variant } from './content';
 import { BOMBARDIER, BRUTE, GRAPPLER, VARIED_DECK, withEnemy } from './designs';
 import { runVariant, writeReport } from './experiment';
 
-const brute = withEnemy(BRUTE, { marsh: ['brute'], highlands: ['brute'] });
-const bombardier = withEnemy(BOMBARDIER, { highlands: ['bombardier'] });
-const grappler = withEnemy(GRAPPLER, { meadow: ['grappler'], marsh: ['grappler'] });
+const brute = withEnemy(BRUTE, { bog: ['brute'], frostfell: ['brute'] });
+const bombardier = withEnemy(BOMBARDIER, { frostfell: ['bombardier'] });
+const grappler = withEnemy(GRAPPLER, { farm: ['grappler'], bog: ['grappler'] });
 
 const VARIANTS: Variant[] = [
   { name: 'committed', note: 'The game as committed.' },
   { name: '+ varied deck', note: 'Starting with different basics: 2 Strike, Jab, 2 Guard, Shrug, Knockback, Fire, Bolt, Scout.', content: startingDeck(VARIED_DECK) },
-  { name: '+ brute', note: 'The Brute (knocks its target back 2) in the marsh and highlands.', content: brute },
-  { name: '+ bombardier', note: 'The Bombardier (a telegraphed burst that hits its own side too) in the highlands.', content: bombardier },
-  { name: '+ grappler', note: 'The Grappler (drags its target in 3) in the meadow and marsh.', content: grappler },
+  { name: '+ brute', note: 'The Brute (knocks its target back 2) in the Bog and Frostfell.', content: brute },
+  { name: '+ bombardier', note: 'The Bombardier (a telegraphed burst that hits its own side too) in Frostfell.', content: bombardier },
+  { name: '+ grappler', note: 'The Grappler (drags its target in 3) on the Farm and in the Bog.', content: grappler },
   { name: '+ high ground 1', note: 'High ground on: +1 damage per layer above the target, both sides.', stats: [{ stat: 'highGround', add: 1 }] },
   { name: '+ all three enemies', note: 'The Brute, the Bombardier and the Grappler.', content: all(brute, bombardier, grappler) },
 ];

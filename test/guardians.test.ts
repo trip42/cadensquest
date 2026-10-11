@@ -56,7 +56,7 @@ describe('a guardian', () => {
   it(`wakes, once, when the player comes within ${GUARDIAN_WAKE_ROWS} rows of the end`, () => {
     const game = floor(GUARDIAN_WAKE_ROWS);
     expect(gateOf(game).awake).toBe(true);
-    expect(game.state.cues.find((item) => item.type === 'guardian')).toMatchObject({ target: guardianOf(game).id, name: 'Warden' });
+    expect(game.state.cues.find((item) => item.type === 'guardian')).toMatchObject({ target: guardianOf(game).id, name: 'General Tso' });
     beginTurn(game);
     expect(wakings(game)).toBe(1);
   });

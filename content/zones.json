@@ -1,7 +1,7 @@
 [
   {
-    "id": "meadow",
-    "name": "North Basin",
+    "id": "farm",
+    "name": "The Farm",
     "palette": {
       "ground": {
         "top": "#8fb063",
@@ -46,7 +46,7 @@
     "chunks": [
       {
         "enemies": [
-          "slime",
+          "chicken",
           "chicken",
           "bug"
         ],
@@ -60,57 +60,35 @@
           },
           {
             "prop": "oak",
-            "frequency": 0.03
-          },
-          {
-            "prop": "pine",
-            "frequency": 0.03
-          },
-          {
-            "prop": "apple_tree",
-            "frequency": 0.02,
-            "max": 2
+            "frequency": 0.02
           }
         ]
       },
       {
         "enemies": [
-          "slime",
           "chicken",
           "bug",
-          "spider"
+          "bug"
         ],
         "density": 6,
         "guardians": [
-          "gloomslime",
           "cockatrice"
         ],
         "props": [
           {
             "prop": "oak",
             "frequency": 0.03
-          },
-          {
-            "prop": "pine",
-            "frequency": 0.03
-          },
-          {
-            "prop": "apple_tree",
-            "frequency": 0.02,
-            "max": 2
           }
         ]
       },
       {
         "enemies": [
-          "slime",
           "chicken",
-          "bug",
-          "dragon"
+          "bug"
         ],
         "density": 6,
         "guardians": [
-          "warden"
+          "general_tso"
         ],
         "props": [
           {
@@ -120,50 +98,41 @@
           },
           {
             "prop": "oak",
-            "frequency": 0.03
-          },
-          {
-            "prop": "pine",
-            "frequency": 0.03
-          },
-          {
-            "prop": "apple_tree",
-            "frequency": 0.02,
-            "max": 2
+            "frequency": 0.04
           }
         ]
       }
     ]
   },
   {
-    "id": "marsh",
-    "name": "Sunken Reach",
+    "id": "bog",
+    "name": "The Bog",
     "palette": {
       "ground": {
-        "top": "#6f8a56",
-        "left": "#4a6340",
-        "right": "#3a5134",
+        "top": "#4f6b34",
+        "left": "#3a5127",
+        "right": "#2d401e",
         "elev": 0,
         "texture": "blades"
       },
       "trail": {
-        "top": "#9b7f52",
-        "left": "#735c3a",
-        "right": "#5c482d",
+        "top": "#6e5232",
+        "left": "#543d24",
+        "right": "#43301c",
         "elev": 0,
         "texture": "speckle"
       },
       "water": {
-        "top": "#5d8f86",
-        "left": "#3d6b66",
-        "right": "#315854",
+        "top": "#3d5a3f",
+        "left": "#2b432e",
+        "right": "#223625",
         "elev": -6,
         "texture": "ripple"
       },
       "rock": {
-        "top": "#77807f",
-        "left": "#565f5f",
-        "right": "#434b4b",
+        "top": "#5c5e4f",
+        "left": "#45473b",
+        "right": "#36382e",
         "elev": 0,
         "texture": "grain"
       }
@@ -173,15 +142,16 @@
       "maxHeight": 3,
       "forkChance": 0.3,
       "mergeChance": 0.2,
-      "waterChance": 0.34,
-      "rockChance": 0.04,
+      "waterChance": 0.8,
+      "rockChance": 0.03,
       "widthDrift": 0.7,
-      "peakChance": 0.04,
+      "peakChance": 0.03,
       "peakHeight": 1
     },
     "chunks": [
       {
         "enemies": [
+          "slime",
           "slime",
           "bug"
         ],
@@ -201,12 +171,12 @@
       {
         "enemies": [
           "slime",
-          "spider",
-          "whelp"
+          "snapjaw",
+          "bug"
         ],
         "density": 9,
         "guardians": [
-          "broodmother"
+          "super_slime"
         ],
         "props": [
           {
@@ -222,167 +192,34 @@
       {
         "enemies": [
           "slime",
-          "bug",
-          "spider",
-          "whelp",
-          "tree"
-        ],
-        "density": 9,
-        "guardians": [],
-        "props": [
-          {
-            "prop": "birch",
-            "frequency": 0.04
-          },
-          {
-            "prop": "oak",
-            "frequency": 0.02
-          }
-        ]
-      },
-      {
-        "enemies": [
-          "slime",
-          "bug",
-          "spider",
-          "whelp"
-        ],
-        "density": 9,
-        "guardians": [
-          "wyrm"
-        ],
-        "props": [
-          {
-            "prop": "shop",
-            "frequency": 1,
-            "max": 1
-          },
-          {
-            "prop": "birch",
-            "frequency": 0.04
-          },
-          {
-            "prop": "oak",
-            "frequency": 0.02
-          }
-        ]
-      }
-    ]
-  },
-  {
-    "id": "highlands",
-    "name": "Pale Shelf",
-    "palette": {
-      "ground": {
-        "top": "#a8b189",
-        "left": "#78805f",
-        "right": "#616849",
-        "elev": 0,
-        "texture": "blades"
-      },
-      "trail": {
-        "top": "#c9ad82",
-        "left": "#9c8259",
-        "right": "#7e6845",
-        "elev": 0,
-        "texture": "speckle"
-      },
-      "water": {
-        "top": "#7fa8b5",
-        "left": "#567f8c",
-        "right": "#456972",
-        "elev": -5,
-        "texture": "ripple"
-      },
-      "rock": {
-        "top": "#9aa0a6",
-        "left": "#70767c",
-        "right": "#585e64",
-        "elev": 0,
-        "texture": "grain"
-      }
-    },
-    "terrain": {
-      "minHeight": 2,
-      "maxHeight": 7,
-      "forkChance": 0.12,
-      "mergeChance": 0.3,
-      "waterChance": 0.08,
-      "rockChance": 0.14,
-      "widthDrift": 0.55,
-      "peakChance": 0.22,
-      "peakHeight": 3
-    },
-    "chunks": [
-      {
-        "enemies": [
-          "wolf",
+          "snapjaw",
           "spider"
         ],
-        "density": 10,
-        "guardians": [],
-        "props": [
-          {
-            "prop": "pine",
-            "frequency": 0.05
-          },
-          {
-            "prop": "birch",
-            "frequency": 0.02
-          }
-        ]
-      },
-      {
-        "enemies": [
-          "wolf",
-          "dragon",
-          "whelp"
-        ],
-        "density": 11,
+        "density": 9,
         "guardians": [
-          "ironshell",
-          "broodmother"
+          "super_slime"
         ],
         "props": [
           {
-            "prop": "pine",
-            "frequency": 0.05
+            "prop": "birch",
+            "frequency": 0.04
           },
           {
-            "prop": "birch",
+            "prop": "oak",
             "frequency": 0.02
           }
         ]
       },
       {
         "enemies": [
-          "wolf",
-          "spider",
-          "dragon",
-          "whelp"
+          "slime",
+          "snapjaw",
+          "spider"
         ],
-        "density": 12,
-        "guardians": [],
-        "props": [
-          {
-            "prop": "pine",
-            "frequency": 0.05
-          },
-          {
-            "prop": "birch",
-            "frequency": 0.02
-          }
-        ]
-      },
-      {
-        "enemies": [
-          "wolf",
-          "spider",
-          "dragon",
-          "whelp"
+        "density": 9,
+        "guardians": [
+          "tree"
         ],
-        "density": 12,
-        "guardians": [],
         "props": [
           {
             "prop": "shop",
@@ -390,11 +227,11 @@
             "max": 1
           },
           {
-            "prop": "pine",
-            "frequency": 0.05
+            "prop": "birch",
+            "frequency": 0.04
           },
           {
-            "prop": "birch",
+            "prop": "oak",
             "frequency": 0.02
           }
         ]
@@ -402,53 +239,101 @@
     ]
   },
   {
-    "id": "ice",
-    "name": "Frost Spire",
+    "id": "frostfell",
+    "name": "Frostfell",
     "palette": {
       "ground": {
-        "top": "#c0ccdd",
-        "left": "#92a1b9",
-        "right": "#496369",
+        "top": "#eef3f7",
+        "left": "#c3cfd9",
+        "right": "#a2b2c0",
         "elev": 0,
-        "texture": "grain"
+        "texture": "speckle"
       },
       "trail": {
-        "top": "#a3b3bd",
-        "left": "#808d9d",
-        "right": "#5f7181",
-        "elev": -2,
+        "top": "#d3dde5",
+        "left": "#aebdc9",
+        "right": "#93a3b1",
+        "elev": -1,
         "texture": "speckle"
       },
       "water": {
-        "top": "#7fa8b5",
-        "left": "#567f8c",
-        "right": "#456972",
+        "top": "#b8e2f2",
+        "left": "#8cc4dc",
+        "right": "#73aac4",
         "elev": -5,
-        "texture": "ripple"
+        "texture": "none"
       },
       "rock": {
-        "top": "#9aa0a6",
-        "left": "#70767c",
-        "right": "#585e64",
+        "top": "#9aa6b2",
+        "left": "#748190",
+        "right": "#5d6977",
         "elev": 0,
         "texture": "grain"
       }
     },
     "terrain": {
       "minHeight": 1,
-      "maxHeight": 7,
-      "forkChance": 0,
-      "mergeChance": 0.2,
-      "waterChance": 0,
-      "rockChance": 0.2,
-      "widthDrift": 0.3,
-      "peakChance": 0.5,
-      "peakHeight": 5
+      "maxHeight": 6,
+      "forkChance": 0.1,
+      "mergeChance": 0.25,
+      "waterChance": 0.35,
+      "rockChance": 0.12,
+      "widthDrift": 0.4,
+      "peakChance": 0.35,
+      "peakHeight": 4
     },
     "chunks": [
       {
         "enemies": [
           "wolf",
+          "spider"
+        ],
+        "density": 8,
+        "guardians": [],
+        "props": [
+          {
+            "prop": "snowy_pine",
+            "frequency": 0.05
+          },
+          {
+            "prop": "snowy_birch",
+            "frequency": 0.02
+          },
+          {
+            "prop": "snowy_oak",
+            "frequency": 0.02
+          }
+        ]
+      },
+      {
+        "enemies": [
+          "wolf",
+          "spider",
+          "dragon"
+        ],
+        "density": 9,
+        "guardians": [
+          "ironshell"
+        ],
+        "props": [
+          {
+            "prop": "snowy_pine",
+            "frequency": 0.05
+          },
+          {
+            "prop": "snowy_birch",
+            "frequency": 0.02
+          },
+          {
+            "prop": "snowy_oak",
+            "frequency": 0.02
+          }
+        ]
+      },
+      {
+        "enemies": [
+          "wolf",
+          "dragon",
           "spider"
         ],
         "density": 10,
@@ -471,62 +356,12 @@
       {
         "enemies": [
           "wolf",
-          "dragon",
-          "whelp"
+          "dragon"
         ],
-        "density": 11,
+        "density": 10,
         "guardians": [
-          "ironshell",
-          "broodmother"
+          "frost_golem"
         ],
-        "props": [
-          {
-            "prop": "snowy_pine",
-            "frequency": 0.05
-          },
-          {
-            "prop": "snowy_birch",
-            "frequency": 0.02
-          },
-          {
-            "prop": "snowy_oak",
-            "frequency": 0.02
-          }
-        ]
-      },
-      {
-        "enemies": [
-          "wolf",
-          "spider",
-          "dragon",
-          "whelp"
-        ],
-        "density": 12,
-        "guardians": [],
-        "props": [
-          {
-            "prop": "snowy_pine",
-            "frequency": 0.05
-          },
-          {
-            "prop": "snowy_birch",
-            "frequency": 0.02
-          },
-          {
-            "prop": "snowy_oak",
-            "frequency": 0.02
-          }
-        ]
-      },
-      {
-        "enemies": [
-          "wolf",
-          "spider",
-          "dragon",
-          "whelp"
-        ],
-        "density": 12,
-        "guardians": [],
         "props": [
           {
             "prop": "shop",
@@ -544,6 +379,104 @@
           {
             "prop": "snowy_oak",
             "frequency": 0.02
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "cinderdeep",
+    "name": "Cinderdeep",
+    "palette": {
+      "ground": {
+        "top": "#45434a",
+        "left": "#2f2d33",
+        "right": "#232126",
+        "elev": 0,
+        "texture": "grain"
+      },
+      "trail": {
+        "top": "#5e5a60",
+        "left": "#45414a",
+        "right": "#363238",
+        "elev": -1,
+        "texture": "speckle"
+      },
+      "water": {
+        "top": "#f77622",
+        "left": "#c2410c",
+        "right": "#9a3412",
+        "elev": -4,
+        "texture": "ripple"
+      },
+      "rock": {
+        "top": "#2b2a2e",
+        "left": "#1d1c20",
+        "right": "#151417",
+        "elev": 0,
+        "texture": "grain"
+      }
+    },
+    "terrain": {
+      "minHeight": 1,
+      "maxHeight": 5,
+      "forkChance": 0.15,
+      "mergeChance": 0.25,
+      "waterChance": 0.6,
+      "rockChance": 0.15,
+      "widthDrift": 0.55,
+      "peakChance": 0.2,
+      "peakHeight": 3
+    },
+    "chunks": [
+      {
+        "enemies": [
+          "whelp",
+          "magma_golem"
+        ],
+        "density": 10,
+        "guardians": [],
+        "props": []
+      },
+      {
+        "enemies": [
+          "whelp",
+          "magma_golem",
+          "dragon"
+        ],
+        "density": 11,
+        "guardians": [
+          "broodmother"
+        ],
+        "props": []
+      },
+      {
+        "enemies": [
+          "whelp",
+          "magma_golem",
+          "dragon"
+        ],
+        "density": 12,
+        "guardians": [
+          "wyrm"
+        ],
+        "props": []
+      },
+      {
+        "enemies": [
+          "magma_golem",
+          "whelp",
+          "dragon"
+        ],
+        "density": 12,
+        "guardians": [
+          "warden"
+        ],
+        "props": [
+          {
+            "prop": "shop",
+            "frequency": 1,
+            "max": 1
           }
         ]
       }

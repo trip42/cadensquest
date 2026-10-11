@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { beginTurn } from '~/game/actions';
+import { beginTurn, ensureSpawns, enterFloor } from '~/game/actions';
 import { REWARD_POOL } from '~/game/cards/definitions';
 import { type Content, loadContent, validateContent } from '~/game/content';
 import { ENEMY_IDS, GUARDIAN_IDS } from '~/game/entities/definitions';
 import { entityCell } from '~/game/entities/types';
 import { cellDistance } from '~/game/map/navigation';
+import { floorRows } from '~/game/map/tiles';
 import { applyTrial, parseTrial, parseTrials } from '~/game/sandbox';
 import { createGame, player, resetUids } from '~/game/state';
 import { readContentFiles } from './setup';
@@ -75,9 +76,17 @@ describe('enabled', () => {
     loadContent(content as unknown as Record<string, unknown>);
     expect(ENEMY_IDS).not.toContain('spider');
 
+    // The Bog has spiders in its later chunks: walk it, chunk by chunk.
     resetUids();
     const game = createGame(90210);
+    enterFloor(game, 1);
     beginTurn(game);
+    const self = player(game.state);
+    const { first, last } = floorRows(1);
+    for (let row = first; row <= last; row += 16) {
+      self.row = row;
+      ensureSpawns(game);
+    }
     const spawned = new Set(game.state.entities.map((entity) => entity.defId));
     expect(spawned.has('spider')).toBe(false);
     expect(spawned.has('slime')).toBe(true);

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { beginTurn, playCard } from '~/game/actions';
+import { beginTurn, endPlayerPhase, playCard, tick } from '~/game/actions';
 import { CARDS } from '~/game/cards/definitions';
+import { intentDef } from '~/game/cards/intents';
 import { type Content, loadContent, validateContent } from '~/game/content';
 import { ENTITIES, entityDef } from '~/game/entities/definitions';
 import { entityCell, type Entity } from '~/game/entities/types';
@@ -45,6 +46,18 @@ function smite(game: Game, target: Entity): void {
 const living = (game: Game, id: string) => game.state.entities.filter((entity) => entity.defId === id && !entity.dead);
 
 describe('as a creature falls', () => {
+  it('a Super Slime splits into two Slimes, and each of those into two Slimelets', () => {
+    const game = quiet();
+    const big = beside(game, 'super_slime');
+    smite(game, big);
+    const slimes = living(game, 'slime');
+    expect(slimes).toHaveLength(2);
+    for (const slime of slimes) expect(slime).toMatchObject({ faction: 'enemy', summonedBy: big.id, hp: 10 });
+    for (const slime of slimes) smite(game, slime);
+    expect(living(game, 'slimelet')).toHaveLength(4);
+  });
+
+
   it('a Slime splits into two Slimelets beside where it fell, on its side', () => {
     const game = quiet();
     const slime = beside(game, 'slime');
@@ -104,5 +117,23 @@ describe('falling, in content', () => {
     expect(found).toMatch(/error: Knockback cannot happen as it falls/);
     expect(found).toMatch(/warning: Heal would land on the fallen creature itself/);
     expect(found).toMatch(/error: as it falls it summons something that, sooner or later, summons it again/);
+  });
+});
+
+describe('General Tso', () => {
+  it('lays two eggs that hatch at once into Chickens on his side, and throws eggs from range', () => {
+    const game = quiet();
+    const self = player(game.state);
+    const tso = beside(game, 'general_tso');
+    tso.engaged = true;
+    tso.intent = { cardId: 'tso_lay_eggs', label: 'Lay Eggs' };
+    endPlayerPhase(game);
+    for (let i = 0; i < 6000 && game.state.phase === 'enemy'; i += 1) tick(game, 1 / 60);
+    const chicks = living(game, 'chicken');
+    expect(chicks).toHaveLength(2);
+    for (const chick of chicks) expect(chick).toMatchObject({ faction: 'enemy', summonedBy: tso.id, hp: 6 });
+    expect(intentDef('tso_throw_eggs').range).toBeGreaterThanOrEqual(4);
+    expect(intentDef('tso_throw_eggs').effects.some((effect) => effect.kind === 'damage')).toBe(true);
+    expect(self.dead).toBe(false);
   });
 });

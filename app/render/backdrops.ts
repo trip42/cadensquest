@@ -6,7 +6,7 @@
    cropping whatever does not fit, and dimmed a little under the map.
 
    A floor's picture is the file in assets/backgrounds named after it:
-   "North Basin" is north-basin.jpeg (or .jpg, .png, .webp). Dropping a
+   "The Farm" is the-farm.jpeg (or .jpg, .png, .webp). Dropping a
    file in is all it takes; a floor without one keeps the water. As with
    sprite sheets, the game layer never sees a path, and pictures load
    asynchronously: `backdropFor` returns null until one is in, and the
@@ -19,7 +19,7 @@ export const BACKDROP_FILES: Record<string, string> = Object.fromEntries(
   ).map(([path, src]) => [path.replace(/^.*\//, '').replace(/\.[^.]+$/, ''), src]),
 );
 
-/** The file name a floor's picture goes by: "North Basin" → "north-basin". */
+/** The file name a floor's picture goes by: "The Farm" → "the-farm". */
 export const backdropName = (floorName: string): string =>
   floorName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 

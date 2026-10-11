@@ -535,5 +535,238 @@
         ]
       }
     ]
+  },
+  {
+    "id": "super_slime_engulf",
+    "name": "Engulf",
+    "enabled": true,
+    "range": 1,
+    "text": "Once awake, creeps {1} closer and engulfs for {2}.",
+    "effects": [
+      {
+        "kind": "advance",
+        "amount": 1
+      },
+      {
+        "kind": "damage",
+        "amount": 6
+      }
+    ]
+  },
+  {
+    "id": "super_slime_harden",
+    "name": "Harden",
+    "enabled": true,
+    "range": 1,
+    "text": "Creeps {1} closer and gains {2} block.",
+    "effects": [
+      {
+        "kind": "advance",
+        "amount": 1
+      },
+      {
+        "kind": "block",
+        "amount": 8
+      }
+    ]
+  },
+  {
+    "id": "tso_throw_eggs",
+    "name": "Throw Eggs",
+    "enabled": true,
+    "range": 4,
+    "text": "Once awake, struts up to {1} closer, then throws eggs for {2} at range 4.",
+    "effects": [
+      {
+        "kind": "advance",
+        "amount": 2
+      },
+      {
+        "kind": "damage",
+        "amount": 4
+      }
+    ]
+  },
+  {
+    "id": "tso_lay_eggs",
+    "name": "Lay Eggs",
+    "enabled": true,
+    "range": 4,
+    "text": "Lays two eggs that hatch at once: two Chickens with {1} health each.",
+    "effects": [
+      {
+        "kind": "summon",
+        "entity": "chicken",
+        "amount": 6
+      },
+      {
+        "kind": "summon",
+        "entity": "chicken",
+        "amount": 6
+      }
+    ]
+  },
+  {
+    "id": "snapjaw_lurk",
+    "name": "Lurk",
+    "enabled": true,
+    "range": 1,
+    "text": "Creeps {1} closer and bristles: {2} block.",
+    "effects": [
+      {
+        "kind": "advance",
+        "amount": 1
+      },
+      {
+        "kind": "block",
+        "amount": 4
+      }
+    ]
+  },
+  {
+    "id": "snapjaw_snap",
+    "name": "Snap",
+    "enabled": true,
+    "range": 1,
+    "text": "Lunges up to {1} and snaps for {2}.",
+    "effects": [
+      {
+        "kind": "advance",
+        "amount": 2
+      },
+      {
+        "kind": "damage",
+        "amount": 6
+      }
+    ]
+  },
+  {
+    "id": "tree_lash",
+    "name": "Lash",
+    "enabled": true,
+    "range": 2,
+    "text": "Once awake, uproots up to {1} closer and lashes for {2} at range 2.",
+    "effects": [
+      {
+        "kind": "advance",
+        "amount": 2
+      },
+      {
+        "kind": "damage",
+        "amount": 7
+      }
+    ]
+  },
+  {
+    "id": "tree_root",
+    "name": "Root",
+    "enabled": true,
+    "range": 2,
+    "text": "Roots in: gains {1} block and {2} thorns.",
+    "effects": [
+      {
+        "kind": "block",
+        "amount": 8
+      },
+      {
+        "kind": "thorns",
+        "amount": 3
+      }
+    ]
+  },
+  {
+    "id": "tree_seed",
+    "name": "Seed",
+    "enabled": true,
+    "range": 2,
+    "text": "Drops a seed that sprouts in {1} rounds: a Snapjaw with {1.1} health.",
+    "effects": [
+      {
+        "kind": "later",
+        "rounds": 2,
+        "effects": [
+          {
+            "kind": "summon",
+            "entity": "snapjaw",
+            "amount": 8
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "frost_golem_slam",
+    "name": "Slam",
+    "enabled": true,
+    "range": 1,
+    "text": "Once awake, lumbers up to {1} closer and slams for {2}.",
+    "effects": [
+      {
+        "kind": "advance",
+        "amount": 2
+      },
+      {
+        "kind": "damage",
+        "amount": 7
+      }
+    ]
+  },
+  {
+    "id": "frost_golem_freeze",
+    "name": "Freeze Over",
+    "enabled": true,
+    "range": 1,
+    "text": "Freezes over: gains {1} block and {2} thorns.",
+    "effects": [
+      {
+        "kind": "block",
+        "amount": 8
+      },
+      {
+        "kind": "thorns",
+        "amount": 2
+      }
+    ]
+  },
+  {
+    "id": "magma_golem_stomp",
+    "name": "Stomp",
+    "enabled": true,
+    "range": 1,
+    "text": "Stomps up to {1} closer and sets its target's tile burning: {2.1} damage a round for {2} rounds.",
+    "effects": [
+      {
+        "kind": "advance",
+        "amount": 2
+      },
+      {
+        "kind": "aura",
+        "rounds": 2,
+        "type": "fire",
+        "effects": [
+          {
+            "kind": "damage",
+            "amount": 3
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "magma_golem_crush",
+    "name": "Crush",
+    "enabled": true,
+    "range": 1,
+    "text": "Closes up to {1} and crushes for {2}.",
+    "effects": [
+      {
+        "kind": "advance",
+        "amount": 2
+      },
+      {
+        "kind": "damage",
+        "amount": 5
+      }
+    ]
   }
 ]

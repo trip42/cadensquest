@@ -4,12 +4,12 @@ import { BACKDROP_FILES, backdropName } from '~/render/backdrops';
 
 describe('backdrops', () => {
   it('names a floor\'s picture after the floor', () => {
-    expect(backdropName('North Basin')).toBe('north-basin');
-    expect(backdropName('Pale Shelf')).toBe('pale-shelf');
+    expect(backdropName('The Farm')).toBe('the-farm');
+    expect(backdropName('Frostfell')).toBe('frostfell');
   });
 
-  it('finds the North Basin\'s picture', () => {
-    expect(BACKDROP_FILES['north-basin']).toBeTruthy();
+  it('finds The Farm\'s picture', () => {
+    expect(BACKDROP_FILES['the-farm']).toBeTruthy();
   });
 
   it('has no picture that no floor would find', () => {

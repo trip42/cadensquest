@@ -27,9 +27,9 @@ anything — the whole world comes from that number (and from the content
 files, which are the other half of a run). `?try=card:fire` (or `enemy:`,
 `enemy-card:`, `gem:`, `talisman:`, `zone:`) starts a run with one thing
 arranged up front — the editor's "Try it", and the quickest way to test
-anything. `zone:marsh` starts on that floor, `zone:marsh@3` at the start of
+anything. `zone:bog` starts on that floor, `zone:bog@3` at the start of
 its third chunk (`startOnFloor`); a zone is arranged first, so
-`?try=zone:marsh@2,card:fire` tries Fire there.
+`?try=zone:bog@2,card:fire` tries Fire there.
 Several go comma-separated, `?try=card:stoke,card:fire`, to try a combo.
 
 ## Commits: always leave a state you can roll back to
@@ -185,8 +185,8 @@ An endless ribbon `MAP_WIDTH` (10) columns wide, generated in chunks of
 string: `'G'`, `'GGD'` (two ground, trail cap), `'GW'` (water), `'GRR'`
 (rock), `''` (open air — the gap in a fork).
 
-Letters are semantic, not visual. Zones supply the palette, so the marsh and
-the highlands look different while the generator reasons about ground and
+Letters are semantic, not visual. Zones supply the palette, so the Bog and
+Cinderdeep look different while the generator reasons about ground and
 trail.
 
 **Three invariants are guaranteed by construction, not checked at runtime:**
@@ -250,6 +250,21 @@ marked `unique` spawns at most once a run (`state.uniques`), however it is
 chosen. Guardians are placed by `placeGuardians` (see **Floors**). The old
 `placed` (an enemy put mid-chunk for certain) is gone: a sub-boss is a
 guardian on its chunk's last row.
+
+**The four floors** (since 2026-10-11): **The Farm** (chickens and bugs;
+the Cockatrice mid-floor, General Tso, a boss chicken who throws eggs at
+range 4 and lays two Chickens, holding the way down), **The Bog** (dark
+green and brown, much water; Slimes, Bugs, Spiders and Snapjaws; Super
+Slimes mid-floor, which split into two Slimes that each split into two
+Slimelets; the Bogmaw, now a guardian that drops Snapjaw seeds, holding the
+way down), **Frostfell** (pale snow, its water drawn as flat ice — sunk 5,
+no ripple, still not walkable; wolves, spiders and blue dragons; the
+Ironshell mid-floor, the Frost Golem at the end; densities 8/9/10/10 and
+a softened Golem, after the first draft lost 77% of runs there) and **Cinderdeep**
+(charcoal ground, its water drawn as lava — still just water to the rules;
+Ember Whelps, Magma Golems that set tiles burning, and dragons; the
+Broodmother and the Wyrm mid-floor, the Warden, tougher at 64 health,
+holding the way out).
 
 Densities run from 6 on the first floor to 12 at the end of the last, chunk
 by chunk (they were 4 / 6 / 8 a floor until enemies began waiting to be
@@ -335,9 +350,9 @@ of a dungeon. `state.floor` is the zone's index.
   on its tile. Any other chunk's guardian is a **sub-boss**: it sleeps,
   wakes and closes in the same way, and its fall opens nothing. A last chunk
   with nobody to stand there — none named, or all disabled — has its portal
-  open from the start; the last zone names none, so its way out is simply
-  waiting.
-- **A portal is a aura layer** with `portal: 'down' | 'out'`: white, no
+  open from the start. Every floor has a guardian now, the last too: the
+  Warden holds Cinderdeep's way out.
+- **A portal is an aura layer** with `portal: 'down' | 'out'`: white, no
   effects. `ageAuras` never ages it out. It takes only the player:
   `triggerTile` sets `state.descending` when he steps on, *before* the
   once-per-round guard, so stepping off and back on still works. Allies and
@@ -1135,7 +1150,7 @@ floors, like the deck.
 as its chunks put there — the committed content puts exactly one, anywhere
 walkable, in each floor's last chunk. It is not an obstacle. As its chunk is
 first populated, `placeShops` adds it to `state.shops` (where, its stock,
-`visited`) and lays a aura layer with `shop: true` under it (never ages
+`visited`) and lays an aura layer with `shop: true` under it (never ages
 out; how the rules and the tile tip know it), which the renderer leaves
 undrawn: the building is what shows. `shopAt(state, cell)` finds one, and
 `currentShop` is the one the player stands on, which is the one he trades
@@ -1205,14 +1220,17 @@ matches, so nothing flashes before the first frame.
 
 **A floor's backdrop** covers that water, if the floor has one
 (`backdrops.ts`, `drawBackdrop`). It is the picture in
-`app/assets/backgrounds/` named after the floor — "North Basin" is
-`north-basin.jpeg` (or .jpg, .png, .webp), found by `import.meta.glob`, so
+`app/assets/backgrounds/` named after the floor — "The Farm" is
+`the-farm.jpeg` (or .jpg, .png, .webp), found by `import.meta.glob`, so
 adding one is dropping a file in. It is drawn still: in screen space and
 before the shake, so it never pans, zooms or shakes with the map. It covers
 the screen from the centre, cropping what does not fit, under a
 `BACKDROP_DIM` (0.35) ink wash so the tiles stay the brightest thing on
 screen. The water shows until it loads, and on a floor without one. A test
 fails on a picture no floor's name would find — a typo, or a renamed floor.
+Pictures no floor uses wait in `art-assets/backgrounds/` (Pale Shelf, and
+Ice Land, which was a copy of Frost Spire's); Cinderdeep has none yet, so
+its lava shows through, darkened.
 
 Draw order is a painter's algorithm over diagonals of constant `row + col`,
 which is the true far-to-near order in this projection. Characters fold into
@@ -1240,8 +1258,8 @@ Map rotation was rejected. It touches draw order, picking, the camera,
 sprite facing and the art spec, and only moves the occlusion rather than
 removing it.
 
-**Seeing past peaks: hold F or S.** Tall stacks (Frost Spire's peaks
-reach 12 layers) hide whole tiles behind them. Held down, F lays the board
+**Seeing past peaks: hold F or S.** Tall stacks (Frostfell's peaks
+reach 10 layers) hide whole tiles behind them. Held down, F lays the board
 flat — every stack drawn as its surface alone (`shown`) — and S shortens
 it — every layer drawn `SHORT_LAYER_H` (4) tall instead of `LAYER_H`
 (`layerH`), water's sink squashed with it (`sink`), so heights still read.
@@ -1764,7 +1782,13 @@ minutes); `npm run sim -- sim/final.sim.ts` runs one. Reports land in
   the same seeds (`seeds()`), so differences come from the variant, not the
   dice. 150 runs give about ±8% on a win rate; `final` (the committed
   game's scorecard, the number to beat) uses 300.
-- **Where balance stands on 2026-09-30** (`final`, 300 seeds, no
+- **Where balance stands on 2026-10-11** (`final`, 300 seeds): after the
+  four new floors, **48% of runs won**, deaths 0% / 8% / 58% / 34% by floor
+  (The Farm, The Bog, Frostfell, Cinderdeep), 9 of 11 targets — the same
+  two misses, real choices and turns per floor. The early floors are now
+  gentle and the last two carry the challenge, the reverse of before.
+  Before the rework, on the same seeds: 54%, deaths 51% / 40% / 6% / 2%.
+- **Where balance stood on 2026-09-30** (`final`, 300 seeds, no
   lookahead): **49% of runs won**, deaths 44% / 46% / 10% by floor, 9 of 11
   targets (up from 8). That is after zones became chunk lists with
   sub-bosses: four easier guardians on the dark column (Gloomslime,

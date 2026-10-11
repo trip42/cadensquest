@@ -16,7 +16,7 @@ const rosterOf = (zone: Zone): string[] => zone.chunks.flatMap((chunk) => chunk.
 
 describe('entity definitions', () => {
   it('has the enemies from the sheet', () => {
-    expect(ENEMY_IDS.sort()).toEqual(['bug', 'chicken', 'dragon', 'slime', 'slimelet', 'spider', 'tree', 'whelp', 'wolf']);
+    expect(ENEMY_IDS.sort()).toEqual(['bug', 'chicken', 'dragon', 'magma_golem', 'slime', 'slimelet', 'snapjaw', 'spider', 'whelp', 'wolf']);
   });
 
   it('tells every creature apart: its own cell of the sheet, or its own size', () => {
