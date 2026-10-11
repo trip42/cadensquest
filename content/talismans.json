@@ -189,7 +189,7 @@
         "on": "enemyDefeated",
         "effects": [
           {
-            "kind": "terrain",
+            "kind": "aura",
             "rounds": 2,
             "type": "fire",
             "effects": [

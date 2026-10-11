@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { beginTurn, endPlayerPhase, playCard, terrainAt, tick } from '~/game/actions';
+import { beginTurn, endPlayerPhase, playCard, aurasAt, tick } from '~/game/actions';
 import { CARDS } from '~/game/cards/definitions';
 import { INTENTS } from '~/game/cards/intents';
 import type { CardDefinition } from '~/game/cards/types';
@@ -21,7 +21,7 @@ function quiet(): Game {
   beginTurn(game);
   game.state.entities = [player(game.state)];
   game.state.gates = [];
-  game.state.terrain = {};
+  game.state.auras = {};
   game.state.energy = 9;
   return game;
 }
@@ -118,7 +118,7 @@ describe('knockback', () => {
     const run = line(game, 4, 'row');
     place(game, run[0]!);
     const wolf = stand(game, run[1]!);
-    game.state.terrain[`${run[3]!.row},${run[3]!.col}`] = [
+    game.state.auras[`${run[3]!.row},${run[3]!.col}`] = [
       { id: 'fire', effects: [{ kind: 'damage', amount: 5 }], colour: '#e43b44', rounds: 2, ownerId: player(game.state).id },
     ];
     define('shove', [{ kind: 'push', amount: 2 }]);
@@ -126,7 +126,7 @@ describe('knockback', () => {
     expect(wolf.hp).toBe(30);
     settle(game);
     expect(wolf.hp).toBe(25);
-    expect(terrainAt(game.state, run[3]!)).toHaveLength(1);
+    expect(aurasAt(game.state, run[3]!)).toHaveLength(1);
   });
 
   it('moves guardians like anything else', () => {

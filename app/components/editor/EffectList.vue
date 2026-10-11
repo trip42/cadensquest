@@ -1,17 +1,17 @@
 <script setup lang="ts">
 /* The effects on a card, gem or talisman trigger: what happens, in order.
-   Each row is a verb and an amount — or Terrain, which marks a tile with a
+   Each row is a verb and an amount — or an Aura, which marks a tile with a
    list of its own: what happens to whoever stands there, for how many
    rounds, and the tile's colour while it lasts.
 
    Verbs that do nothing for this side are still offered — the validator
-   warns — but marked, so the choice is an informed one. Inside a terrain
+   warns — but marked, so the choice is an informed one. Inside an aura
    mark only verbs that mean something on a tile are offered, and no
-   terrain within terrain. */
+   an aura within an aura. */
 import { computed } from 'vue';
 import type { ContentIssue, EffectData } from '~/game/content';
 import {
-  AREA_INFO, BOON_INFO, EFFECT_INFO, EFFECT_KINDS, type EffectKind, LATER_INFO, laterVerb, SUMMON_INFO, TERRAIN_INFO,
+  AREA_INFO, BOON_INFO, EFFECT_INFO, EFFECT_KINDS, type EffectKind, LATER_INFO, laterVerb, SUMMON_INFO, AURA_INFO,
   TRAIL_INFO,
 } from '~/game/effects';
 import { STAT_KEYS, STAT_NAMES } from '~/game/stats';
@@ -37,7 +37,7 @@ const at = (index: number) => `${props.path ?? 'effects'}[${index}]`;
 const kinds = props.inLater ? EFFECT_KINDS.filter(laterVerb)
   : props.onTile ? EFFECT_KINDS.filter((kind) => EFFECT_INFO[kind].tile) : EFFECT_KINDS;
 const info = (kind: string) =>
-  kind === 'terrain' ? { ...TERRAIN_INFO, player: true, enemy: true, tile: false }
+  kind === 'aura' ? { ...AURA_INFO, player: true, enemy: true, tile: false }
     : kind === 'summon' ? { ...SUMMON_INFO, player: true, enemy: true, tile: false }
     : kind === 'area' ? { ...AREA_INFO, player: true, enemy: true, tile: false }
       : kind === 'later' ? { ...LATER_INFO, player: true, enemy: true, tile: false }
@@ -59,11 +59,11 @@ function setBoonMode(effect: { add?: unknown; mul?: number }, mode: string): voi
 /** What can be summoned: every enemy in the draft but the guardians. */
 const editor = useEditorStore();
 const summonable = computed(() => (editor.draft?.enemies ?? []).filter((enemy) => !enemy.guardian));
-/** The terrain types a mark can be, from the Terrain tab. */
-const terrainTypes = computed(() => editor.draft?.terrain ?? []);
-const colourOf = (type: string) => terrainTypes.value.find((item) => item.id === type)?.look.colour ?? '#ffffff';
+/** The aura types a mark can be, from the Auras tab. */
+const auraTypes = computed(() => editor.draft?.auras ?? []);
+const colourOf = (type: string) => auraTypes.value.find((item) => item.id === type)?.look.colour ?? '#ffffff';
 
-/** A terrain mark's radius is optional: 0 or left out is the one tile. */
+/** An aura's radius is optional: 0 or left out is the one tile. */
 function setRadius(effect: { radius?: number }, raw: string): void {
   const value = Math.max(0, Math.min(3, Math.round(Number(raw) || 0)));
   if (value) effect.radius = value;
@@ -85,18 +85,18 @@ const usable = (kind: string) => (props.onTile ? info(kind).tile : info(kind)[pr
 
 function rowProblems(index: number): string[] {
   const prefix = at(index);
-  // A terrain row's own effects show their problems on their own rows.
+  // An aura row's own effects show their problems on their own rows.
   return (props.issues ?? [])
     .filter((issue) => issue.field?.startsWith(prefix)
       && !['effects', 'enter', 'exit'].some((list) => issue.field!.startsWith(`${prefix}.${list}[`)))
     .map((issue) => issue.message);
 }
 
-/** Changing to or from Terrain changes the effect's shape. */
+/** Changing to or from Aura changes the effect's shape. */
 function setKind(index: number, kind: string): void {
   const current = props.effects[index]!;
-  if (kind === 'terrain') {
-    props.effects[index] = { kind: 'terrain', rounds: 3, type: terrainTypes.value[0]?.id ?? 'fire', effects: [{ kind: 'damage', amount: 3 }] };
+  if (kind === 'aura') {
+    props.effects[index] = { kind: 'aura', rounds: 3, type: auraTypes.value[0]?.id ?? 'fire', effects: [{ kind: 'damage', amount: 3 }] };
   } else if (kind === 'area') {
     props.effects[index] = { kind: 'area', radius: 1, colour: '#feae34', effects: [{ kind: 'damage', amount: 4 }] };
   } else if (kind === 'later') {
@@ -106,12 +106,12 @@ function setKind(index: number, kind: string): void {
     props.effects[index] = { kind: 'summon', entity: first?.id ?? 'bug', amount: first?.maxHp ?? 6 };
   } else if (kind === 'trail') {
     props.effects[index] = {
-      kind: 'trail', rounds: 3, mark: { kind: 'terrain', rounds: 2, type: 'fire', effects: [{ kind: 'damage', amount: 1 }] },
+      kind: 'trail', rounds: 3, mark: { kind: 'aura', rounds: 2, type: 'fire', effects: [{ kind: 'damage', amount: 1 }] },
     };
   } else if (kind === 'boon') {
     props.effects[index] = { kind: 'boon', stat: 'fireDamage', add: 2, rounds: 2 };
   } else if (
-    ['terrain', 'summon', 'area', 'later', 'boon', 'trail'].includes(current.kind)
+    ['aura', 'summon', 'area', 'later', 'boon', 'trail'].includes(current.kind)
   ) {
     props.effects[index] = { kind: kind as EffectKind, amount: 3 };
   } else {
@@ -142,13 +142,13 @@ function move(index: number, by: number): void {
 
 <template>
   <div class="effects">
-    <div v-for="(effect, index) in effects" :key="index" class="effect" :class="{ 'is-terrain': ['terrain', 'area', 'later', 'trail'].includes(effect.kind) }">
+    <div v-for="(effect, index) in effects" :key="index" class="effect" :class="{ 'is-aura': ['aura', 'area', 'later', 'trail'].includes(effect.kind) }">
       <span class="effect-step">{{ index + 1 }}</span>
       <select :value="effect.kind" :title="info(effect.kind).help" aria-label="Effect" @change="setKind(index, ($event.target as HTMLSelectElement).value)">
         <option v-for="kind in kinds" :key="kind" :value="kind">
           {{ EFFECT_INFO[kind].label }}{{ usable(kind) ? '' : ' (no effect here)' }}
         </option>
-        <option v-if="!onTile" value="terrain">{{ TERRAIN_INFO.label }}</option>
+        <option v-if="!onTile" value="aura">{{ AURA_INFO.label }}</option>
         <option v-if="!onTile" value="summon">{{ SUMMON_INFO.label }}</option>
         <option v-if="!onTile" value="area">{{ AREA_INFO.label }}</option>
         <option v-if="!onTile || inBurst" value="later">{{ LATER_INFO.label }}</option>
@@ -157,20 +157,20 @@ function move(index: number, by: number): void {
       </select>
 
       <template v-if="effect.kind === 'trail'">
-        <span class="terrain-head">
+        <span class="aura-head">
           <span class="op">for</span>
           <EditorAmountInput :effect="effect" field="rounds" :side="side" />
           <span class="op">rounds, each tile left is marked for</span>
           <EditorAmountInput :effect="effect.mark" field="rounds" :side="side" />
           <span class="op">rounds, as</span>
           <i class="swatch" :style="{ background: colourOf(effect.mark.type) }" />
-          <select v-model="effect.mark.type" aria-label="Terrain type" title="Defined on the Terrain tab: how it looks, and whether it counts as fire.">
-            <option v-for="type in terrainTypes" :key="type.id" :value="type.id">{{ type.name }}</option>
+          <select v-model="effect.mark.type" aria-label="Aura type" title="Defined on the Auras tab: how it looks, and whether it counts as fire.">
+            <option v-for="type in auraTypes" :key="type.id" :value="type.id">{{ type.name }}</option>
           </select>
         </span>
       </template>
       <template v-else-if="effect.kind === 'boon'">
-        <span class="terrain-head">
+        <span class="aura-head">
           <select v-model="effect.stat" aria-label="Stat">
             <option v-for="key in STAT_KEYS" :key="key" :value="key">{{ STAT_NAMES[key] }}</option>
           </select>
@@ -186,21 +186,21 @@ function move(index: number, by: number): void {
         </span>
       </template>
 
-      <template v-else-if="effect.kind === 'terrain'">
-        <span class="terrain-head">
+      <template v-else-if="effect.kind === 'aura'">
+        <span class="aura-head">
           <span class="op">for</span>
           <EditorAmountInput :effect="effect" field="rounds" :side="side" />
           <span class="op">rounds, as</span>
           <i class="swatch" :style="{ background: colourOf(effect.type) }" />
-          <select v-model="effect.type" aria-label="Terrain type" title="Defined on the Terrain tab: how it looks, and whether it counts as fire.">
-            <option v-for="type in terrainTypes" :key="type.id" :value="type.id">{{ type.name }}</option>
+          <select v-model="effect.type" aria-label="Aura type" title="Defined on the Auras tab: how it looks, and whether it counts as fire.">
+            <option v-for="type in auraTypes" :key="type.id" :value="type.id">{{ type.name }}</option>
           </select>
           <span class="op">over radius</span>
           <input :value="effect.radius ?? 0" type="number" min="0" max="3" class="num small" aria-label="Radius" @input="setRadius(effect, ($event.target as HTMLInputElement).value)">
         </span>
       </template>
       <template v-else-if="effect.kind === 'area'">
-        <span class="terrain-head">
+        <span class="aura-head">
           <span class="op">radius</span>
           <input v-model.number="effect.radius" type="number" min="0" max="3" class="num small" aria-label="Radius">
           <span class="op">hits</span>
@@ -213,14 +213,14 @@ function move(index: number, by: number): void {
         </span>
       </template>
       <template v-else-if="effect.kind === 'later'">
-        <span class="terrain-head">
+        <span class="aura-head">
           <span class="op">in</span>
           <EditorAmountInput :effect="effect" field="rounds" :side="side" />
           <span class="op">rounds</span>
         </span>
       </template>
       <template v-else-if="effect.kind === 'summon'">
-        <span class="terrain-head">
+        <span class="aura-head">
           <select v-model="effect.entity" aria-label="Creature">
             <option v-for="enemy in summonable" :key="enemy.id" :value="enemy.id">
               {{ enemy.name }}{{ enemy.enabled ? '' : ' (disabled)' }}
@@ -249,7 +249,7 @@ function move(index: number, by: number): void {
         <button type="button" class="icon-btn" aria-label="Remove" @click="effects.splice(index, 1)">✕</button>
       </span>
 
-      <div v-if="effect.kind === 'terrain'" class="tile-effects">
+      <div v-if="effect.kind === 'aura'" class="tile-effects">
         <span class="tile-label">Whoever is on the tile, each round:</span>
         <EditorEffectList :effects="effect.effects" :side="side" on-tile :issues="issues" :path="`${at(index)}.effects`" />
         <label class="tile-label">
@@ -296,13 +296,13 @@ function move(index: number, by: number): void {
   background: var(--ed-well);
   border-radius: 6px;
 }
-.effect.is-terrain { border: 1px solid var(--ed-line); }
+.effect.is-aura { border: 1px solid var(--ed-line); }
 .effect-step { color: var(--ed-muted); font-size: 12px; text-align: center; }
 .effect-note { color: var(--ed-muted); font-size: 12px; }
 .effect-help { grid-column: 2 / -1; grid-row: 2; color: var(--ed-muted); font-size: 12px; }
 .effect-tools { grid-column: 4; grid-row: 1; display: flex; gap: 2px; justify-self: end; }
 .effect-problem { grid-column: 2 / -1; }
-.terrain-head { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.aura-head { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .op { color: var(--ed-muted); font-size: 13px; }
 .tile-effects { grid-column: 2 / -1; display: flex; flex-direction: column; gap: 6px; padding: 8px; border-radius: 6px; background: var(--ed-bg); }
 .tile-label { color: var(--ed-muted); font-size: 12px; }

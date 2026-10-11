@@ -19,7 +19,7 @@ describe('numbers in rules text', () => {
   it('prints each token as the card\'s own number', () => {
     const effects: Effect[] = [
       { kind: 'damage', amount: 5 },
-      { kind: 'terrain', rounds: 3, type: 'spring', effects: [{ kind: 'damage', amount: 2 }] },
+      { kind: 'aura', rounds: 3, type: 'spring', effects: [{ kind: 'damage', amount: 2 }] },
     ];
     expect(printedText('Deal {1} damage. For {2} rounds, {2.1} a round.', effects)).toBe('Deal 5 damage. For 3 rounds, 2 a round.');
     // X reads the way cards print it; other scaled amounts name their source.
@@ -50,7 +50,7 @@ describe('numbers in rules text', () => {
   it('adds power to a burst but not to a tile or a Later', () => {
     const effects: Effect[] = [
       { kind: 'area', radius: 1, colour: '#feae34', effects: [{ kind: 'damage', amount: 4 }] },
-      { kind: 'terrain', rounds: 2, type: 'spring', effects: [{ kind: 'damage', amount: 3 }] },
+      { kind: 'aura', rounds: 2, type: 'spring', effects: [{ kind: 'damage', amount: 3 }] },
       { kind: 'later', rounds: 2, effects: [{ kind: 'damage', amount: 8 }] },
     ];
     expect(joinText(live('{1.1} / {2.1} / {3.1}', effects, { power: 2 }, 1))).toBe('7 / 3 / 8');
@@ -115,7 +115,7 @@ describe('what a card shows in hand', () => {
     const self = player(game.state);
     game.state.entities = [self];
     game.state.gates = [];
-    game.state.terrain = {};
+    game.state.auras = {};
     game.state.energy = 3;
     self.power = 3;
     game.state.talismans = ['whetstone'];

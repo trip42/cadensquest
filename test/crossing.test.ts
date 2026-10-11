@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { beginTurn, enterFloor, playCard, terrainAt, tick } from '~/game/actions';
+import { beginTurn, enterFloor, playCard, aurasAt, tick } from '~/game/actions';
 import { CARDS } from '~/game/cards/definitions';
 import type { CardDefinition } from '~/game/cards/types';
 import { type Content, loadContent, validateContent } from '~/game/content';
@@ -19,7 +19,7 @@ function quiet(): Game {
   beginTurn(game);
   game.state.entities = [player(game.state)];
   game.state.gates = [];
-  game.state.terrain = {};
+  game.state.auras = {};
   return game;
 }
 
@@ -42,7 +42,7 @@ function play(game: Game, cardId: string, target: Cell | null): boolean {
 
 /** +1 power on entering, lose it on leaving, for `rounds` rounds. */
 const rally = (rounds = 3): Effect => ({
-  kind: 'terrain', rounds, type: 'rallying_ground', effects: [],
+  kind: 'aura', rounds, type: 'rallying_ground', effects: [],
   enter: [{ kind: 'power', amount: 1 }], exit: [{ kind: 'losePower', amount: 1 }],
 });
 
@@ -99,7 +99,7 @@ describe('entering and leaving a mark', () => {
     expect(self.power).toBe(1);
     beginTurn(game);
     expect(self.power).toBe(0);
-    expect(game.state.terrain).toEqual({});
+    expect(game.state.auras).toEqual({});
   });
 
   it('takes it back on leaving the floor', () => {
@@ -118,7 +118,7 @@ describe('entering and leaving a mark', () => {
     define('rally_at', [rally(), rally()]);
     play(game, 'rally_at', spot);
     expect(wolf.power).toBe(2);
-    const layers = terrainAt(game.state, spot);
+    const layers = aurasAt(game.state, spot);
     expect(layers.map((layer) => layer.inside)).toEqual([[wolf.id], [wolf.id]]);
   });
 
@@ -126,7 +126,7 @@ describe('entering and leaving a mark', () => {
     const game = quiet();
     const self = player(game.state);
     self.power = 4;
-    define('drain', [{ kind: 'terrain', rounds: 3, type: 'spring', effects: [], exit: [{ kind: 'losePower', amount: { of: 'power' } }] }], { targeting: 'self', range: 0 });
+    define('drain', [{ kind: 'aura', rounds: 3, type: 'spring', effects: [], exit: [{ kind: 'losePower', amount: { of: 'power' } }] }], { targeting: 'self', range: 0 });
     play(game, 'drain', null);
     stepOnto(game, cellAt(game, 1));
     // Fixed from its maker when marked: the power it had then.
@@ -135,9 +135,9 @@ describe('entering and leaving a mark', () => {
 
   it('leaves plain marks alone: no one is tracked', () => {
     const game = quiet();
-    define('fire', [{ kind: 'terrain', rounds: 3, type: 'spring', effects: [{ kind: 'damage', amount: 1 }] }], { targeting: 'self', range: 0 });
+    define('fire', [{ kind: 'aura', rounds: 3, type: 'spring', effects: [{ kind: 'damage', amount: 1 }] }], { targeting: 'self', range: 0 });
     play(game, 'fire', null);
-    const [layer] = terrainAt(game.state, entityCell(player(game.state)));
+    const [layer] = aurasAt(game.state, entityCell(player(game.state)));
     expect(layer!.inside).toBeUndefined();
   });
 });
@@ -151,9 +151,9 @@ describe('enter and exit in content', () => {
   it('refuses a mark with nothing in it, and verbs that cannot go on a tile', () => {
     const content = structuredClone(readContentFiles()) as unknown as Content;
     const card = content.cards.find((item) => item.id === 'rallying_ground')!;
-    card.effects = [{ kind: 'terrain', rounds: 3, type: 'rallying_ground', effects: [] }];
+    card.effects = [{ kind: 'aura', rounds: 3, type: 'rallying_ground', effects: [] }];
     expect(validateContent(content as never).issues.some((issue) => issue.message.includes('at least one effect'))).toBe(true);
-    card.effects = [{ kind: 'terrain', rounds: 3, type: 'rallying_ground', effects: [], enter: [{ kind: 'tame', amount: 3 }] }];
+    card.effects = [{ kind: 'aura', rounds: 3, type: 'rallying_ground', effects: [], enter: [{ kind: 'tame', amount: 3 }] }];
     expect(validateContent(content as never).issues.some((issue) => issue.field?.endsWith('enter[0].kind'))).toBe(true);
   });
 });

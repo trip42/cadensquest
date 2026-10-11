@@ -2,7 +2,7 @@
 /* How much: a fixed number, or "based on" something about whoever plays
    it — their block, health, energy, X — times a multiplier, plus a flat
    amount. Rounded down, never below zero. Edits `effect[field]`: the
-   amount of a simple effect, or the rounds of a terrain mark. */
+   amount of a simple effect, or the rounds of an aura. */
 import { computed } from 'vue';
 import { AMOUNT_SOURCE_KEYS, AMOUNT_SOURCES, type Amount, type AmountSource, isScaled } from '~/game/effects';
 

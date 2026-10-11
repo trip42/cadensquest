@@ -346,7 +346,7 @@
         "amount": 2
       },
       {
-        "kind": "terrain",
+        "kind": "aura",
         "rounds": 2,
         "type": "fire",
         "effects": [

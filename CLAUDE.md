@@ -96,9 +96,9 @@ If you find yourself wanting `document` or an `import … from '*.png'` inside
 app/game/            the simulation — no Vue, no DOM (see the rule above)
   rng.ts               seeded, serialisable randomness (mulberry32)
   state.ts             GameState, createGame, makeEntity, lookups (player,
-                       enemies, allies, entityAt), terrain/summon state
+                       enemies, allies, entityAt), aura/summon state
   actions.ts           the turn loop and every rule that mutates state:
-                       resolveEffect, the enemy/ally step, terrain, summoning,
+                       resolveEffect, the enemy/ally step, auras, summoning,
                        taming, targeting (isValidTarget), movement, rewards
   effects.ts           the effect vocabulary: shapes, verbs (EFFECT_INFO),
                        amounts, describe*/nowText/previewAmounts
@@ -109,7 +109,7 @@ app/game/            the simulation — no Vue, no DOM (see the rule above)
   gems.ts talismans.ts rewards.ts   registries and reward rolling; gems.ts
                        also gemMods/gemmedDef (a gem changing its card)
   shop.ts              shops: stock (rollStock), SHOP_PRICES
-  terrain.ts           TERRAIN (terrain types, filled from content): a
+  auras.ts             AURAS (aura types, filled from content): a
                        mark's name, look (MarkLook) and fire flag
   telemetry.ts         GameEvent, record(), the run tally
   cues.ts              what just happened, for the screen and speakers: cue()
@@ -153,7 +153,7 @@ app/components/      MapStage (canvas), GameCard, HandBar, RewardModal,
                      edge: allies, look at one, release it), EnemyTip,
                      TileTip, GroundLines
 app/components/editor/  the editor's forms (Form*, FormProp for props), EffectList (nested for
-                     terrain), AmountInput, DeckBuilder (counts: the
+                     auras), AmountInput, DeckBuilder (counts: the
                      starting deck, zone rosters), DeckSequence (an
                      enemy's deck, in order), pickers, Preview, Sprite
                      (also the ally rail's portraits)
@@ -337,8 +337,8 @@ of a dungeon. `state.floor` is the zone's index.
   with nobody to stand there — none named, or all disabled — has its portal
   open from the start; the last zone names none, so its way out is simply
   waiting.
-- **A portal is a terrain layer** with `portal: 'down' | 'out'`: white, no
-  effects. `ageTerrain` never ages it out. It takes only the player:
+- **A portal is a aura layer** with `portal: 'down' | 'out'`: white, no
+  effects. `ageAuras` never ages it out. It takes only the player:
   `triggerTile` sets `state.descending` when he steps on, *before* the
   once-per-round guard, so stepping off and back on still works. Allies and
   enemies walk over it.
@@ -352,7 +352,7 @@ of a dungeon. `state.floor` is the zone's index.
 - **`enterFloor`** bounds the world, puts the player at `arrivalOn` (on the
   trail, `START_ROW` rows in) and his allies on the nearest free tiles
   within four steps — any that do not fit are left behind — and clears the
-  old floor: enemies, terrain (running every mark's `exit` first), hits,
+  old floor: enemies, auras (running every mark's `exit` first), hits,
   gates, shops, queue, and which chunks were populated (so entering the
   same floor again, as a zone trial on the first floor does, populates it
   afresh). What he carries stays: deck, hand, health, coins,
@@ -392,8 +392,8 @@ Try it and bug-report links work as before.
 
 ## Turn loop
 
-1. **refresh** (`beginTurn`) — a new round: terrain marks and summon
-   lifetimes count down (`ageTerrain`, `ageSummons`); block clears, energy
+1. **refresh** (`beginTurn`) — a new round: auras and summon
+   lifetimes count down (`ageAuras`, `ageSummons`); block clears, energy
    and movement reset, the hand is topped up to `handSize` (cards left over
    are kept, not discarded); boons and trails count down (`ageBoons`,
    `ageTrails`); the player is hit by any marked tile he starts on; every
@@ -473,7 +473,7 @@ Two rules keep fights from being skippable:
 
 ## Content
 
-Cards, enemy cards, enemies, gems, talismans, terrain types, props, zones (all of them:
+Cards, enemy cards, enemies, gems, talismans, aura types, props, zones (all of them:
 name, colours, terrain, chunks) and the starting deck are **JSON in `content/`**,
 not code. What stays in code: the effect verbs (`resolveEffect`), the
 player's definition, sprite sheet files and glyphs. The editor can add a
@@ -648,14 +648,14 @@ from `EFFECT_INFO`: `damage`, `block`, `loseBlock`, `heal`, `power`,
 `losePower`, `thorns`, `movement`, `energy`, `draw`, `step` (Leap),
 `advance`, `tame`, `mend`, `push` (Knockback), `pull`, `rekindle`, `flare`,
 `echo`, `command`.
-**Terrain** is `{ kind: "terrain", rounds, type, effects: [simple...],
-enter?, exit?, radius? }`, `type` naming a terrain type (see **Terrain
+**Aura** is `{ kind: "aura", rounds, type, effects: [simple...],
+enter?, exit?, radius? }`, `type` naming an aura type (see **Aura
 types**).
 **Summon** is `{ kind: "summon", entity, amount, rounds? }`. **Area** is
 `{ kind: "area", radius, colour, affects?, effects: [simple...] }`.
 **Later** is `{ kind: "later", rounds, effects: [simple...] }`. **Boon** is
 `{ kind: "boon", stat, add?, mul?, rounds }`. **Trail** is `{ kind:
-"trail", rounds, mark: terrain }`. Code tells them apart with `isTerrain` /
+"trail", rounds, mark: aura }`. Code tells them apart with `isAura` /
 `isSummon` / `isArea` / `isLater` / `isBoon` / `isTrail`; content validates
 them with a zod discriminated union.
 
@@ -699,30 +699,37 @@ validator warns on each misuse and on an X card that never uses X.
 `card_played` records `energy`. Text reads it the printed way: "Deal 4X
 damage".
 
-**Terrain.** Marks a tile — the card's target, or with no target the
+**Auras.** An aura marks a tile — the card's target, or with no target the
 actor's own (an enemy or ally with no foe marks nothing) — and whoever is
 on it gets the listed simple effects as if they played them on themselves
 (Damage hurts them; no bonuses). Leap, Advance, Tame, Mend and
-terrain-in-terrain are refused on a tile. Amounts and rounds are fixed when
+an aura in an aura are refused on a tile. Amounts and rounds are fixed when
 the mark is made, from its maker (so "Fire X" keeps its X). State:
-`state.terrain` (by `row,col`, a list of `TerrainLayer`s — marks stack as
-layers with their own colour and rounds) and `state.terrainHits`. A tile
+`state.auras` (by `row,col`, a list of `AuraLayer`s — marks stack as
+layers with their own colour and rounds) and `state.auraHits`. A tile
 hits an entity when it steps on (`tick`, as a step completes), as that
 entity's turn begins, and at once when marked while occupied — **at most
 once per round per tile**, so crossing fire burns once, standing in it
 burns every round, and pacing a healing tile heals once a round. Enemies do
 not path around marks, on purpose: fire is a way to route them. A
 cell-targeted card that only marks may target an occupied tile; one that
-leaps still needs an empty one. Drawing is the type's look (see **Terrain
+leaps still needs an empty one. Drawing is the type's look (see **Aura
 types**). Hovering a tile (`TileTip`) or a creature on one lists each
 mark as its type's name, its effects and rounds left ("Fire: take 3
 damage · 2 rounds"), never the card that made it.
 
-**Terrain types.** What a mark *is* — Fire, Oil, Spring — is content,
-`content/terrain.json`, with its own editor tab: a name, an optional `text`
+**Auras were called terrain** until the user renamed them: the effect kind
+is `aura`, its types are `content/auras.json` (the Auras tab), and code
+says `AuraEffect`, `AuraLayer`, `state.auras`, `aurasAt`. A zone's
+`terrain` (how its ground is shaped) is a different thing and kept its
+name. `mark` is still the word for one aura laid on one tile (`MarkLook`,
+`drawMarks`, a trail's `mark`).
+
+**Aura types.** What a mark *is* — Fire, Oil, Spring — is content,
+`content/auras.json`, with its own editor tab: a name, an optional `text`
 (what it is for, shown on the tooltip when the mark itself does nothing;
 a type with text may be laid with no effects, as oil is), `fire` (counts
-as fire, below), and a `look`. Every terrain effect names one (`type`),
+as fire, below), and a `look`. Every aura names one (`type`),
 and the layer it lays copies the type and its colour, for cues and
 tooltips. The card still says what the tile does and for how long, so
 Kindle and Wildfire are both Fire with different damage. A mark naming a
@@ -756,7 +763,7 @@ the validator refuses one in content.
   the same instant. The validator wants the other type to exist and not to
   be itself. Fire and oil are one reaction: Fire `spreadsThrough` Oil.
 - **Spreading** (`spread`, 0..1 on a type): once a round, right after marks
-  count down (`spreadTerrain` in `beginTurn`), each mark of the type may
+  count down (`spreadAuras` in `beginTurn`), each mark of the type may
   creep onto each walkable neighbour without one, a copy with a round
   less, so a spread dies out. It meets what is there like any mark laid.
   The roll is its own stream (`hashSeed(seed, SPREAD_STREAM, turn, tile,
@@ -772,13 +779,13 @@ three). `enter` lands once as a creature arrives: a step, push, pull or
 leap (all of which end in `triggerTile`), or the tile being marked under
 it. `exit` lands once as it leaves, and also when the mark runs out or the
 floor ends beneath it (`emptyMark`), so a buff is always taken back.
-`crossMarks` keeps `TerrainLayer.inside`, the ids that got the enter; only
+`crossMarks` keeps `AuraLayer.inside`, the ids that got the enter; only
 layers with enter or exit carry it. Unlike `effects` there is no
 once-a-round guard, so pair a gain with an exit that takes it back:
 Rallying Ground is +1 power on entering and Lose 1 power on leaving, which
 the card text reads as "whoever stands on it deals 1 more damage".
 
-**Fire.** A terrain type may count as fire (`"fire": true`), and so may
+**Fire.** An aura type may count as fire (`"fire": true`), and so may
 every mark of it (`isFireType`). Fire, Wildfire and the Whelp's Scorch
 are the type Fire.
 Fire has no side: anything that heats, lengthens or counts fire works on
@@ -948,7 +955,7 @@ creature plays its deck against `nearestFoe` — enemies pick the nearest of
 the player and his allies (so a pet draws attacks), allies the nearest
 enemy within `ENGAGE_RADIUS` (8); an ally with nobody to fight advances
 toward the player instead (`Play.goal`). Allies act first in the enemy
-phase, are hit by terrain, block the way, and
+phase, are hit by auras, block the way, and
 drop nothing. They are drawn with a pulsing cyan ring, a green bar and a
 cyan-edged intent chip; their tooltip says ALLY. `tame` (amount = the
 health threshold) turns the targeted enemy if its health is at most that,
@@ -996,7 +1003,7 @@ from the caster and **damage adds the caster's bonuses** (power, and the
 player's damageBonus) — a burst is its own attack, where a mark is not. Only
 tile-capable verbs may go inside — and a **Later**, which each creature
 caught schedules on itself, its amounts fixed from the caster (so "+2 power,
-lose 2 in 2 rounds" gives every ally a power that lasts). **Terrain takes an optional `radius`** too,
+lose 2 in 2 rounds" gives every ally a power that lasts). **An aura takes an optional `radius`** too,
 marking every walkable tile in the diamond, each as its own layer. Aiming:
 while an area card is up, the store asks `areaPreview` and the renderer
 (`setAim`) shades the covered tiles and puts a blinking red ring under any
@@ -1013,7 +1020,7 @@ fading over 650ms).
 effects read. The schema, the editor's dropdown and the validator's side
 warnings pick it up from `EFFECT_INFO`. Add a test.
 
-**Adding a shape** (like terrain or summon): an interface in effects.ts
+**Adding a shape** (like aura or summon): an interface in effects.ts
 joined to `Effect`, an `isX` guard, a branch at the top of `resolveEffect`,
 a zod schema in the discriminated union, and handling in `previewAmounts`,
 `nowText`, `hasScaledAmount`, `describeEffect`, the validator's
@@ -1113,7 +1120,7 @@ floors, like the deck.
 as its chunks put there — the committed content puts exactly one, anywhere
 walkable, in each floor's last chunk. It is not an obstacle. As its chunk is
 first populated, `placeShops` adds it to `state.shops` (where, its stock,
-`visited`) and lays a terrain layer with `shop: true` under it (never ages
+`visited`) and lays a aura layer with `shop: true` under it (never ages
 out; how the rules and the tile tip know it), which the renderer leaves
 undrawn: the building is what shows. `shopAt(state, cell)` finds one, and
 `currentShop` is the one the player stands on, which is the one he trades

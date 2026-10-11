@@ -1,9 +1,9 @@
 <script setup lang="ts">
-/* A terrain type's mark on a tile, moving as the map draws it — the same
+/* An aura type's mark on a tile, moving as the map draws it — the same
    `drawMark`, so the look tuned here is the look a run gets. `others` stand
    round it as badges, as other marks on the same tile do. */
 import { onBeforeUnmount, onMounted, ref } from 'vue';
-import type { MarkLook } from '~/game/terrain';
+import type { MarkLook } from '~/game/auras';
 import { HH, HW } from '~/render/iso';
 import { drawBadges, drawMark } from '~/render/marks';
 

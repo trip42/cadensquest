@@ -12,7 +12,7 @@ import type { Entity } from "./entities/types";
 import { floorRows, START_ROW, surfaceKind } from "./map/tiles";
 import { World } from "./map/world";
 import { createRng, type Rng, shuffle } from "./rng";
-import type { Effect, TerrainEffect, TileEffect } from "./effects";
+import type { Effect, AuraEffect, TileEffect } from "./effects";
 import { emptyTally, type GameEvent, record, type RunTally } from "./telemetry";
 import type { Reward } from "./rewards";
 import { resolveStat, type StatKey, type StatModifier } from "./stats";
@@ -34,7 +34,7 @@ export interface ActiveReward {
  *  while that guardian stands. */
 /** One mark on a tile: what it does to whoever is on it, how it looks, and
  *  how many rounds it has left. Several can sit on one tile. */
-export interface TerrainLayer {
+export interface AuraLayer {
   id: string;
   effects: TileEffect[];
   /** Once as a creature arrives, and once as it leaves (or the mark goes
@@ -45,7 +45,7 @@ export interface TerrainLayer {
   inside?: string[];
   colour: string;
   rounds: number;
-  /** Its terrain type (`game/terrain.ts`): what it is, how it looks, and
+  /** Its aura type (`game/auras.ts`): what it is, how it looks, and
    *  whether it counts as fire. None for a portal or a shop. */
   type?: string;
   /** Who marked it, so a death by fire is credited to them. */
@@ -86,7 +86,7 @@ export interface Trail {
   actorId: string;
   /** Rounds left, counting this one. It goes as a round begins with none. */
   rounds: number;
-  mark: TerrainEffect;
+  mark: AuraEffect;
 }
 
 /** A floor's guardian, standing on its last row. The portal off the floor
@@ -159,10 +159,10 @@ export interface GameState {
   /** Zone crossings and who holds them. */
   gates: Gate[];
   /** Marked tiles, by `row,col`. */
-  terrain: Record<string, TerrainLayer[]>;
+  auras: Record<string, AuraLayer[]>;
   /** When each entity was last hit by each tile — `entityId@row,col` to the
    *  turn — so a tile hits at most once per round. */
-  terrainHits: Record<string, number>;
+  auraHits: Record<string, number>;
   /** What just happened, for the screen and the speakers — the recent
    *  cues, and the number of the latest. Nothing in the rules reads them. */
   cues: SeqCue[];
@@ -294,8 +294,8 @@ export function createGame(seed: number): Game {
     spawnedChunks: [],
     uniques: [],
     gates: [],
-    terrain: {},
-    terrainHits: {},
+    auras: {},
+    auraHits: {},
     cues: [],
     cueSeq: 0,
     later: [],

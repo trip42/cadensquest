@@ -16,7 +16,7 @@ import {
   intentText as intentParts,
   playValues,
   areaPreview,
-  terrainAt,
+  aurasAt,
   beginTurn,
   enterFloor,
   ensureSpawns,
@@ -73,10 +73,10 @@ import {
   type Phase,
   player,
   stat,
-  type TerrainLayer,
+  type AuraLayer,
   wholeDeck,
 } from '~/game/state';
-import { terrainType } from '~/game/terrain';
+import { auraType } from '~/game/auras';
 import { cellKey, type HighlightKind, type MapRenderer } from '~/render/renderer';
 
 /* One shape for a card wherever it is shown: in hand, among spoils, or in
@@ -624,8 +624,8 @@ export const useGameStore = defineStore('game', () => {
   function groundOf(cell: Cell): GroundLine[] {
     if (!game) return [];
     const { state } = game;
-    const markLine = (layer: TerrainLayer): string => {
-      const type = terrainType(layer.type);
+    const markLine = (layer: AuraLayer): string => {
+      const type = auraType(layer.type);
       const empty = !layer.effects.length && !layer.enter && !layer.exit;
       const what = empty && type?.text ? type.text : describeMark(
         layerEffects(state, layer),
@@ -634,7 +634,7 @@ export const useGameStore = defineStore('game', () => {
       );
       return type ? `${type.name}: ${what}` : what;
     };
-    return terrainAt(state, cell).map((layer) => ({
+    return aurasAt(state, cell).map((layer) => ({
       colour: layer.colour,
       text: layer.portal === 'out'
         ? 'Step on to leave, and win the run'
@@ -662,7 +662,7 @@ export const useGameStore = defineStore('game', () => {
       return;
     }
     // A portal takes only the player, so "whoever is here" would be wrong.
-    const marks = game && cell ? terrainAt(game.state, cell) : [];
+    const marks = game && cell ? aurasAt(game.state, cell) : [];
     const portal = marks.find((layer) => layer.portal)?.portal;
     const title = portal === 'out' ? 'The way out' : portal === 'down' ? 'The way down'
       : prop ? prop.name : 'Whoever is here';

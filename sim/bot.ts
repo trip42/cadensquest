@@ -15,11 +15,11 @@
 import {
   amountValues, buyShopItem, canPlay, chooseCardReward, discardForMovement, endPlayerPhase, gemTargets, isBusy, isValidTarget, layerEffects,
   currentShop, leaveShop, shopPrice,
-  movePlayerTo, playCard, playerMoveOptions, removeCardReward, skipReward, socketGemReward, takeTalismanReward, terrainAt, tick,
+  movePlayerTo, playCard, playerMoveOptions, removeCardReward, skipReward, socketGemReward, takeTalismanReward, aurasAt, tick,
 } from '../app/game/actions';
 import { cardDef, cardMovement } from '../app/game/cards/definitions';
 import { intentDef } from '../app/game/cards/intents';
-import { amountOf, isArea, isSimple, isSummon, isTerrain, readsPower } from '../app/game/effects';
+import { amountOf, isArea, isSimple, isSummon, isAura, readsPower } from '../app/game/effects';
 import type { Entity } from '../app/game/entities/types';
 import { GEM_SLOTS, gemDef, gemmedDef } from '../app/game/gems';
 import { type Cell, cellDistance, reachable } from '../app/game/map/navigation';
@@ -27,7 +27,7 @@ import { gateRowOf } from '../app/game/map/tiles';
 import { priceOf } from '../app/game/shop';
 import { resolveStat } from '../app/game/stats';
 import { allies, enemies, type Game, type GameState, gemsOf, player, stat } from '../app/game/state';
-import { isFireType } from '../app/game/terrain';
+import { isFireType } from '../app/game/auras';
 import { cardWorth } from './synergy';
 
 /** Seconds per tick when fast-forwarding animations. */
@@ -63,7 +63,7 @@ function threatOf(state: GameState, enemy: Entity, at: Cell): number {
   let damage = 0;
   let radius = 0;
   for (const effect of card.effects) {
-    if (isSummon(effect) || isTerrain(effect)) continue;
+    if (isSummon(effect) || isAura(effect)) continue;
     if (isArea(effect)) {
       for (const inner of effect.effects) if (inner.kind === 'damage') damage += amountOf(inner.amount, values) + (readsPower(inner.amount) ? 0 : enemy.power);
       radius = effect.radius;
@@ -102,7 +102,7 @@ export function incoming(state: GameState, at: Cell): number {
  *  sub-boss on the way is fought when it wakes, like anything else. */
 function goalOf(game: Game): Cell {
   const { state, world } = game;
-  for (const [key, layers] of Object.entries(state.terrain)) {
+  for (const [key, layers] of Object.entries(state.auras)) {
     if (layers.some((layer) => layer.portal)) {
       const [row, col] = key.split(',').map(Number);
       return { row: row!, col: col! };
@@ -147,7 +147,7 @@ function markWorth(state: GameState, cell: Cell): number {
   const self = player(state);
   let worth = 0;
   const warded = stat(state, 'fireWard') >= 1;
-  for (const layer of terrainAt(state, cell)) {
+  for (const layer of aurasAt(state, cell)) {
     if (layer.portal) worth += 30;
     // Heat counts, as the rules will land it.
     for (const effect of layerEffects(state, layer)) {
@@ -212,7 +212,7 @@ export function value(game: Game): number {
   for (const ally of allies(state)) v += 3 + ally.hp * 0.5;
 
   // Marks: fire under or beside an enemy keeps paying; standing in it costs.
-  for (const [key, layers] of Object.entries(state.terrain)) {
+  for (const [key, layers] of Object.entries(state.auras)) {
     const [row, col] = key.split(',').map(Number);
     const cell = { row: row!, col: col! };
     const hurt = layers.reduce((sum, layer) => sum + layerEffects(state, layer)
@@ -527,7 +527,7 @@ function claim(game: Game, random: () => number): void {
     // change: a Ruby into a card that deals damage, a Diamond into one that
     // blocks, a Sapphire into one that costs something.
     const gem = gemDef(active.reward.gemId);
-    const marks = gem.effects.some(isTerrain);
+    const marks = gem.effects.some(isAura);
     const has = (card: typeof state.hand[number], kind: string) => cardDef(card.defId).effects
       .some((effect) => effect.kind === kind || (isArea(effect) && effect.effects.some((inner) => inner.kind === kind)));
     const fits = (card: typeof state.hand[number]) => {

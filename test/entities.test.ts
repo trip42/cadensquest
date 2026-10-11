@@ -79,7 +79,7 @@ describe('entity definitions', () => {
       // An attack is a blow, or a mark or burst that hurts: the Ember Whelp
       // sets your tile burning rather than biting.
       const hurts = (e: Effect): boolean => e.kind === 'damage'
-        || ((e.kind === 'terrain' || e.kind === 'area') && 'effects' in e && e.effects.some((inner) => inner.kind === 'damage'));
+        || ((e.kind === 'aura' || e.kind === 'area') && 'effects' in e && e.effects.some((inner) => inner.kind === 'damage'));
       const attacks = deck.some((cardId) => intentDef(cardId).effects.some(hurts));
       expect(attacks, id).toBe(true);
     }

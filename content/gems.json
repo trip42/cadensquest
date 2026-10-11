@@ -47,7 +47,7 @@
     "text": "Sets the target's tile burning: 2 damage for 2 rounds.",
     "effects": [
       {
-        "kind": "terrain",
+        "kind": "aura",
         "rounds": 2,
         "type": "fire",
         "effects": [

@@ -41,7 +41,7 @@ export type Cue =
    *  was stopped short, else 0. */
   | { type: 'shove'; target: string; side: Faction; from: Cell; to: Cell; origin: Cell; pull: boolean; slam: number }
   | { type: 'summon'; target: string; side: Faction; cell: Cell }
-  /** Tiles marked with terrain, in the mark's colour. */
+  /** Tiles given an aura, in its colour. */
   | { type: 'mark'; cells: Cell[]; colour: string }
   /** An area burst going off: every tile it covered. */
   | { type: 'burst'; center: Cell; cells: Cell[]; colour: string }

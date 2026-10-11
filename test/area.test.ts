@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { areaPreview, beginTurn, cellsWithin, endPlayerPhase, playCard, terrainAt, tick } from '~/game/actions';
+import { areaPreview, beginTurn, cellsWithin, endPlayerPhase, playCard, aurasAt, tick } from '~/game/actions';
 import { CARDS } from '~/game/cards/definitions';
 import { INTENTS } from '~/game/cards/intents';
 import type { CardDefinition } from '~/game/cards/types';
@@ -142,14 +142,14 @@ describe('a burst', () => {
   });
 });
 
-describe('terrain with a radius', () => {
+describe('an aura with a radius', () => {
   it('marks every walkable tile in the diamond, each on its own', () => {
     const game = quiet();
     const { center } = crowd(game);
-    define('wildfire', [{ kind: 'terrain', rounds: 2, type: 'spring', radius: 1, effects: [{ kind: 'damage', amount: 2 }] }]);
+    define('wildfire', [{ kind: 'aura', rounds: 2, type: 'spring', radius: 1, effects: [{ kind: 'damage', amount: 2 }] }]);
     play(game, 'wildfire', center);
-    for (const cell of cellsWithin(game, center, 1)) expect(terrainAt(game.state, cell)).toHaveLength(1);
-    expect(terrainAt(game.state, cellsAt(game, 6)[0]!)).toEqual([]);
+    for (const cell of cellsWithin(game, center, 1)) expect(aurasAt(game.state, cell)).toHaveLength(1);
+    expect(aurasAt(game.state, cellsAt(game, 6)[0]!)).toEqual([]);
   });
 });
 

@@ -12,7 +12,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 // never registers it, and the Props tab showed a name and an id and nothing
 // else (see CLAUDE.md, the ShopModal gotcha).
 import EditorFormProp from '~/components/editor/FormProp.vue';
-import EditorFormTerrain from '~/components/editor/FormTerrain.vue';
+import EditorFormAura from '~/components/editor/FormAura.vue';
 import type { ContentFile } from '~/game/content';
 import { TABS, useEditorStore } from '~/stores/editor';
 import { problemsAt } from '~/utils/editorProblems';
@@ -226,7 +226,7 @@ const saveLabel = computed(() => {
           <EditorFormEnemy v-else-if="editor.tab === 'enemies'" :item="item as never" :issues="itemIssues" :content="editor.draft" />
           <EditorFormGem v-else-if="editor.tab === 'gems'" :item="item as never" :issues="itemIssues" />
           <EditorFormTalisman v-else-if="editor.tab === 'talismans'" :item="item as never" :issues="itemIssues" />
-          <EditorFormTerrain v-else-if="editor.tab === 'terrain'" :item="item as never" :issues="itemIssues" />
+          <EditorFormAura v-else-if="editor.tab === 'auras'" :item="item as never" :issues="itemIssues" />
           <EditorFormProp v-else-if="editor.tab === 'props'" :item="item as never" :issues="itemIssues" />
           <EditorFormZone v-else-if="editor.tab === 'zones'" :item="item as never" :issues="itemIssues" :content="editor.draft" />
           <EditorFormRun v-else :content="editor.draft" :issues="itemIssues" />

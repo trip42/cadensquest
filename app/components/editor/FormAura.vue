@@ -1,22 +1,22 @@
 <script setup lang="ts">
-/* A terrain type: what a marked tile is — Fire, Oil, a Spring. Defined
+/* An aura type: what a marked tile is — Fire, Oil, a Spring. Defined
    once here and named by every card, gem, talisman or enemy that marks a
    tile with it. The card says what the tile does and for how long; this
    says what it is called, whether it counts as fire, and how it looks. */
 import { computed } from 'vue';
-import type { ContentIssue, TerrainTypeData } from '~/game/content';
-import { MARK_SHAPES, REACTION_KINDS, REACTION_TEXT, type ReactionKind } from '~/game/terrain';
+import type { ContentIssue, AuraTypeData } from '~/game/content';
+import { MARK_SHAPES, REACTION_KINDS, REACTION_TEXT, type ReactionKind } from '~/game/auras';
 import { useEditorStore } from '~/stores/editor';
 import { problemsAt } from '~/utils/editorProblems';
 
-const props = defineProps<{ item: TerrainTypeData; issues: ContentIssue[] }>();
+const props = defineProps<{ item: AuraTypeData; issues: ContentIssue[] }>();
 const at = (field: string) => problemsAt(props.issues, field);
 
 /* ------------------------------ reactions ------------------------------ */
 
 const editor = useEditorStore();
 /** Every other type, to react with. */
-const others = computed(() => (editor.draft?.terrain ?? []).filter((type) => type.id !== props.item.id));
+const others = computed(() => (editor.draft?.auras ?? []).filter((type) => type.id !== props.item.id));
 
 function addReaction(): void {
   const first = others.value[0];
@@ -34,7 +34,7 @@ function setSpread(raw: string): void {
   else delete props.item.spread;
 }
 
-type Look = TerrainTypeData['look'];
+type Look = AuraTypeData['look'];
 /** The number dials, each a slider with its value beside it. */
 const DIALS: Array<{ key: keyof Look; label: string; hint?: string; min: number; max: number; step: number }> = [
   { key: 'size', label: 'Size', hint: 'Share of the tile; 1 reaches its corners.', min: 0.2, max: 1, step: 0.02 },

@@ -1,7 +1,7 @@
-/* Drawing a marked tile, from its terrain type's look.
+/* Drawing a marked tile, from its aura type's look.
 
    One function for the map and the editor's preview alike, so what the
-   Terrain tab shows is what a run draws. A mark reads as something sitting
+   Auras tab shows is what a run draws. A mark reads as something sitting
    on the ground rather than a tint of it:
 
      - a faint stain of its shape on the tile, the shadow of —
@@ -18,7 +18,7 @@
    `hash`, so each tile's are its own and never crawl as the camera moves;
    time only drives the motion. */
 
-import { DEFAULT_LOOK, type MarkLook, type MarkShape } from '../game/terrain';
+import { DEFAULT_LOOK, type MarkLook, type MarkShape } from '../game/auras';
 import { hash, HH, HW } from './iso';
 
 const TAU = Math.PI * 2;

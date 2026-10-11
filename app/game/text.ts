@@ -32,7 +32,7 @@
    `intentText` in actions.ts, which know the game. */
 
 import {
-  type Amount, amountOf, type AmountValues, describeAmount, type Effect, isArea, isBoon, isLater, isScaled, isSummon, isTerrain,
+  type Amount, amountOf, type AmountValues, describeAmount, type Effect, isArea, isBoon, isLater, isScaled, isSummon, isAura,
   isTrail, type LaterEffect, type SimpleEffect,
   markEffects, readsPower, stepValues,
 } from './effects';
@@ -111,7 +111,7 @@ interface Numbered {
  *  and otherwise the verb's amount. Inside a burst or a Later, each effect
  *  offers this. */
 function numberOf(effect: Effect): Numbered {
-  if (isTerrain(effect) || isLater(effect) || isTrail(effect)) return { amount: effect.rounds, kind: 'rounds' };
+  if (isAura(effect) || isLater(effect) || isTrail(effect)) return { amount: effect.rounds, kind: 'rounds' };
   if (isArea(effect)) return { amount: effect.radius, kind: 'radius' };
   if (isSummon(effect)) return { amount: effect.amount, kind: 'health' };
   if (isBoon(effect)) return { amount: effect.add ?? effect.mul ?? 0, kind: boonKind(effect.stat) };
@@ -125,7 +125,7 @@ function numbered(effects: readonly Effect[]): Map<string, Numbered> {
     const key = String(i + 1);
     const inside = (list: readonly { kind: string; amount: Amount }[]) =>
       list.forEach((inner, j) => found.set(`${key}.${j + 1}`, { amount: inner.amount, kind: inner.kind }));
-    if (isTerrain(effect)) {
+    if (isAura(effect)) {
       found.set(key, { amount: effect.rounds, kind: 'rounds' });
       inside(markEffects(effect));
     } else if (isLater(effect)) {
@@ -172,7 +172,7 @@ function liveNumbers(effects: readonly Effect[], start: AmountValues, bonuses: B
             : n;
         found.set(`${key}.${j + 1}`, value);
       });
-    if (isTerrain(effect)) {
+    if (isAura(effect)) {
       found.set(key, amountOf(effect.rounds, values));
       inside(markEffects(effect));
     } else if (isLater(effect)) {

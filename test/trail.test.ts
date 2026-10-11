@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { beginTurn, endPlayerPhase, movePlayerTo, playCard, terrainAt, tick } from '~/game/actions';
+import { beginTurn, endPlayerPhase, movePlayerTo, playCard, aurasAt, tick } from '~/game/actions';
 import { CARDS } from '~/game/cards/definitions';
 import type { CardDefinition } from '~/game/cards/types';
 import { loadContent } from '~/game/content';
-import type { Effect, TerrainEffect } from '~/game/effects';
+import type { Effect, AuraEffect } from '~/game/effects';
 import { entityCell } from '~/game/entities/types';
 import { type Cell, cellDistance, reachable } from '~/game/map/navigation';
 import { createGame, type Game, makeCard, makeEntity, player, resetUids } from '~/game/state';
@@ -37,7 +37,7 @@ function settle(game: Game): void {
   for (let i = 0; i < 600; i += 1) tick(game, 1 / 60);
 }
 
-const embers: TerrainEffect = { kind: 'terrain', rounds: 2, type: 'fire', effects: [{ kind: 'damage', amount: 1 }], radius: 2 };
+const embers: AuraEffect = { kind: 'aura', rounds: 2, type: 'fire', effects: [{ kind: 'damage', amount: 1 }], radius: 2 };
 const TRAIL: Effect = { kind: 'trail', rounds: 3, mark: embers };
 
 /** A walk of two steps from the player: the cell after one, and after two. */
@@ -60,11 +60,11 @@ describe('trails', () => {
     game.state.movement = 5;
     expect(movePlayerTo(game, second)).toBe(true);
     settle(game);
-    expect(terrainAt(game.state, start).map((layer) => layer.type)).toEqual(['fire']);
-    expect(terrainAt(game.state, first).map((layer) => layer.type)).toEqual(['fire']);
-    expect(terrainAt(game.state, second)).toEqual([]);
+    expect(aurasAt(game.state, start).map((layer) => layer.type)).toEqual(['fire']);
+    expect(aurasAt(game.state, first).map((layer) => layer.type)).toEqual(['fire']);
+    expect(aurasAt(game.state, second)).toEqual([]);
     // The radius is ignored: only the tiles walked from.
-    const marked = Object.values(game.state.terrain).filter((layers) => layers.some((layer) => layer.type === 'fire'));
+    const marked = Object.values(game.state.auras).filter((layers) => layers.some((layer) => layer.type === 'fire'));
     expect(marked).toHaveLength(2);
   });
 
@@ -107,7 +107,7 @@ describe('trails', () => {
     wolf.intent = { cardId: 'wolf_lunge', label: 'Lunge' };
     endPlayerPhase(game);
     for (let i = 0; i < 3000 && game.state.phase === 'enemy'; i += 1) tick(game, 1 / 60);
-    expect(terrainAt(game.state, spot).some((layer) => layer.ownerId === wolf.id)).toBe(true);
+    expect(aurasAt(game.state, spot).some((layer) => layer.ownerId === wolf.id)).toBe(true);
   });
 
   it('write themselves out in the editor', () => {

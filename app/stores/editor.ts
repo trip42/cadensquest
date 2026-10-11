@@ -20,7 +20,7 @@ import {
   validateContent,
 } from '~/game/content';
 import { trialText, type TrialKind } from '~/game/sandbox';
-import { DEFAULT_LOOK } from '~/game/terrain';
+import { DEFAULT_LOOK } from '~/game/auras';
 
 /** The files that are lists of things, as opposed to run.json. */
 export type Collection = Exclude<ContentFile, 'run'>;
@@ -37,7 +37,7 @@ export const TABS: Array<{ file: ContentFile; label: string; one: string; trial?
   { file: 'enemy-cards', label: 'Enemy cards', one: 'enemy card', trial: 'enemy-card' },
   { file: 'gems', label: 'Gems', one: 'gem', trial: 'gem' },
   { file: 'talismans', label: 'Talismans', one: 'talisman', trial: 'talisman' },
-  { file: 'terrain', label: 'Terrain', one: 'terrain type' },
+  { file: 'auras', label: 'Auras', one: 'aura' },
   { file: 'props', label: 'Props', one: 'prop' },
   { file: 'zones', label: 'Zones', one: 'zone', trial: 'zone' },
   { file: 'run', label: 'Starting deck', one: 'starting deck' },
@@ -67,8 +67,8 @@ const BLANK: Record<Exclude<Collection, 'zones'>, (id: string) => Record<string,
     id, name: 'New talisman', enabled: true, text: 'Draw one more card each turn.', icon: 'bag',
     modifiers: [{ stat: 'handSize', add: 1 }],
   }),
-  terrain: (id) => ({
-    id, name: 'New terrain',
+  auras: (id) => ({
+    id, name: 'New aura',
     look: { ...DEFAULT_LOOK, colour: '#b36bd9' },
   }),
   props: (id) => ({
@@ -243,11 +243,11 @@ export const useEditorStore = defineStore('editor', () => {
         });
       }
     }
-    if (file === 'terrain') {
+    if (file === 'auras') {
       // Every mark, wherever it sits: in a Later, a burst, a trail.
       const marks = (effects: readonly unknown[] = []): number => effects.reduce<number>((sum, raw) => {
         const effect = raw as { kind: string; type?: string; mark?: { type: string }; effects?: unknown[] };
-        if (effect.kind === 'terrain') return sum + (effect.type === id ? 1 : 0);
+        if (effect.kind === 'aura') return sum + (effect.type === id ? 1 : 0);
         if (effect.kind === 'trail') return sum + (effect.mark?.type === id ? 1 : 0);
         return sum + (effect.kind === 'later' || effect.kind === 'area' ? marks(effect.effects) : 0);
       }, 0);

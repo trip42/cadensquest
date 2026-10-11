@@ -124,7 +124,7 @@ describe('cues', () => {
     const game = quiet();
     const spot = away(game, 2);
     const wolf = foe(game, spot);
-    define('fire', [{ kind: 'terrain', rounds: 2, type: 'spring', effects: [{ kind: 'damage', amount: 3 }] }], { targeting: 'cell', range: 3 });
+    define('fire', [{ kind: 'aura', rounds: 2, type: 'spring', effects: [{ kind: 'damage', amount: 3 }] }], { targeting: 'cell', range: 3 });
     const marked = during(game, () => play(game, 'fire', spot));
     expect(types(marked)).toEqual(['play', 'mark', 'hit']);
     // The mark's colour is its type's: Spring's green.
@@ -163,7 +163,7 @@ describe('cues', () => {
     const self = player(game.state);
     const row = gateRowOf(0);
     const col = [...Array(game.world.width).keys()].find((c) => game.world.walkable(row, c))!;
-    game.state.terrain[`${row},${col}`] = [{ id: 'p', effects: [], colour: '#ffffff', rounds: 0, ownerId: self.id, portal: 'down' }];
+    game.state.auras[`${row},${col}`] = [{ id: 'p', effects: [], colour: '#ffffff', rounds: 0, ownerId: self.id, portal: 'down' }];
     self.row = row - 1;
     self.col = col;
     game.state.descending = true;

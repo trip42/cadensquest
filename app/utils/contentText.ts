@@ -8,7 +8,7 @@ import type { EffectData } from '~/game/content';
 import type { Targeting } from '~/game/cards/types';
 
 type SimpleData = Exclude<
-  EffectData, { kind: 'terrain' } | { kind: 'summon' } | { kind: 'area' } | { kind: 'later' } | { kind: 'boon' } | { kind: 'trail' }
+  EffectData, { kind: 'aura' } | { kind: 'summon' } | { kind: 'area' } | { kind: 'later' } | { kind: 'boon' } | { kind: 'trail' }
 >;
 type BoonData = Extract<EffectData, { kind: 'boon' }>;
 
@@ -91,7 +91,7 @@ function summonedPhrase(effect: SummonData, nameOf: NameOf, where = ''): string 
   const rounds = effect.rounds === undefined ? '' : ` for ${describeAmount(effect.rounds as Amount)} round${describeAmount(effect.rounds as Amount) === '1' ? '' : 's'}`;
   return `${article(nameOf(effect.entity))}${where} with ${health} health${rounds}`;
 }
-type TerrainData = Extract<EffectData, { kind: 'terrain' }>;
+type AuraData = Extract<EffectData, { kind: 'aura' }>;
 import { type Amount, describeAmount, EFFECT_INFO, isScaled } from '~/game/effects';
 import { STAT_NAMES } from '~/game/stats';
 
@@ -103,7 +103,7 @@ const isAllOf = (amount: Amount, of: string) =>
 
 /** What a marked tile does, said of whoever is on it: "takes 3 damage and
  *  gains 2 block". */
-function tilePhrase(tiles: TerrainData['effects'], owner: string): string {
+function tilePhrase(tiles: AuraData['effects'], owner: string): string {
   return tiles.map((tile) => {
     const n = describeAmount(tile.amount as Amount, owner);
     switch (tile.kind) {
@@ -125,7 +125,7 @@ function tilePhrase(tiles: TerrainData['effects'], owner: string): string {
 /* What a mark does, in all its parts: to whoever is on it, as it arrives,
    as it leaves. Power on entering taken back on leaving reads as what it
    is: "whoever stands on it deals 1 more damage". */
-function markPhrase(effect: TerrainData, owner: string): string {
+function markPhrase(effect: AuraData, owner: string): string {
   const { enter = [], exit = [] } = effect;
   const [gain] = enter;
   const [loss] = exit;
@@ -144,7 +144,7 @@ function markPhrase(effect: TerrainData, owner: string): string {
 }
 
 /** "for 3 rounds", "for X rounds", "for 1 round". */
-function roundsPhrase(effect: TerrainData): string {
+function roundsPhrase(effect: AuraData): string {
   const n = describeAmount(effect.rounds as Amount);
   return `for ${n} round${n === '1' ? '' : 's'}`;
 }
@@ -231,7 +231,7 @@ function playerPhrase(
     return `summon ${summonedPhrase(effect, nameOf, where)}`;
   }
   if (effect.kind === 'tame' || effect.kind === 'mend') return creaturePhrase(effect, range, targeting, afterTame);
-  if (effect.kind === 'terrain') {
+  if (effect.kind === 'aura') {
     const area = effect.radius ? ` and every tile within ${effect.radius} of it` : '';
     return `mark ${wherePhrase(targeting, range)}${area}: ${roundsPhrase(effect)}, ${markPhrase(effect, 'your')}`;
   }
@@ -310,7 +310,7 @@ function simplePlayerPhrase(effect: SimpleData, range: number): string {
    beside it, under it or around it. */
 function enemyLaterPart(inner: EffectData, nameOf: NameOf, owner = 'its'): string {
   if (inner.kind === 'summon') return `calls ${summonedPhrase(inner, nameOf)}`;
-  if (inner.kind === 'terrain') {
+  if (inner.kind === 'aura') {
     const area = inner.radius ? ` and every tile within ${inner.radius} of it` : '';
     return `marks its own tile${area} ${roundsPhrase(inner)}: ${markPhrase(inner, 'its')}`;
   }
@@ -321,7 +321,7 @@ function enemyLaterPart(inner: EffectData, nameOf: NameOf, owner = 'its'): strin
 
 function enemyPhrase(effect: EffectData, range: number, nameOf: NameOf = byId): string {
   if (effect.kind === 'summon') return `calls ${summonedPhrase(effect, nameOf)}`;
-  if (effect.kind === 'terrain') {
+  if (effect.kind === 'aura') {
     // Neutral, not "your tile": a tamed creature plays this card too.
     const area = effect.radius ? ` and every tile within ${effect.radius} of it` : '';
     return `marks its target's tile${area} ${roundsPhrase(effect)}: ${markPhrase(effect, 'its')}`;

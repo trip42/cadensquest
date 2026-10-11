@@ -7,10 +7,10 @@ import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { cardMovement } from '~/game/cards/definitions';
 import type { CardDefinition } from '~/game/cards/types';
 import type {
-  CardData, Content, ContentFile, EnemyCardData, EnemyData, GemData, PropData, TalismanData, TerrainTypeData, ZoneData,
+  CardData, Content, ContentFile, EnemyCardData, EnemyData, GemData, PropData, TalismanData, AuraTypeData, ZoneData,
 } from '~/game/content';
 import {
-  amountOf, type AmountValues, describeEffect, describeMark, describeTileEffect, type Effect, isArea, isLater, isSummon, isTerrain, nowText,
+  amountOf, type AmountValues, describeEffect, describeMark, describeTileEffect, type Effect, isArea, isLater, isSummon, isAura, nowText,
   TRIGGER_INFO, type TriggerPoint,
 } from '~/game/effects';
 import type { GemDefinition } from '~/game/gems';
@@ -21,7 +21,7 @@ import { glyph } from '~/render/glyphs';
 // find it by auto-import (see CLAUDE.md).
 import ZoneMap from './ZoneMap.vue';
 import { useEditorStore } from '~/stores/editor';
-import { REACTION_TEXT } from '~/game/terrain';
+import { REACTION_TEXT } from '~/game/auras';
 
 const props = defineProps<{
   file: ContentFile;
@@ -65,17 +65,17 @@ const SAMPLE_TEXT = computed(() =>
 const cardNow = computed(() => (card.value ? nowText(card.value.effects, cardSample.value) : null));
 const cardNowShort = computed(() => (card.value ? nowText(card.value.effects, cardSample.value, 'short') : null));
 
-/* The tile a terrain effect leaves, as the map draws it: a stripe per mark
+/* The tile an aura leaves, as the map draws it: a stripe per mark
    in its colour, and the lines its tooltip will show. Amounts are worked
    out from the same sample moment as the card's live number. */
 const marks = computed(() => {
-  const effects = (card.value?.effects ?? (move.value?.effects as Effect[] | undefined) ?? []).filter(isTerrain);
+  const effects = (card.value?.effects ?? (move.value?.effects as Effect[] | undefined) ?? []).filter(isAura);
   const values = card.value ? cardSample.value : { ...SAMPLE, block: 0, energy: 0, hand: 0 };
   return effects.map((effect) => {
     const rounds = amountOf(effect.rounds, values);
     const fix = (list: typeof effect.effects = []) => list.map((tile) => ({ kind: tile.kind, amount: amountOf(tile.amount, values) }));
     const text = describeMark(fix(effect.effects), fix(effect.enter), fix(effect.exit));
-    const type = props.content.terrain.find((item) => item.id === effect.type);
+    const type = props.content.auras.find((item) => item.id === effect.type);
     return { colour: type?.look.colour ?? '#ffffff', text: `${type ? `${type.name}: ` : ''}${text} · ${rounds} round${rounds === 1 ? '' : 's'}` };
   });
 });
@@ -157,20 +157,20 @@ const gemHost = computed(() => {
 
 const talisman = computed(() => (props.file === 'talismans' ? (props.item as TalismanData) : null));
 
-const terrain = computed(() => (props.file === 'terrain' ? (props.item as TerrainTypeData) : null));
+const aura = computed(() => (props.file === 'auras' ? (props.item as AuraTypeData) : null));
 /** The other types, to show how this one stands among them on one tile. */
-const otherLooks = computed(() => props.content.terrain.filter((type) => type !== terrain.value).slice(0, 2).map((type) => type.look));
+const otherLooks = computed(() => props.content.auras.filter((type) => type !== aura.value).slice(0, 2).map((type) => type.look));
 const editorStore = useEditorStore();
-const terrainUses = computed(() => (terrain.value ? editorStore.usesOf('terrain', terrain.value.id) : []));
+const auraUses = computed(() => (aura.value ? editorStore.usesOf('auras', aura.value.id) : []));
 /** Its reactions and spreading, as sentences — and the reactions other
  *  types have to it. */
-const terrainRules = computed(() => {
-  const type = terrain.value;
+const auraRules = computed(() => {
+  const type = aura.value;
   if (!type) return [];
-  const nameOf = (id: string) => props.content.terrain.find((item) => item.id === id)?.name ?? id;
+  const nameOf = (id: string) => props.content.auras.find((item) => item.id === id)?.name ?? id;
   return [
     ...(type.reactions ?? []).map((reaction) => `${type.name} ${REACTION_TEXT[reaction.does]} ${nameOf(reaction.with)}.`),
-    ...props.content.terrain.flatMap((other) => (other.reactions ?? [])
+    ...props.content.auras.flatMap((other) => (other.reactions ?? [])
       .filter((reaction) => reaction.with === type.id)
       .map((reaction) => `${other.name} ${REACTION_TEXT[reaction.does]} ${type.name}.`)),
     ...(type.spread ? [`Each round, ${Math.round(type.spread * 100)}% chance to creep onto each neighbouring tile.`] : []),
@@ -375,31 +375,31 @@ watch(() => [card.value?.name, card.value?.text, cardNow.value], measure);
       <p class="caption">As it sits on the rail, and its details on hover</p>
     </template>
 
-    <!-- A terrain type: its mark on a tile, alone and among others. -->
-    <template v-else-if="terrain">
+    <!-- An aura type: its mark on a tile, alone and among others. -->
+    <template v-else-if="aura">
       <div class="arena">
-        <EditorMarkPreview :look="terrain.look" :scale="1.5" />
+        <EditorMarkPreview :look="aura.look" :scale="1.5" />
       </div>
       <p class="caption">As the map draws it</p>
       <div class="arena">
-        <EditorMarkPreview :look="terrain.look" :others="otherLooks" :scale="1" />
+        <EditorMarkPreview :look="aura.look" :others="otherLooks" :scale="1" />
       </div>
       <p class="caption">Newest on a tile with others: they stand round it as badges</p>
       <div class="panel foe-tip">
-        <p class="tip-name">{{ terrain.name }}</p>
+        <p class="tip-name">{{ aura.name }}</p>
         <p class="line">
-          <span v-if="terrain.fire" class="px-tag is-red">FIRE</span>
-          {{ terrain.text || 'What it does comes from the card that lays it.' }}
+          <span v-if="aura.fire" class="px-tag is-red">FIRE</span>
+          {{ aura.text || 'What it does comes from the card that lays it.' }}
         </p>
       </div>
-      <div v-if="terrainRules.length" class="panel note">
+      <div v-if="auraRules.length" class="panel note">
         <p class="note-title">Rules</p>
-        <p v-for="rule in terrainRules" :key="rule">{{ rule }}</p>
+        <p v-for="rule in auraRules" :key="rule">{{ rule }}</p>
       </div>
       <div class="panel note">
         <p class="note-title">Laid by</p>
-        <p v-for="use in terrainUses" :key="use">{{ use }}</p>
-        <p v-if="!terrainUses.length" class="muted">Nothing yet — pick it on a card's terrain effect.</p>
+        <p v-for="use in auraUses" :key="use">{{ use }}</p>
+        <p v-if="!auraUses.length" class="muted">Nothing yet — pick it on a card's aura.</p>
       </div>
     </template>
 

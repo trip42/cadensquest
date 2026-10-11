@@ -313,7 +313,7 @@
     "text": "Mark a tile within 3: for {1} rounds, whoever is on it takes {1.1} damage.",
     "effects": [
       {
-        "kind": "terrain",
+        "kind": "aura",
         "rounds": 3,
         "type": "fire",
         "effects": [
@@ -337,7 +337,7 @@
     "text": "Mark a tile within 2: for {1} rounds, whoever is on it heals {1.1}.",
     "effects": [
       {
-        "kind": "terrain",
+        "kind": "aura",
         "rounds": 3,
         "type": "spring",
         "effects": [
@@ -467,7 +467,7 @@
     "text": "Mark a tile within 3 and every tile within 1 of it: for {1} rounds, whoever is on it takes {1.1} damage.",
     "effects": [
       {
-        "kind": "terrain",
+        "kind": "aura",
         "rounds": {
           "of": "x"
         },
@@ -716,7 +716,7 @@
     "text": "Mark a tile within 2 and every tile within 1 of it: for {1} rounds, whoever stands on it deals {1.1} more damage.",
     "effects": [
       {
-        "kind": "terrain",
+        "kind": "aura",
         "rounds": 3,
         "type": "rallying_ground",
         "effects": [],
@@ -829,7 +829,7 @@
         "amount": 3
       },
       {
-        "kind": "terrain",
+        "kind": "aura",
         "rounds": 2,
         "type": "fire",
         "effects": [
@@ -934,7 +934,7 @@
         "kind": "trail",
         "rounds": 3,
         "mark": {
-          "kind": "terrain",
+          "kind": "aura",
           "rounds": 2,
           "type": "fire",
           "effects": [
@@ -983,7 +983,7 @@
         "amount": 2
       },
       {
-        "kind": "terrain",
+        "kind": "aura",
         "rounds": 2,
         "type": "fire",
         "effects": [
@@ -1296,7 +1296,7 @@
     "text": "Douse a tile within 3 and every tile within 1 of it in oil for {1} rounds. Fire lit on oil spreads across it.",
     "effects": [
       {
-        "kind": "terrain",
+        "kind": "aura",
         "rounds": 4,
         "type": "oil",
         "effects": [],
@@ -1316,7 +1316,7 @@
     "text": "Poison a tile within 3 for {1} rounds: {1.1} damage to whoever is on it. It creeps.",
     "effects": [
       {
-        "kind": "terrain",
+        "kind": "aura",
         "rounds": 3,
         "type": "poison",
         "effects": [

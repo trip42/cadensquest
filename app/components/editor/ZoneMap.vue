@@ -67,7 +67,7 @@ function survey(zoneId: string, at: number): Survey | null {
     .filter((entity) => entity.faction === 'enemy')
     .map((entity) => ({ row: entity.row, col: entity.col, id: entity.defId, guardian: guardians.has(entity.id) }));
   let portal: Survey['portal'] = null;
-  for (const [key, layers] of Object.entries(game.state.terrain)) {
+  for (const [key, layers] of Object.entries(game.state.auras)) {
     if (layers.some((layer) => layer.portal)) {
       const [row, col] = key.split(',').map(Number);
       portal = { row: row!, col: col! };

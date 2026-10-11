@@ -1,8 +1,8 @@
-/* Terrain types: what a marked tile is — Fire, Oil, a healing Spring.
+/* Aura types: what a marked tile is — Fire, Oil, a healing Spring.
 
-   Each is content (`content/terrain.json`), defined once and named by every
+   Each is content (`content/auras.json`), defined once and named by every
    card, gem, talisman or enemy that marks a tile with it (`type` on a
-   terrain effect). The card says what the tile does and for how long — one
+   aura effect). The card says what the tile does and for how long — one
    fire hurts for 2, another for 3 — and the type says what it is: its name,
    how it looks, and whether it counts as fire.
 
@@ -81,11 +81,11 @@ export const REACTION_TEXT: Record<ReactionKind, string> = {
 
 export interface Reaction {
   does: ReactionKind;
-  /** The other terrain type. */
+  /** The other aura type. */
   with: string;
 }
 
-export interface TerrainType {
+export interface AuraType {
   id: string;
   name: string;
   /** For the tile's tooltip when the mark itself does nothing to whoever
@@ -102,15 +102,15 @@ export interface TerrainType {
   look: MarkLook;
 }
 
-/** Every terrain type, by id. The same object for the life of the page:
+/** Every aura type, by id. The same object for the life of the page:
  *  `installContent` empties and refills it. */
-export const TERRAIN: Record<string, TerrainType> = {};
+export const AURAS: Record<string, AuraType> = {};
 
 /** A type by id. A mark naming one that is not there (a test's own card,
  *  say) is drawn plain and is not fire. */
-export function terrainType(id: string | undefined): TerrainType | undefined {
-  return id ? TERRAIN[id] : undefined;
+export function auraType(id: string | undefined): AuraType | undefined {
+  return id ? AURAS[id] : undefined;
 }
 
 /** Does a mark of this type count as fire? */
-export const isFireType = (id: string | undefined): boolean => !!terrainType(id)?.fire;
+export const isFireType = (id: string | undefined): boolean => !!auraType(id)?.fire;

@@ -22,7 +22,7 @@ import { layoutZones, type Zone, ZONES } from '../map/tiles';
 import { DEFAULT_REWARD_CONFIG } from '../rewards';
 import type { StatModifier } from '../stats';
 import { TALISMAN_IDS, TALISMANS } from '../talismans';
-import { TERRAIN } from '../terrain';
+import { AURAS } from '../auras';
 import type { Content } from './schema';
 import { formatIssue, validateContent } from './validate';
 
@@ -88,8 +88,8 @@ export function installContent(content: Content): void {
   }]));
   refill(TALISMAN_IDS, content.talismans.filter((talisman) => talisman.enabled).map((talisman) => talisman.id));
 
-  // Terrain types: what each mark is, and how it looks.
-  replaceAll(TERRAIN, content.terrain.map((type) => [type.id, {
+  // Aura types: what each mark is, and how it looks.
+  replaceAll(AURAS, content.auras.map((type) => [type.id, {
     ...type,
     look: { ...type.look },
     reactions: type.reactions?.map((reaction) => ({ ...reaction })),

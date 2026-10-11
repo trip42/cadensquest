@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
-  beginTurn, buyShopItem, enterFloor, enterShop, isBusy, leaveShop, playCard, shopPrice, terrainAt, tick,
+  beginTurn, buyShopItem, enterFloor, enterShop, isBusy, leaveShop, playCard, shopPrice, aurasAt, tick,
 } from '~/game/actions';
 import { CARDS } from '~/game/cards/definitions';
 import { loadContent } from '~/game/content';
@@ -65,7 +65,7 @@ describe('a shop', () => {
     expect(shop).toMatchObject(shopCell(game));
     // Not an obstacle: he can walk onto it.
     expect(game.world.walkable(shop.row, shop.col)).toBe(true);
-    expect(terrainAt(game.state, shop).some((layer) => layer.shop)).toBe(true);
+    expect(aurasAt(game.state, shop).some((layer) => layer.shop)).toBe(true);
     expect(entityAt(game.state, shop.row, shop.col)).toBeUndefined();
   });
 

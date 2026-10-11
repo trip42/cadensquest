@@ -16,7 +16,7 @@ function quiet(): Game {
   beginTurn(game);
   game.state.entities = [player(game.state)];
   game.state.gates = [];
-  game.state.terrain = {};
+  game.state.auras = {};
   game.state.energy = 9;
   return game;
 }
@@ -71,7 +71,7 @@ describe('as a creature falls', () => {
       ...entityDef('wolf'),
       onDeath: [
         { kind: 'area', radius: 1, colour: '#e43b44', effects: [{ kind: 'damage', amount: 4 }] },
-        { kind: 'terrain', rounds: 2, type: 'fire', effects: [{ kind: 'damage', amount: 2 }] },
+        { kind: 'aura', rounds: 2, type: 'fire', effects: [{ kind: 'damage', amount: 2 }] },
       ],
     };
     const wolf = beside(game, 'wolf');
@@ -79,7 +79,7 @@ describe('as a creature falls', () => {
     smite(game, wolf);
     // Caught in the burst beside it; the fire stays under the body.
     expect(player(game.state).hp).toBe(hp - 4);
-    expect(game.state.terrain[`${wolf.row},${wolf.col}`]?.length).toBe(1);
+    expect(game.state.auras[`${wolf.row},${wolf.col}`]?.length).toBe(1);
   });
 
   it('works out its amounts as it falls, from the fallen creature', () => {

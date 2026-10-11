@@ -21,7 +21,7 @@ function quiet(): Game {
   beginTurn(game);
   game.state.entities = [player(game.state)];
   game.state.gates = [];
-  game.state.terrain = {};
+  game.state.auras = {};
   game.state.energy = 9;
   return game;
 }
@@ -167,7 +167,7 @@ describe('the new cards', () => {
 
   it('Wildfire now only burns: no power, no cards', () => {
     const [mark] = CARDS.wildfire!.effects;
-    expect(mark).toMatchObject({ kind: 'terrain', radius: 1, effects: [{ kind: 'damage', amount: 2 }] });
+    expect(mark).toMatchObject({ kind: 'aura', radius: 1, effects: [{ kind: 'damage', amount: 2 }] });
   });
 });
 
@@ -295,14 +295,14 @@ describe('a Later that summons, marks, bursts and more', () => {
     const wolf = makeEntity('wolf', self.row + 1, self.col);
     game.state.entities.push(wolf);
     define('slow_fuse', [later(1, [
-      { kind: 'terrain', rounds: 2, type: 'spring', effects: [{ kind: 'block', amount: 2 }] },
+      { kind: 'aura', rounds: 2, type: 'spring', effects: [{ kind: 'block', amount: 2 }] },
       { kind: 'area', radius: 1, colour: '#feae34', affects: 'foes', effects: [{ kind: 'damage', amount: 4 }] },
     ])]);
     play(game, 'slow_fuse');
-    expect(terrainCount(game)).toBe(0);
+    expect(auraCount(game)).toBe(0);
     beginTurn(game);
     // He stood still, so the mark is under him; the wolf beside him is caught.
-    expect(game.state.terrain[`${self.row},${self.col}`]?.length).toBe(1);
+    expect(game.state.auras[`${self.row},${self.col}`]?.length).toBe(1);
     expect(wolf.hp).toBe(wolf.maxHp - 4);
   });
 
@@ -347,6 +347,6 @@ describe('a Later that summons, marks, bursts and more', () => {
   });
 });
 
-function terrainCount(game: Game): number {
-  return Object.keys(game.state.terrain).length;
+function auraCount(game: Game): number {
+  return Object.keys(game.state.auras).length;
 }

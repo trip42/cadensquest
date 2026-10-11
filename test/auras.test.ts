@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { beginTurn, endPlayerPhase, isValidTarget, playCard, terrainAt, tick } from '~/game/actions';
+import { beginTurn, endPlayerPhase, isValidTarget, playCard, aurasAt, tick } from '~/game/actions';
 import { CARDS } from '~/game/cards/definitions';
 import { INTENTS } from '~/game/cards/intents';
 import type { CardDefinition } from '~/game/cards/types';
@@ -39,7 +39,7 @@ function play(game: Game, cardId: string, target: Cell | null): boolean {
   return playCard(game, card.uid, target);
 }
 
-const burn = (damage: number, rounds = 3): Effect => ({ kind: 'terrain', rounds, type: 'rallying_ground', effects: [{ kind: 'damage', amount: damage }] });
+const burn = (damage: number, rounds = 3): Effect => ({ kind: 'aura', rounds, type: 'rallying_ground', effects: [{ kind: 'damage', amount: damage }] });
 
 /** Walk the player one step onto a cell and let the step finish. */
 function stepOnto(game: Game, cell: Cell): void {
@@ -54,10 +54,10 @@ describe('marking a tile', () => {
     const game = quiet();
     const cell = cellAt(game, 2);
     define('fire_a', [burn(3)]);
-    define('spring_a', [{ kind: 'terrain', rounds: 1, type: 'spring', effects: [{ kind: 'heal', amount: 2 }] }]);
+    define('spring_a', [{ kind: 'aura', rounds: 1, type: 'spring', effects: [{ kind: 'heal', amount: 2 }] }]);
     expect(play(game, 'fire_a', cell)).toBe(true);
     expect(play(game, 'spring_a', cell)).toBe(true);
-    const layers = terrainAt(game.state, cell);
+    const layers = aurasAt(game.state, cell);
     // Each its own type, and the type's colour.
     expect(layers.map((layer) => layer.type)).toEqual(['rallying_ground', 'spring']);
     expect(layers.map((layer) => layer.colour)).toEqual(['#fee761', '#63c74d']);
@@ -68,9 +68,9 @@ describe('marking a tile', () => {
     const game = quiet();
     game.state.energy = 3;
     const cell = cellAt(game, 2);
-    define('fire_x', [{ kind: 'terrain', rounds: { of: 'x' }, type: 'spring', effects: [{ kind: 'damage', amount: { of: 'x', times: 2 } }] }], { cost: 'X' });
+    define('fire_x', [{ kind: 'aura', rounds: { of: 'x' }, type: 'spring', effects: [{ kind: 'damage', amount: { of: 'x', times: 2 } }] }], { cost: 'X' });
     play(game, 'fire_x', cell);
-    expect(terrainAt(game.state, cell)[0]).toMatchObject({ rounds: 3, effects: [{ kind: 'damage', amount: 6 }] });
+    expect(aurasAt(game.state, cell)[0]).toMatchObject({ rounds: 3, effects: [{ kind: 'damage', amount: 6 }] });
   });
 
   it('hits whoever is already standing there, at once', () => {
@@ -89,9 +89,9 @@ describe('marking a tile', () => {
     const game = quiet();
     const self = player(game.state);
     self.hp = 20;
-    define('spring_self', [{ kind: 'terrain', rounds: 2, type: 'spring', effects: [{ kind: 'heal', amount: 5 }] }], { targeting: 'self', range: 0 });
+    define('spring_self', [{ kind: 'aura', rounds: 2, type: 'spring', effects: [{ kind: 'heal', amount: 5 }] }], { targeting: 'self', range: 0 });
     play(game, 'spring_self', null);
-    expect(terrainAt(game.state, entityCell(self))).toHaveLength(1);
+    expect(aurasAt(game.state, entityCell(self))).toHaveLength(1);
     expect(self.hp).toBe(25);
   });
 });
@@ -126,11 +126,11 @@ describe('when a tile hits', () => {
     endPlayerPhase(game);
     for (let i = 0; i < 2000 && game.state.phase === 'enemy'; i += 1) tick(game, 1 / 60);
     // New round: one round left, and it burns him where he stands.
-    expect(terrainAt(game.state, cell)[0]?.rounds).toBe(1);
+    expect(aurasAt(game.state, cell)[0]?.rounds).toBe(1);
     expect(self.hp).toBe(afterStep - 1);
     endPlayerPhase(game);
     for (let i = 0; i < 2000 && game.state.phase === 'enemy'; i += 1) tick(game, 1 / 60);
-    expect(terrainAt(game.state, cell)).toEqual([]);
+    expect(aurasAt(game.state, cell)).toEqual([]);
   });
 
   it('hits an enemy standing on it as the enemy phase begins', () => {
@@ -143,7 +143,7 @@ describe('when a tile hits', () => {
     play(game, 'fire_e', cell);          // immediate: 3
     const afterMark = foe.hp;
     game.state.turn += 1;                // a new round, without the refresh
-    game.state.terrainHits = {};
+    game.state.auraHits = {};
     endPlayerPhase(game);
     expect(foe.hp).toBe(afterMark - 3);
   });
@@ -160,12 +160,12 @@ describe('when a tile hits', () => {
     const hp = self.hp;
     endPlayerPhase(game);
     for (let i = 0; i < 3000 && game.state.phase === 'enemy'; i += 1) tick(game, 1 / 60);
-    expect(terrainAt(game.state, entityCell(self)).length).toBeGreaterThan(0);
+    expect(aurasAt(game.state, entityCell(self)).length).toBeGreaterThan(0);
     expect(self.hp).toBeLessThanOrEqual(hp - 2);
   });
 });
 
-describe('terrain in content', () => {
+describe('auras in content', () => {
   const draft = () => structuredClone(readContentFiles()) as unknown as Content;
   const check = (content: Content) => validateContent(content as never);
 
@@ -180,7 +180,7 @@ describe('terrain in content', () => {
     expect(check(content).issues[0]).toMatchObject({ level: 'error', id: 'fire', field: 'effects[0].effects[1].kind' });
   });
 
-  it('refuses terrain inside terrain', () => {
+  it('refuses an aura inside an aura', () => {
     const content = draft();
     const fire = content.cards.find((card) => card.id === 'fire')!;
     (fire.effects[0] as { effects: unknown[] }).effects.push(burn(1));

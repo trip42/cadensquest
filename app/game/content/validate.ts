@@ -75,7 +75,7 @@ function crossCheck(content: Content): ContentIssue[] {
     issues.push({ level: 'warning', file, id, field, message });
 
   // Ids are unique within a file.
-  for (const file of ['cards', 'enemy-cards', 'enemies', 'gems', 'talismans', 'props', 'terrain'] as const) {
+  for (const file of ['cards', 'enemy-cards', 'enemies', 'gems', 'talismans', 'props', 'auras'] as const) {
     const seen = new Set<string>();
     for (const item of content[file]) {
       if (seen.has(item.id)) error(file, item.id, `the id "${item.id}" is used twice`, 'id');
@@ -88,15 +88,15 @@ function crossCheck(content: Content): ContentIssue[] {
   const enemies = new Map(content.enemies.map((enemy) => [enemy.id, enemy]));
   const gems = new Map(content.gems.map((gem) => [gem.id, gem]));
   const talismans = new Map(content.talismans.map((talisman) => [talisman.id, talisman]));
-  const terrainTypes = new Map(content.terrain.map((type) => [type.id, type]));
-  for (const type of content.terrain) {
+  const auraTypes = new Map(content.auras.map((type) => [type.id, type]));
+  for (const type of content.auras) {
     const seen = new Set<string>();
     type.reactions?.forEach((reaction, i) => {
       const field = `reactions[${i}].with`;
-      if (reaction.with === type.id) error('terrain', type.id, 'a type cannot react with itself', field);
-      else if (!terrainTypes.has(reaction.with)) error('terrain', type.id, `reacts with "${reaction.with}", which is not a terrain type`, field);
+      if (reaction.with === type.id) error('auras', type.id, 'a type cannot react with itself', field);
+      else if (!auraTypes.has(reaction.with)) error('auras', type.id, `reacts with "${reaction.with}", which is not an aura type`, field);
       const key = `${reaction.does}:${reaction.with}`;
-      if (seen.has(key)) warn('terrain', type.id, 'the same reaction is listed twice', field);
+      if (seen.has(key)) warn('auras', type.id, 'the same reaction is listed twice', field);
       seen.add(key);
     });
   }
@@ -105,21 +105,21 @@ function crossCheck(content: Content): ContentIssue[] {
   const offSide = (kind: string, side: 'player' | 'enemy') =>
     kind === 'boon'
       ? side === 'enemy'
-      : !['terrain', 'summon', 'area', 'later', 'trail'].includes(kind) && !EFFECT_INFO[kind as EffectKind][side];
+      : !['aura', 'summon', 'area', 'later', 'trail'].includes(kind) && !EFFECT_INFO[kind as EffectKind][side];
   const labelOf = (kind: string) => (kind === 'boon' ? BOON_INFO.label : EFFECT_INFO[kind as EffectKind].label);
 
   /** A mark's own amounts: its rounds, and each on its tile. */
-  const markAmounts = (effect: Extract<EffectData, { kind: 'terrain' }>, at: string) => [
+  const markAmounts = (effect: Extract<EffectData, { kind: 'aura' }>, at: string) => [
     { amount: effect.rounds, field: `${at}.rounds` },
     ...(['effects', 'enter', 'exit'] as const).flatMap((list) => (effect[list] ?? [])
       .map((tile, t) => ({ amount: tile.amount, field: `${at}.${list}[${t}].amount` }))),
   ];
 
-  /** Every amount in a list of effects, with where it sits — a terrain
+  /** Every amount in a list of effects, with where it sits — an aura
    *  effect's rounds and the amounts on its tile count too. */
   const amountsIn = (effects: readonly EffectData[], at = 'effects'): Array<{ amount: AmountData; field: string }> =>
     effects.flatMap((effect, i): Array<{ amount: AmountData; field: string }> =>
-      effect.kind === 'terrain'
+      effect.kind === 'aura'
         ? markAmounts(effect, `${at}[${i}]`)
         : effect.kind === 'trail'
           ? [{ amount: effect.rounds, field: `${at}[${i}].rounds` }, ...markAmounts(effect.mark, `${at}[${i}].mark`)]
@@ -187,13 +187,13 @@ function crossCheck(content: Content): ContentIssue[] {
       // A trail's mark is checked as any other mark.
       const effect = outer.kind === 'trail' ? outer.mark : outer;
       const here = outer.kind === 'trail' ? `${at}[${i}].mark` : `${at}[${i}]`;
-      if (effect.kind !== 'terrain' && effect.kind !== 'area') return;
-      const type = effect.kind === 'terrain' ? terrainTypes.get(effect.type) : undefined;
-      if (effect.kind === 'terrain' && !type) {
-        error(file, id, `marks the tile with "${effect.type}", which is not a terrain type`, `${here}.type`);
+      if (effect.kind !== 'aura' && effect.kind !== 'area') return;
+      const type = effect.kind === 'aura' ? auraTypes.get(effect.type) : undefined;
+      if (effect.kind === 'aura' && !type) {
+        error(file, id, `marks the tile with "${effect.type}", which is not an aura type`, `${here}.type`);
       }
       const where = effect.kind === 'area' ? 'in a burst' : 'on a tile';
-      const lists = effect.kind === 'terrain' ? (['effects', 'enter', 'exit'] as const) : (['effects'] as const);
+      const lists = effect.kind === 'aura' ? (['effects', 'enter', 'exit'] as const) : (['effects'] as const);
       for (const list of lists) {
         const items = (effect as { [key: string]: unknown })[list] as Array<{ kind: string; effects?: Array<{ kind: EffectKind }> }> | undefined;
         (items ?? []).forEach((tile, t) => {
@@ -209,8 +209,8 @@ function crossCheck(content: Content): ContentIssue[] {
       }
       // A type that says what it is for (oil: fire spreads across it) may
       // be laid with nothing on it.
-      if (effect.kind === 'terrain' && !type?.text?.trim() && !effect.effects.length && !effect.enter?.length && !effect.exit?.length) {
-        error(file, id, 'a marked tile needs at least one effect, unless its terrain type has text saying what it is for', `${here}.effects`);
+      if (effect.kind === 'aura' && !type?.text?.trim() && !effect.effects.length && !effect.enter?.length && !effect.exit?.length) {
+        error(file, id, 'a marked tile needs at least one effect, unless its aura type has text saying what it is for', `${here}.effects`);
       }
     });
   };
@@ -382,7 +382,7 @@ function crossCheck(content: Content): ContentIssue[] {
     const attacks = enemy.deck.some((cardId) => enemyCards.get(cardId)?.effects.some((effect) =>
       effect.kind === 'damage'
       || (effect.kind === 'area' && effect.effects.some((tile) => tile.kind === 'damage'))
-      || (effect.kind === 'terrain' && [...effect.effects, ...(effect.enter ?? []), ...(effect.exit ?? [])].some((tile) => tile.kind === 'damage'))));
+      || (effect.kind === 'aura' && [...effect.effects, ...(effect.enter ?? []), ...(effect.exit ?? [])].some((tile) => tile.kind === 'damage'))));
     if (!attacks) warn('enemies', enemy.id, 'nothing in its deck deals damage', 'deck');
 
     // What it does as it falls: what a Later may hold, played from where it

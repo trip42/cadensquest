@@ -39,7 +39,7 @@ const guardianOf = (game: Game, gate: { guardianId: string }) =>
   game.state.entities.find((entity) => entity.id === gate.guardianId)!;
 
 function hasPortal(game: Game): boolean {
-  return Object.values(game.state.terrain).some((layers) => layers.some((layer) => layer.portal));
+  return Object.values(game.state.auras).some((layers) => layers.some((layer) => layer.portal));
 }
 
 /** Strike a creature down with a card that cannot miss. */

@@ -13,10 +13,10 @@ import { tick } from '../game/actions';
 import { entityDef } from '../game/entities/definitions';
 import { type Entity, STATIC_ANIMATIONS } from '../game/entities/types';
 import type { PropDefinition } from '../game/map/props';
-import { terrainType } from '../game/terrain';
+import { auraType } from '../game/auras';
 import type { Cell } from '../game/map/navigation';
 import { floorRows, KIND_OF, type FacePalette, LAYOUT, type TileKind, type TileLetter, VOID, ZONES } from '../game/map/tiles';
-import type { Game, TerrainLayer } from '../game/state';
+import type { Game, AuraLayer } from '../game/state';
 import {
   type Camera,
   DESIGN_H,
@@ -552,7 +552,7 @@ export class MapRenderer implements Stage {
 
     /* In layers, from the ground up: the grid highlights (movement,
        targets, the path) belong to the tile's surface, so they go down
-       first; terrain marks — portals among them — sit on top, as things
+       first; auras — portals among them — sit on top, as things
        standing on the ground; then the area-aim preview; and the hover
        outline last, so the pointer's own feedback is never covered. */
 
@@ -577,7 +577,7 @@ export class MapRenderer implements Stage {
     }
 
     // A shop's mark is how the rules know it; the building is what shows.
-    const marks = this.game.state.terrain[`${row},${col}`]?.filter((mark) => !mark.shop);
+    const marks = this.game.state.auras[`${row},${col}`]?.filter((mark) => !mark.shop);
     if (marks?.length) this.drawMarks(sx, ty, marks, row, col, now);
     if (marks?.some((mark) => mark.portal)) this.drawPortal(sx, ty, row, col, now);
 
@@ -625,16 +625,16 @@ export class MapRenderer implements Stage {
     );
   }
 
-  /* A marked tile, each mark drawn from its terrain type's look
+  /* A marked tile, each mark drawn from its aura type's look
      (`render/marks.ts`). The newest is drawn in full; any others on the
      same tile stand round it as small badges of their own shapes and
      colours, so several marks never blur into one — and past a handful a
      count says how many. The tooltip lists them all. */
-  private drawMarks(sx: number, ty: number, marks: readonly TerrainLayer[], row: number, col: number, now: number): void {
+  private drawMarks(sx: number, ty: number, marks: readonly AuraLayer[], row: number, col: number, now: number): void {
     const ctx = this.ctx;
     const t = now / 1000;
     const at = { x: sx, y: ty, row, col };
-    const looks = marks.map((mark) => terrainType(mark.type)?.look ?? plainLook(mark.colour));
+    const looks = marks.map((mark) => auraType(mark.type)?.look ?? plainLook(mark.colour));
     drawMark(ctx, looks.at(-1)!, at, t, this.palette.ink);
     drawBadges(ctx, looks.slice(0, -1), at, t, this.palette.ink);
 

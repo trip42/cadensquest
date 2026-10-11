@@ -92,7 +92,7 @@ export interface SimpleEffect {
   amount: Amount;
 }
 
-/* Terrain: mark a tile so that whoever is on it gets these effects, for a
+/* Aura: mark a tile so that whoever is on it gets these effects, for a
    number of rounds. The effects apply to the entity on the tile as if it
    had played them on itself — Damage hurts it, Block and Heal land on it.
    Amounts, and the rounds, are fixed when the tile is marked, from whoever
@@ -104,12 +104,12 @@ export interface SimpleEffect {
    pacing a healing spring heals once a round. Marking an occupied tile
    hits whoever is there at once. Marks on one tile stack as layers, each
    with its own type and its own rounds left. */
-export interface TerrainEffect {
-  kind: 'terrain';
+export interface AuraEffect {
+  kind: 'aura';
   /** How many rounds the mark lasts. A round ends as a new turn starts. */
   rounds: Amount;
-  /** What it is — "fire", "oil" — a terrain type from content
-   *  (`game/terrain.ts`): its name, its look, and whether it counts as
+  /** What it is — "fire", "oil" — an aura type from content
+   *  (`game/auras.ts`): its name, its look, and whether it counts as
    *  fire. */
   type: string;
   /** What happens to whoever is on it. Simple effects only. */
@@ -132,7 +132,7 @@ export const burstEffects = (effect: AreaEffect): SimpleEffect[] =>
   effect.effects.flatMap((inner) => (isLater(inner) ? inner.effects.filter(isSimple) : [inner]));
 
 /** Every simple effect a mark carries: while on it, on entering, on leaving. */
-export const markEffects = (effect: TerrainEffect): SimpleEffect[] =>
+export const markEffects = (effect: AuraEffect): SimpleEffect[] =>
   [...effect.effects, ...(effect.enter ?? []), ...(effect.exit ?? [])];
 
 /* Area: a burst centred on the target tile that hits every creature within
@@ -228,18 +228,18 @@ export interface TrailEffect {
   /** How many rounds, counting this one. */
   rounds: Amount;
   /** What each tile left behind is marked with. */
-  mark: TerrainEffect;
+  mark: AuraEffect;
 }
 
-export type Effect = SimpleEffect | TerrainEffect | SummonEffect | AreaEffect | LaterEffect | BoonEffect | TrailEffect;
+export type Effect = SimpleEffect | AuraEffect | SummonEffect | AreaEffect | LaterEffect | BoonEffect | TrailEffect;
 
-export const isTerrain = (effect: Effect): effect is TerrainEffect => effect.kind === 'terrain';
+export const isAura = (effect: Effect): effect is AuraEffect => effect.kind === 'aura';
 export const isSummon = (effect: Effect): effect is SummonEffect => effect.kind === 'summon';
 export const isArea = (effect: Effect): effect is AreaEffect => effect.kind === 'area';
 export const isLater = (effect: Effect): effect is LaterEffect => effect.kind === 'later';
 /** Not one of the shapes: a verb and an amount. */
 export const isSimple = (effect: Effect): effect is SimpleEffect =>
-  !['terrain', 'summon', 'area', 'later', 'boon', 'trail'].includes(effect.kind);
+  !['aura', 'summon', 'area', 'later', 'boon', 'trail'].includes(effect.kind);
 
 /* What a Later can carry. It lands on its own, as a round begins, with no
    card being played and nothing aimed at — so only what makes sense for a
@@ -252,7 +252,7 @@ export const isSimple = (effect: Effect): effect is SimpleEffect =>
    (leap, advance) or is about cards being played (echo, command). */
 export const laterVerb = (kind: EffectKind): boolean =>
   EFFECT_INFO[kind].tile || kind === 'rekindle' || kind === 'flare';
-export const LATER_SHAPES = ['terrain', 'summon', 'area', 'later', 'boon', 'trail'] as const;
+export const LATER_SHAPES = ['aura', 'summon', 'area', 'later', 'boon', 'trail'] as const;
 export const canGoInLater = (kind: string): boolean =>
   (LATER_SHAPES as readonly string[]).includes(kind) || (kind in EFFECT_INFO && laterVerb(kind as EffectKind));
 
@@ -262,14 +262,14 @@ export const canGoInLater = (kind: string): boolean =>
 export function fixAmounts(effect: Effect, values: AmountValues): Effect {
   const fix = (amount: Amount): number => amountOf(amount, values);
   const fixSimple = (inner: SimpleEffect): SimpleEffect => ({ kind: inner.kind, amount: fix(inner.amount) });
-  const fixMark = (mark: TerrainEffect): TerrainEffect => ({
+  const fixMark = (mark: AuraEffect): AuraEffect => ({
     ...mark,
     rounds: fix(mark.rounds),
     effects: mark.effects.map(fixSimple),
     ...(mark.enter ? { enter: mark.enter.map(fixSimple) } : {}),
     ...(mark.exit ? { exit: mark.exit.map(fixSimple) } : {}),
   });
-  if (isTerrain(effect)) return fixMark(effect);
+  if (isAura(effect)) return fixMark(effect);
   if (isSummon(effect)) return { ...effect, amount: fix(effect.amount), ...(effect.rounds === undefined ? {} : { rounds: fix(effect.rounds) }) };
   if (isArea(effect)) return { ...effect, effects: effect.effects.map((inner) => fixAmounts(inner, values) as SimpleEffect | LaterEffect) };
   if (isLater(effect)) return { ...effect, rounds: fix(effect.rounds), effects: effect.effects.map((inner) => fixAmounts(inner, values)) };
@@ -357,7 +357,7 @@ export function previewAmounts(effects: readonly Effect[], start: AmountValues):
   const values = { ...start };
   return effects.map((effect) => {
     // A mark changes nothing about its caster; its number is its rounds.
-    if (isTerrain(effect)) return amountOf(effect.rounds, values);
+    if (isAura(effect)) return amountOf(effect.rounds, values);
     // A summon changes nothing about its summoner; its number is its health.
     if (isSummon(effect)) return amountOf(effect.amount, values);
     // A burst's numbers are its inner effects', shown on their own.
@@ -462,7 +462,7 @@ export function nowText(effects: readonly Effect[], values: AmountValues, style:
           .map((later) => `${style === 'short' ? 'LATER' : 'later'} ${labels[later.kind]?.(amountOf(later.amount, values))}`);
         return [...rounds, ...inner];
       }
-      if (!isTerrain(effect)) return isScaled(effect.amount) ? [labels[effect.kind]?.(amounts[i]!)] : [];
+      if (!isAura(effect)) return isScaled(effect.amount) ? [labels[effect.kind]?.(amounts[i]!)] : [];
       // A mark: how long, and what its tile will do, fixed from now.
       const rounds = isScaled(effect.rounds) ? [style === 'short' ? `${amounts[i]} RND` : `${amounts[i]} rounds`] : [];
       const inner = markEffects(effect)
@@ -477,7 +477,7 @@ export function nowText(effects: readonly Effect[], values: AmountValues, style:
 /** Does anything on this list depend on the moment it is played? */
 export const hasScaledAmount = (effects: readonly Effect[]): boolean =>
   effects.some((effect) =>
-    isTerrain(effect)
+    isAura(effect)
       ? isScaled(effect.rounds) || markEffects(effect).some((tile) => isScaled(tile.amount))
       : isSummon(effect)
         ? isScaled(effect.amount) || (effect.rounds !== undefined && isScaled(effect.rounds))
@@ -551,8 +551,8 @@ export const BOON_INFO = {
   help: 'Raise one of your stats for this many rounds, counting this one — as if you held a talisman that long. Yours only: an enemy has no stats.',
 };
 
-export const TERRAIN_INFO = {
-  label: 'Terrain',
+export const AURA_INFO = {
+  label: 'Aura',
   help: 'Mark the targeted tile: whoever is on it gets these effects, for this many rounds.',
 };
 
@@ -652,7 +652,7 @@ export function describeEffect(effect: Effect): string {
     const rounds = describeAmount(effect.rounds);
     return `in ${rounds} round${rounds === '1' ? '' : 's'}: ${effect.effects.map(describeLanding).join(', ')}`;
   }
-  if (isTerrain(effect)) {
+  if (isAura(effect)) {
     const rounds = describeAmount(effect.rounds);
     const parts = [
       effect.effects.length ? effect.effects.map(describeTileEffect).join(', ') : '',

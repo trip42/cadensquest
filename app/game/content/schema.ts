@@ -15,7 +15,7 @@ import {
 } from '../effects';
 import { REWARD_KINDS } from '../rewards';
 import { STAT_KEYS, type StatKey } from '../stats';
-import { MARK_SHAPES, REACTION_KINDS } from '../terrain';
+import { MARK_SHAPES, REACTION_KINDS } from '../auras';
 
 const count = (min = 0, max = 999) => z.number().int('must be a whole number').min(min).max(max);
 
@@ -47,10 +47,10 @@ const colourSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'a colour like #d9544
 /** Mark a tile: whoever is on it gets `effects`, for `rounds` rounds —
  *  and `enter` once as it arrives, `exit` once as it leaves. The validator
  *  checks that at least one of the three has something in it. */
-export const terrainEffectSchema = z.strictObject({
-  kind: z.literal('terrain'),
+export const auraEffectSchema = z.strictObject({
+  kind: z.literal('aura'),
   rounds: amountSchema,
-  /** Its terrain type, from terrain.json: what it is and how it looks. */
+  /** Its aura type, from auras.json: what it is and how it looks. */
   type: idSchema,
   effects: z.array(simpleEffectSchema),
   enter: z.array(simpleEffectSchema).optional(),
@@ -107,11 +107,11 @@ export const boonEffectSchema = z.strictObject({
 export const trailEffectSchema = z.strictObject({
   kind: z.literal('trail'),
   rounds: amountSchema,
-  mark: terrainEffectSchema,
+  mark: auraEffectSchema,
 });
 
 export const effectSchema = z.discriminatedUnion('kind', [
-  simpleEffectSchema, terrainEffectSchema, summonEffectSchema, areaEffectSchema, laterEffectSchema, boonEffectSchema,
+  simpleEffectSchema, auraEffectSchema, summonEffectSchema, areaEffectSchema, laterEffectSchema, boonEffectSchema,
   trailEffectSchema,
 ]);
 
@@ -261,9 +261,9 @@ export const zoneChunkSchema = z.strictObject({
   })).optional(),
 });
 
-/** A terrain type: what a marked tile is, defined once and named by every
+/** An aura type: what a marked tile is, defined once and named by every
  *  mark of it — its name, how it looks, and whether it counts as fire. */
-export const terrainTypeSchema = z.strictObject({
+export const auraTypeSchema = z.strictObject({
   id: idSchema,
   name: nameSchema,
   /** For the tooltip when a mark of it does nothing by itself (oil). */
@@ -336,7 +336,7 @@ export const FILE_SCHEMAS = {
   gems: z.array(gemSchema),
   talismans: z.array(talismanSchema),
   props: z.array(propSchema),
-  terrain: z.array(terrainTypeSchema),
+  auras: z.array(auraTypeSchema),
   zones: z.array(zoneSchema),
   run: runSchema,
 } as const;
@@ -351,7 +351,7 @@ export type GemData = z.infer<typeof gemSchema>;
 export type TalismanData = z.infer<typeof talismanSchema>;
 export type ZoneData = z.infer<typeof zoneSchema>;
 export type PropData = z.infer<typeof propSchema>;
-export type TerrainTypeData = z.infer<typeof terrainTypeSchema>;
+export type AuraTypeData = z.infer<typeof auraTypeSchema>;
 export type RunData = z.infer<typeof runSchema>;
 export type EffectData = z.infer<typeof effectSchema>;
 export type AmountData = z.infer<typeof amountSchema>;
@@ -364,7 +364,7 @@ export interface Content {
   gems: GemData[];
   talismans: TalismanData[];
   props: PropData[];
-  terrain: TerrainTypeData[];
+  auras: AuraTypeData[];
   zones: ZoneData[];
   run: RunData;
 }

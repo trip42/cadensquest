@@ -17,9 +17,9 @@ import { intentDef } from './cards/intents';
 import type { CardDefinition, CardInstance } from './cards/types';
 import {
   amountOf, type AmountValues, type AreaEffect, type BoonEffect, type Effect, EFFECT_INFO, FIRES_WITHIN, fixAmounts, isArea, isBoon,
-  isLater, isSimple, isSummon, isTerrain, isTrail, readsPower, type TrailEffect,
+  isLater, isSimple, isSummon, isAura, isTrail, readsPower, type TrailEffect,
   type LaterEffect,
-  type SimpleEffect, type SummonEffect, type TerrainEffect, type TileEffect, type TriggerPoint,
+  type SimpleEffect, type SummonEffect, type AuraEffect, type TileEffect, type TriggerPoint,
 } from './effects';
 import { GEM_SLOTS, gemDef, gemmedDef, gemMods } from './gems';
 import { ENEMY_IDS, ENTITIES, entityDef, GUARDIAN_IDS } from './entities/definitions';
@@ -49,7 +49,7 @@ import { record } from './telemetry';
 import { createRng, hashSeed, nextFloat, nextInt, pick, shuffle } from './rng';
 import { priceOf, rollStock, type Shop, SHOP_COLOUR } from './shop';
 import { talismanDef, talismanEffects } from './talismans';
-import { isFireType, type ReactionKind, TERRAIN, terrainType } from './terrain';
+import { isFireType, type ReactionKind, AURAS, auraType } from './auras';
 import { liveText, NO_BONUSES, type TextPart } from './text';
 import {
   arrivalOn,
@@ -67,7 +67,7 @@ import {
   makeEntity,
   note,
   player,
-  type TerrainLayer,
+  type AuraLayer,
   type QueuedAction,
   stat,
   syncStats,
@@ -365,7 +365,7 @@ function landOn(game: Game, actor: Entity, effects: readonly Effect[], dying = f
       applyTo(game, actor, [{ kind: effect.kind, amount: effect.amount as number }], 'later', actor);
       continue;
     }
-    const underfoot = isTerrain(effect) || isArea(effect);
+    const underfoot = isAura(effect) || isArea(effect);
     resolveEffect(game, effect, { actor, target: underfoot ? entityCell(actor) : null, range: 0 });
   }
 }
@@ -422,7 +422,7 @@ function startTrail(game: Game, effect: TrailEffect, play: Play): void {
   const values = amountValues(state, play.actor, play.x);
   const rounds = amountOf(effect.rounds, values);
   if (rounds <= 0) return;
-  const fix = (list: TerrainEffect['effects']) => list.map((tile) => {
+  const fix = (list: AuraEffect['effects']) => list.map((tile) => {
     const amount = amountOf(tile.amount, values);
     return { kind: tile.kind, amount: tile.kind === 'damage' ? scaled(amount, play.damageMul) : amount };
   });
@@ -503,7 +503,7 @@ export function amountValues(state: GameState, actor: Entity, x = 0): AmountValu
 /** Burning tiles within `FIRES_WITHIN` steps, whoever lit them. */
 function firesNear(state: GameState, here: Cell): number {
   let count = 0;
-  for (const [key, layers] of Object.entries(state.terrain)) {
+  for (const [key, layers] of Object.entries(state.auras)) {
     if (!layers.some((layer) => isFireType(layer.type))) continue;
     const [row, col] = key.split(',').map(Number);
     if (cellDistance({ row: row!, col: col! }, here) <= FIRES_WITHIN) count += 1;
@@ -699,19 +699,19 @@ function ageSummons(state: GameState): void {
   }
 }
 
-/* ------------------------------ terrain --------------------------------- */
+/* ------------------------------ auras ----------------------------------- */
 
-export const terrainKey = (cell: Cell): string => `${cell.row},${cell.col}`;
+export const auraKey = (cell: Cell): string => `${cell.row},${cell.col}`;
 
 /** The marks on a tile, if any. */
-export const terrainAt = (state: GameState, cell: Cell): TerrainLayer[] =>
-  state.terrain[terrainKey(cell)] ?? [];
+export const aurasAt = (state: GameState, cell: Cell): AuraLayer[] =>
+  state.auras[auraKey(cell)] ?? [];
 
 /* Mark the targeted tile — or, for a card with no target, the actor's own.
    Everything is fixed now, from the one marking it: the rounds, and each
    amount. An enemy marks where the player stands, and only within its
    card's reach, as with its attacks. */
-function markTile(game: Game, effect: TerrainEffect, play: Play): void {
+function markTile(game: Game, effect: AuraEffect, play: Play): void {
   const { state, world } = game;
   const { actor, range } = play;
   const isPlayer = actor.id === state.playerId;
@@ -732,7 +732,7 @@ function markTile(game: Game, effect: TerrainEffect, play: Play): void {
   const rounds = amountOf(effect.rounds, values) + (lit ? stat(state, 'fireRounds') : 0);
   if (rounds <= 0) return;
   // A gem's multiplier reaches the fire the card lights, too.
-  const fix = (list: TerrainEffect['effects']) => list.map((tile) => {
+  const fix = (list: AuraEffect['effects']) => list.map((tile) => {
     const amount = amountOf(tile.amount, values);
     return { kind: tile.kind, amount: tile.kind === 'damage' ? scaled(amount, play.damageMul) : amount };
   });
@@ -746,9 +746,9 @@ function markTile(game: Game, effect: TerrainEffect, play: Play): void {
   // that whole patch with it at once: fire lit on oil, the slick.
   const within = cellsWithin(game, cell, effect.radius ?? 0).filter((spot) => meet(game, effect.type, spot));
   const spots = spreadAcross(game, effect.type, within);
-  const colour = terrainType(effect.type)?.look.colour ?? '#ffffff';
+  const colour = auraType(effect.type)?.look.colour ?? '#ffffff';
   layMarks(game, spots, colour, () => {
-    const layer: TerrainLayer = { id: nextUid('mark'), effects, colour, rounds, ownerId: actor.id, type: effect.type };
+    const layer: AuraLayer = { id: nextUid('mark'), effects, colour, rounds, ownerId: actor.id, type: effect.type };
     if (enter || exit) Object.assign(layer, { enter, exit, inside: [] });
     return layer;
   });
@@ -757,16 +757,16 @@ function markTile(game: Game, effect: TerrainEffect, play: Play): void {
 
 /* Put a fresh mark on each spot. Whoever is standing there gets it now, and
    that is their hit from this tile for the round. */
-function layMarks(game: Game, spots: readonly Cell[], colour: string, make: () => TerrainLayer): void {
+function layMarks(game: Game, spots: readonly Cell[], colour: string, make: () => AuraLayer): void {
   const { state } = game;
   if (spots.length) cue(state, { type: 'mark', cells: [...spots], colour });
   for (const spot of spots) {
     const layer = make();
-    const key = terrainKey(spot);
-    (state.terrain[key] ??= []).push(layer);
+    const key = auraKey(spot);
+    (state.auras[key] ??= []).push(layer);
     const occupant = entityAt(state, spot.row, spot.col);
     if (occupant && !occupant.dead) {
-      state.terrainHits[`${occupant.id}@${key}`] = state.turn;
+      state.auraHits[`${occupant.id}@${key}`] = state.turn;
       applyTile(game, occupant, [layer]);
       crossMarks(game, occupant);
     }
@@ -784,18 +784,18 @@ const SPREAD_STREAM = 0x5bd1;
    stands where it lands is hit at once, as by any new mark. The dice are
    their own stream, from the seed, the round and the tile, so a type that
    does not spread moves nothing in any seed. */
-function spreadTerrain(game: Game): void {
+function spreadAuras(game: Game): void {
   const { state, world } = game;
-  const growth: Array<{ cell: Cell; source: TerrainLayer }> = [];
-  for (const [key, layers] of Object.entries(state.terrain)) {
+  const growth: Array<{ cell: Cell; source: AuraLayer }> = [];
+  for (const [key, layers] of Object.entries(state.auras)) {
     const [row, col] = key.split(',').map(Number) as [number, number];
     for (const layer of layers) {
-      const chance = terrainType(layer.type)?.spread ?? 0;
+      const chance = auraType(layer.type)?.spread ?? 0;
       if (!chance || layer.rounds <= 1) continue;
       ([[1, 0], [-1, 0], [0, 1], [0, -1]] as const).forEach(([dr, dc], dir) => {
         const cell = { row: row + dr, col: col + dc };
         if (!world.walkable(cell.row, cell.col)) return;
-        if (terrainAt(state, cell).some((other) => other.type === layer.type)) return;
+        if (aurasAt(state, cell).some((other) => other.type === layer.type)) return;
         if (growth.some((item) => sameCell(item.cell, cell) && item.source.type === layer.type)) return;
         const roll = nextFloat(createRng(hashSeed(state.seed, SPREAD_STREAM, state.turn, row, col, dir)));
         if (roll < chance) growth.push({ cell, source: layer });
@@ -807,7 +807,7 @@ function spreadTerrain(game: Game): void {
     if (!meet(game, type, cell)) continue;
     const spots = spreadAcross(game, type, [cell]);
     layMarks(game, spots, source.colour, () => {
-      const layer: TerrainLayer = { ...source, id: nextUid('mark'), effects: [...source.effects], rounds: source.rounds - 1 };
+      const layer: AuraLayer = { ...source, id: nextUid('mark'), effects: [...source.effects], rounds: source.rounds - 1 };
       if (source.enter || source.exit) layer.inside = [];
       return layer;
     });
@@ -818,7 +818,7 @@ function spreadTerrain(game: Game): void {
 /* ------------------------------ reactions ------------------------------- */
 
 /* What happens when marks of two types meet on a tile is content: each
-   terrain type lists its `reactions` (game/terrain.ts). A reaction holds
+   aura type lists its `reactions` (game/auras.ts). A reaction holds
    whichever of the two was laid first, so "fire spreads through oil" is
    fire lit on a slick and oil poured on a fire alike. */
 
@@ -826,18 +826,18 @@ function spreadTerrain(game: Game): void {
  *  `enter` gave anyone on it. */
 function clearTypes(game: Game, cell: Cell, types: ReadonlySet<string>): void {
   const { state } = game;
-  const key = terrainKey(cell);
-  const layers = state.terrain[key] ?? [];
+  const key = auraKey(cell);
+  const layers = state.auras[key] ?? [];
   for (const layer of layers) if (layer.type && types.has(layer.type)) emptyMark(game, layer);
   const left = layers.filter((layer) => !layer.type || !types.has(layer.type));
-  if (left.length) state.terrain[key] = left;
-  else delete state.terrain[key];
+  if (left.length) state.auras[key] = left;
+  else delete state.auras[key];
 }
 
 /** Does a mark of either type `remove`, or `cancel` with, or refuse to be
  *  laid on the other? */
 const reacts = (from: string | undefined, does: ReactionKind, to: string | undefined): boolean =>
-  !!terrainType(from)?.reactions?.some((reaction) => reaction.does === does && reaction.with === to);
+  !!auraType(from)?.reactions?.some((reaction) => reaction.does === does && reaction.with === to);
 
 /* A mark of `type` about to be laid on this tile meets the marks already
    there. Returns whether it is laid at all:
@@ -847,12 +847,12 @@ const reacts = (from: string | undefined, does: ReactionKind, to: string | undef
      - it and something it cancels with both go;
      - whatever it removes is taken off first. */
 function meet(game: Game, type: string, cell: Cell): boolean {
-  const here = [...new Set(terrainAt(game.state, cell).map((layer) => layer.type).filter((id): id is string => !!id))];
+  const here = [...new Set(aurasAt(game.state, cell).map((layer) => layer.type).filter((id): id is string => !!id))];
   if (here.some((other) => reacts(type, 'refuses', other) || reacts(other, 'removes', type))) return false;
   const cancelled = here.filter((other) => reacts(type, 'cancels', other) || reacts(other, 'cancels', type));
   if (cancelled.length) {
     clearTypes(game, cell, new Set(cancelled));
-    note(game.state, `The ${terrainType(type)?.name.toLowerCase() ?? 'mark'} and the ${cancelled.map((id) => terrainType(id)?.name.toLowerCase() ?? id).join(' and the ')} cancel out.`);
+    note(game.state, `The ${auraType(type)?.name.toLowerCase() ?? 'mark'} and the ${cancelled.map((id) => auraType(id)?.name.toLowerCase() ?? id).join(' and the ')} cancel out.`);
     return false;
   }
   const removed = here.filter((other) => reacts(type, 'removes', other));
@@ -866,10 +866,10 @@ function meet(game: Game, type: string, cell: Cell): boolean {
    mark: those given, and every patch tile. */
 function spreadAcross(game: Game, type: string, from: readonly Cell[]): Cell[] {
   const { state } = game;
-  const through = new Set((terrainType(type)?.reactions ?? []).filter((reaction) => reaction.does === 'spreadsThrough').map((reaction) => reaction.with));
+  const through = new Set((auraType(type)?.reactions ?? []).filter((reaction) => reaction.does === 'spreadsThrough').map((reaction) => reaction.with));
   if (!through.size) return [...from];
-  const holds = (cell: Cell) => terrainAt(state, cell).some((layer) => !!layer.type && through.has(layer.type));
-  const seen = new Set(from.map(terrainKey));
+  const holds = (cell: Cell) => aurasAt(state, cell).some((layer) => !!layer.type && through.has(layer.type));
+  const seen = new Set(from.map(auraKey));
   const spots = [...from];
   const queue = from.filter(holds);
   const patch = [...queue];
@@ -877,7 +877,7 @@ function spreadAcross(game: Game, type: string, from: readonly Cell[]): Cell[] {
     const here = queue.pop()!;
     for (const [dr, dc] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
       const next = { row: here.row + dr, col: here.col + dc };
-      const key = terrainKey(next);
+      const key = auraKey(next);
       if (seen.has(key) || !holds(next)) continue;
       seen.add(key);
       spots.push(next);
@@ -887,7 +887,7 @@ function spreadAcross(game: Game, type: string, from: readonly Cell[]): Cell[] {
   }
   const names = new Set<string>();
   for (const cell of patch) {
-    for (const layer of terrainAt(state, cell)) if (layer.type && through.has(layer.type)) names.add(terrainType(layer.type)?.name.toLowerCase() ?? layer.type);
+    for (const layer of aurasAt(state, cell)) if (layer.type && through.has(layer.type)) names.add(auraType(layer.type)?.name.toLowerCase() ?? layer.type);
     clearTypes(game, cell, through);
   }
   if (names.size) note(state, `The ${[...names].join(' and the ')} catches.`);
@@ -900,15 +900,15 @@ function spreadAcross(game: Game, type: string, from: readonly Cell[]): Cell[] {
    of the one it met: the longest-lasting, if there are several. */
 function catchFrom(game: Game, type: string, spots: readonly Cell[]): void {
   const { state } = game;
-  for (const other of Object.values(TERRAIN)) {
+  for (const other of Object.values(AURAS)) {
     if (!other.reactions?.some((reaction) => reaction.does === 'spreadsThrough' && reaction.with === type)) continue;
-    const holding = (spot: Cell) => terrainAt(state, spot).filter((layer) => layer.type === other.id);
+    const holding = (spot: Cell) => aurasAt(state, spot).filter((layer) => layer.type === other.id);
     const met = spots.flatMap(holding);
     if (!met.length) continue;
     const source = met.reduce((best, layer) => (layer.rounds > best.rounds ? layer : best));
     const caught = spreadAcross(game, other.id, spots.filter((spot) => holding(spot).length)).filter((spot) => !holding(spot).length);
     layMarks(game, caught, source.colour, () => {
-      const layer: TerrainLayer = { ...source, id: nextUid('mark'), effects: [...source.effects] };
+      const layer: AuraLayer = { ...source, id: nextUid('mark'), effects: [...source.effects] };
       if (source.enter || source.exit) layer.inside = [];
       return layer;
     });
@@ -919,7 +919,7 @@ function catchFrom(game: Game, type: string, spots: readonly Cell[]): void {
    it on themselves. No bonuses — a fire burns the same for everyone. The
    fire stats are not a bonus of whoever lit it: they heat every fire, and
    `fireWard` keeps the player out of all of them. */
-function applyTile(game: Game, entity: Entity, layers: readonly TerrainLayer[]): void {
+function applyTile(game: Game, entity: Entity, layers: readonly AuraLayer[]): void {
   const { state } = game;
   for (const layer of layers) {
     const owner = state.entities.find((item) => item.id === layer.ownerId);
@@ -930,12 +930,12 @@ function applyTile(game: Game, entity: Entity, layers: readonly TerrainLayer[]):
 
 /** Is this creature kept out of this mark's damage — the player, by
  *  `fireWard`, from a fire? */
-const warded = (state: GameState, entity: Entity, layer: TerrainLayer): boolean =>
+const warded = (state: GameState, entity: Entity, layer: AuraLayer): boolean =>
   isFireType(layer.type) && entity.id === state.playerId && stat(state, 'fireWard') >= 1;
 
 /** Every fire on the floor, by tile. */
-function fires(state: GameState): Array<{ cell: Cell; layers: TerrainLayer[] }> {
-  return Object.entries(state.terrain).flatMap(([key, layers]) => {
+function fires(state: GameState): Array<{ cell: Cell; layers: AuraLayer[] }> {
+  return Object.entries(state.auras).flatMap(([key, layers]) => {
     const burning = layers.filter((layer) => isFireType(layer.type));
     if (!burning.length) return [];
     const [row, col] = key.split(',').map(Number);
@@ -988,7 +988,7 @@ export const fireHit = (state: GameState, amount: number, extra = 0): number =>
 /** A mark's effects as they would land now — a fire's damage heated by the
  *  fire stats. `list` is which of its lists: its effects, enter or exit.
  *  For the rules, the tile's tooltip and the bot alike. */
-export function layerEffects(state: GameState, layer: TerrainLayer, list: readonly TileEffect[] = layer.effects): TileEffect[] {
+export function layerEffects(state: GameState, layer: AuraLayer, list: readonly TileEffect[] = layer.effects): TileEffect[] {
   if (!isFireType(layer.type)) return [...list];
   return list.map((effect) => (effect.kind === 'damage' ? { kind: 'damage', amount: fireHit(state, effect.amount) } : effect));
 }
@@ -1102,7 +1102,7 @@ export function areaPreview(game: Game, def: CardDefinition, target: Cell): { ce
   let radius = -1;
   const friends = new Set<Entity>();
   for (const effect of def.effects) {
-    const r = isArea(effect) ? effect.radius : isTerrain(effect) ? (effect.radius ?? 0) : -1;
+    const r = isArea(effect) ? effect.radius : isAura(effect) ? (effect.radius ?? 0) : -1;
     radius = Math.max(radius, r);
     if (!isArea(effect)) continue;
     for (const entity of state.entities) {
@@ -1113,7 +1113,7 @@ export function areaPreview(game: Game, def: CardDefinition, target: Cell): { ce
   return { cells: radius < 0 ? [] : cellsWithin(game, target, radius), friends: [...friends] };
 }
 
-/* ------------------------------ terrain helpers ----------------------- */
+/* ------------------------------ aura helpers -------------------------- */
 
 /** Hit an entity with the tile it is on — at most once per round per tile.
  *  Called when it steps onto a tile, and as each of its turns begins. */
@@ -1121,8 +1121,8 @@ function triggerTile(game: Game, entity: Entity): void {
   const { state } = game;
   if (entity.dead) return;
   crossMarks(game, entity);
-  const key = terrainKey(entityCell(entity));
-  const layers = state.terrain[key];
+  const key = auraKey(entityCell(entity));
+  const layers = state.auras[key];
   if (!layers?.length) return;
   // A portal is a way, not a hazard: it takes the player whenever he steps
   // on, and nobody else. The next tick carries him down.
@@ -1131,8 +1131,8 @@ function triggerTile(game: Game, entity: Entity): void {
     state.descending = true;
   }
   const hit = `${entity.id}@${key}`;
-  if (state.terrainHits[hit] === state.turn) return;
-  state.terrainHits[hit] = state.turn;
+  if (state.auraHits[hit] === state.turn) return;
+  state.auraHits[hit] = state.turn;
   applyTile(game, entity, layers);
 }
 
@@ -1144,8 +1144,8 @@ function triggerTile(game: Game, entity: Entity): void {
    once-a-round limit: every arrival enters and every departure leaves. */
 function crossMarks(game: Game, entity: Entity): void {
   const { state } = game;
-  const here = terrainKey(entityCell(entity));
-  for (const [key, layers] of Object.entries(state.terrain)) {
+  const here = auraKey(entityCell(entity));
+  for (const [key, layers] of Object.entries(state.auras)) {
     for (const layer of layers) {
       if (!layer.inside) continue;
       const inside = layer.inside.includes(entity.id);
@@ -1162,13 +1162,13 @@ function crossMarks(game: Game, entity: Entity): void {
 }
 
 /** Off a mark's tile, or the mark gone from under it: the `exit`, once. */
-function leaveMark(game: Game, entity: Entity, layer: TerrainLayer): void {
+function leaveMark(game: Game, entity: Entity, layer: AuraLayer): void {
   layer.inside = layer.inside?.filter((id) => id !== entity.id);
   if (layer.exit && !entity.dead) applyTile(game, entity, [{ ...layer, effects: layer.exit }]);
 }
 
 /** Every mark's `exit` for whoever is inside it, as the mark goes. */
-function emptyMark(game: Game, layer: TerrainLayer): void {
+function emptyMark(game: Game, layer: AuraLayer): void {
   for (const id of layer.inside ?? []) {
     const entity = game.state.entities.find((item) => item.id === id);
     if (entity) leaveMark(game, entity, layer);
@@ -1177,16 +1177,16 @@ function emptyMark(game: Game, layer: TerrainLayer): void {
 
 /** A new round: every mark loses one, and the ones that run out are gone —
  *  taking back what their `enter` gave anyone still standing on them. */
-function ageTerrain(game: Game): void {
+function ageAuras(game: Game): void {
   const { state } = game;
-  for (const [key, layers] of Object.entries(state.terrain)) {
+  for (const [key, layers] of Object.entries(state.auras)) {
     // Portals never run out; every other mark loses a round.
     const left = layers.filter((layer) => layer.portal || layer.shop || (layer.rounds -= 1) > 0);
     for (const layer of layers) if (!left.includes(layer)) emptyMark(game, layer);
-    if (left.length) state.terrain[key] = left;
-    else delete state.terrain[key];
+    if (left.length) state.auras[key] = left;
+    else delete state.auras[key];
   }
-  state.terrainHits = {};
+  state.auraHits = {};
 }
 
 /* The one place that knows what every verb does, for both sides. Bonuses
@@ -1201,7 +1201,7 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
   const { state } = game;
   const { actor, target, range } = play;
   const isPlayer = actor.id === state.playerId;
-  if (isTerrain(effect)) {
+  if (isAura(effect)) {
     markTile(game, effect, play);
     return;
   }
@@ -1617,7 +1617,7 @@ export function playCard(game: Game, uid: string, target: Cell | null = null): b
     // the player's own tile alight, so there it does nothing.
     for (const gemId of gemsOf(card)) {
       for (const effect of gemDef(gemId).effects) {
-        if (isTerrain(effect) && !target) continue;
+        if (isAura(effect) && !target) continue;
         resolveEffect(game, effect, play);
       }
     }
@@ -1674,10 +1674,10 @@ const PORTAL_COLOUR = '#ffffff';
    player — down to the next floor, or, on the last, out, ending the run. */
 function openPortal(game: Game, cell: Cell): void {
   const { state } = game;
-  const key = terrainKey(cell);
-  if (state.terrain[key]?.some((layer) => layer.portal)) return;
+  const key = auraKey(cell);
+  if (state.auras[key]?.some((layer) => layer.portal)) return;
   const kind = state.floor >= LAYOUT.floors - 1 ? 'out' : 'down';
-  (state.terrain[key] ??= []).push({
+  (state.auras[key] ??= []).push({
     id: nextUid('portal'),
     effects: [],
     colour: PORTAL_COLOUR,
@@ -1707,7 +1707,7 @@ export function enterFloor(game: Game, floor: number): void {
   const party = allies(state);
   const { first, last } = floorRows(floor);
   // Leaving the floor is leaving its marks: whatever they gave is taken back.
-  for (const layers of Object.values(state.terrain)) for (const layer of layers) emptyMark(game, layer);
+  for (const layers of Object.values(state.auras)) for (const layer of layers) emptyMark(game, layer);
   state.floor = floor;
   world.setBounds(first, last);
 
@@ -1725,8 +1725,8 @@ export function enterFloor(game: Game, floor: number): void {
     state.entities.push(friend);
   }
 
-  state.terrain = {};
-  state.terrainHits = {};
+  state.auras = {};
+  state.auraHits = {};
   state.gates = [];
   state.shops = [];
   state.shopOpen = false;
@@ -1900,8 +1900,8 @@ export function beginTurn(game: Game): void {
   state.tally.turns = state.turn;
   // A new round: marks count down, and every tile may hit again; summons
   // with a lifetime count down too.
-  ageTerrain(game);
-  spreadTerrain(game);
+  ageAuras(game);
+  spreadAuras(game);
   ageSummons(state);
   ageBoons(state);
   ageTrails(state);
@@ -2072,7 +2072,7 @@ function placeShops(game: Game, chunkIndex: number): void {
     for (let col = 0; col < world.width; col += 1) {
       if (world.propAt(row, col)?.type !== 'shop' || shopAt(state, { row, col })) continue;
       state.shops.push({ floor: state.floor, row, col, items: rollStock(state.seed, state.floor, row, col), visited: false });
-      (state.terrain[terrainKey({ row, col })] ??= []).push({
+      (state.auras[auraKey({ row, col })] ??= []).push({
         id: nextUid('shop'), effects: [], colour: SHOP_COLOUR, rounds: 0, ownerId: state.playerId, shop: true,
       });
     }

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { beginTurn, enterFloor, isBusy, movePlayerTo, movementRange, playCard, terrainAt, tick } from '~/game/actions';
+import { beginTurn, enterFloor, isBusy, movePlayerTo, movementRange, playCard, aurasAt, tick } from '~/game/actions';
 import { CARDS } from '~/game/cards/definitions';
 import { loadContent } from '~/game/content';
 import { entityCell } from '~/game/entities/types';
@@ -52,7 +52,7 @@ function fell(game: Game): Cell {
 }
 
 function portalAt(game: Game): Cell | null {
-  for (const [key, layers] of Object.entries(game.state.terrain)) {
+  for (const [key, layers] of Object.entries(game.state.auras)) {
     if (layers.some((layer) => layer.portal)) {
       const [row, col] = key.split(',').map(Number);
       return { row: row!, col: col! };
@@ -100,7 +100,7 @@ describe('a floor', () => {
     expect(guardianOf(game).row).toBe(floorRows(0).last);
     expect(portalAt(game)).toBeNull();
     const where = fell(game);
-    const [portal] = terrainAt(game.state, where);
+    const [portal] = aurasAt(game.state, where);
     expect(portal).toMatchObject({ portal: 'down', colour: '#ffffff' });
   });
 
@@ -111,7 +111,7 @@ describe('a floor', () => {
     const game = nearTheEnd(LAYOUT.floors - 1);
     const portal = portalAt(game);
     expect(portal?.row).toBe(floorRows(LAYOUT.floors - 1).last);
-    expect(terrainAt(game.state, portal!)[0]?.portal).toBe('out');
+    expect(aurasAt(game.state, portal!)[0]?.portal).toBe('out');
   });
 
   it('keeps its portal round after round', () => {
@@ -119,7 +119,7 @@ describe('a floor', () => {
     const where = fell(game);
     beginTurn(game);
     beginTurn(game);
-    expect(terrainAt(game.state, where)[0]?.portal).toBe('down');
+    expect(aurasAt(game.state, where)[0]?.portal).toBe('down');
   });
 });
 
@@ -181,7 +181,7 @@ describe('going down', () => {
     const game = nearTheEnd(LAYOUT.floors - 1);
     // Through a final guardian if the content names one; open if not.
     const way = game.state.gates.length ? fell(game) : portalAt(game)!;
-    expect(terrainAt(game.state, way).find((layer) => layer.portal)?.portal).toBe('out');
+    expect(aurasAt(game.state, way).find((layer) => layer.portal)?.portal).toBe('out');
     walkOnto(game, way);
     expect(game.state.phase).toBe('victory');
     expect(game.state.events.filter((event) => event.type === 'run_won')).toHaveLength(1);
