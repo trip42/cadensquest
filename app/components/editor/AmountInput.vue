@@ -5,6 +5,10 @@
    amount of a simple effect, or the rounds of an aura. */
 import { computed } from 'vue';
 import { AMOUNT_SOURCE_KEYS, AMOUNT_SOURCES, type Amount, type AmountSource, isScaled } from '~/game/effects';
+import { useEditorStore } from '~/stores/editor';
+import EditorAuraPicker from './AuraPicker.vue';
+
+const editor = useEditorStore();
 
 const props = withDefaults(defineProps<{
   effect: Record<string, unknown>;
@@ -19,7 +23,14 @@ const value = computed({
 const scaled = computed(() => isScaled(value.value));
 const source = computed({
   get: () => (isScaled(value.value) ? value.value.of : 'block'),
-  set: (of: AmountSource) => { if (isScaled(value.value)) value.value = { ...value.value, of }; },
+  set: (of: AmountSource) => {
+    if (!isScaled(value.value)) return;
+    // Counting aura tiles names which aura; nothing else does.
+    const next = { ...value.value, of };
+    if (of === 'auras') next.aura ??= editor.draft?.auras[0]?.id ?? 'fire';
+    else delete next.aura;
+    value.value = next;
+  },
 });
 const fixed = computed({
   get: () => (isScaled(value.value) ? 0 : value.value),
@@ -63,6 +74,7 @@ const partOf = (part: 'times' | 'plus') => (isScaled(value.value) ? value.value[
           {{ key === 'x' ? AMOUNT_SOURCES.x.label : `${side === 'enemy' ? 'Its' : 'Your'} ${AMOUNT_SOURCES[key].phrase}` }}{{ side === 'enemy' && !AMOUNT_SOURCES[key].enemy ? ' (always 0)' : '' }}
         </option>
       </select>
+      <EditorAuraPicker v-if="isScaled(value) && value.of === 'auras'" :target="value" />
       <span class="op">×</span>
       <input :value="partOf('times') ?? 1" type="number" step="0.5" min="0.1" max="10" class="num small" aria-label="Times" @input="setPart('times', ($event.target as HTMLInputElement).value)">
       <span class="op">+</span>

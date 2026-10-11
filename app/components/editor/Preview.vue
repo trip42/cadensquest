@@ -53,7 +53,11 @@ const card = computed(() => (props.file === 'cards' ? asCard(props.item as CardD
 
 /* A "based on" amount has no number until it is played, so the preview
    plays it against a sample moment and says which. */
-const SAMPLE: AmountValues = { block: 8, health: 30, missingHealth: 10, energy: 3, hand: 4, power: 0, x: 0, fires: 2, allies: 1, moved: 3 };
+const SAMPLE: AmountValues = {
+  block: 8, health: 30, missingHealth: 10, energy: 3, hand: 4, power: 0, x: 0, allies: 1, moved: 3,
+  // Two tiles of whichever aura is asked about.
+  auras: new Proxy({}, { get: () => 2 }),
+};
 /** As if played from there: its cost paid — for an X card, all 3 energy. */
 const cardSample = computed((): AmountValues => {
   const cost = card.value?.cost ?? 0;
@@ -61,7 +65,7 @@ const cardSample = computed((): AmountValues => {
   return { ...SAMPLE, energy: SAMPLE.energy - spent, x: cost === 'X' ? spent : 0 };
 });
 const SAMPLE_TEXT = computed(() =>
-  `8 block, 30/40 health, 3 energy${card.value?.cost === 'X' ? ' (so X is 3)' : ''}, 4 cards in hand, 2 fires near, 1 ally, 3 tiles walked`);
+  `8 block, 30/40 health, 3 energy${card.value?.cost === 'X' ? ' (so X is 3)' : ''}, 4 cards in hand, 2 tiles of each aura near, 1 ally, 3 tiles walked`);
 const cardNow = computed(() => (card.value ? nowText(card.value.effects, cardSample.value) : null));
 const cardNowShort = computed(() => (card.value ? nowText(card.value.effects, cardSample.value, 'short') : null));
 
@@ -388,7 +392,6 @@ watch(() => [card.value?.name, card.value?.text, cardNow.value], measure);
       <div class="panel foe-tip">
         <p class="tip-name">{{ aura.name }}</p>
         <p class="line">
-          <span v-if="aura.fire" class="px-tag is-red">FIRE</span>
           {{ aura.text || 'What it does comes from the card that lays it.' }}
         </p>
       </div>

@@ -31,6 +31,8 @@ const nameSchema = z.string().trim().min(1, 'needs a name');
  *  happens: `{ "of": "block", "times": 0.5, "plus": 2 }`. */
 export const scaledAmountSchema = z.strictObject({
   of: z.enum(AMOUNT_SOURCE_KEYS as [AmountSource, ...AmountSource[]]),
+  /** For `auras`: which aura type's tiles to count. */
+  aura: idSchema.optional(),
   times: z.number().positive('must be more than 0').max(10).optional(),
   plus: z.number().int('must be a whole number').min(-99).max(99).optional(),
 });
@@ -40,6 +42,8 @@ export const amountSchema = z.union([count(0, 99), scaledAmountSchema]);
 export const simpleEffectSchema = z.strictObject({
   kind: z.enum(EFFECT_KINDS as [EffectKind, ...EffectKind[]]),
   amount: amountSchema,
+  /** For a verb about one aura type (Prolong, Pulse): which. */
+  aura: idSchema.optional(),
 });
 
 const colourSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'a colour like #d9544d');
@@ -97,6 +101,8 @@ export const summonEffectSchema = z.strictObject({
 export const boonEffectSchema = z.strictObject({
   kind: z.literal('boon'),
   stat: z.enum(STAT_KEYS as [StatKey, ...StatKey[]]),
+  /** For an aura stat: which aura type it raises. */
+  aura: idSchema.optional(),
   add: amountSchema.optional(),
   mul: z.number().positive('must be more than 0').max(10).optional(),
   rounds: amountSchema,
@@ -207,6 +213,8 @@ export const talismanSchema = z.strictObject({
   modifiers: z
     .array(z.strictObject({
       stat: z.enum(STAT_KEYS as [string, ...string[]]),
+      /** For an aura stat: which aura type it changes. */
+      aura: idSchema.optional(),
       add: z.number().optional(),
       mul: z.number().positive().optional(),
     }))
@@ -262,14 +270,12 @@ export const zoneChunkSchema = z.strictObject({
 });
 
 /** An aura type: what a marked tile is, defined once and named by every
- *  mark of it — its name, how it looks, and whether it counts as fire. */
+ *  mark of it — its name, how it looks, and how it reacts to others. */
 export const auraTypeSchema = z.strictObject({
   id: idSchema,
   name: nameSchema,
   /** For the tooltip when a mark of it does nothing by itself (oil). */
   text: z.string().optional(),
-  /** Counts as fire, for the fire cards and stats. */
-  fire: z.boolean().optional(),
   /** What it does when it meets another type on a tile. */
   reactions: z.array(z.strictObject({
     does: z.enum(REACTION_KINDS),

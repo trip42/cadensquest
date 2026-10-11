@@ -16,7 +16,7 @@ import { cardDef, cardMovement, energySpent, minimumCost } from './cards/definit
 import { intentDef } from './cards/intents';
 import type { CardDefinition, CardInstance } from './cards/types';
 import {
-  amountOf, type AmountValues, type AreaEffect, type BoonEffect, type Effect, EFFECT_INFO, FIRES_WITHIN, fixAmounts, isArea, isBoon,
+  amountOf, auraNameOf, type AmountValues, type AreaEffect, type BoonEffect, type Effect, EFFECT_INFO, AURAS_WITHIN, fixAmounts, isArea, isBoon,
   isLater, isSimple, isSummon, isAura, isTrail, readsPower, type TrailEffect,
   type LaterEffect,
   type SimpleEffect, type SummonEffect, type AuraEffect, type TileEffect, type TriggerPoint,
@@ -49,7 +49,7 @@ import { record } from './telemetry';
 import { createRng, hashSeed, nextFloat, nextInt, pick, shuffle } from './rng';
 import { priceOf, rollStock, type Shop, SHOP_COLOUR } from './shop';
 import { talismanDef, talismanEffects } from './talismans';
-import { isFireType, type ReactionKind, AURAS, auraType } from './auras';
+import { type ReactionKind, AURAS, auraType } from './auras';
 import { liveText, NO_BONUSES, type TextPart } from './text';
 import {
   arrivalOn,
@@ -395,6 +395,7 @@ function grantBoon(game: Game, effect: BoonEffect, play: Play): void {
   const rounds = amountOf(effect.rounds, values);
   if (rounds <= 0) return;
   const boon: Boon = { id: nextUid('boon'), stat: effect.stat, rounds };
+  if (effect.aura) boon.aura = effect.aura;
   if (effect.add !== undefined) boon.add = amountOf(effect.add, values);
   if (effect.mul !== undefined) boon.mul = effect.mul;
   state.boons.push(boon);
@@ -494,21 +495,24 @@ export function amountValues(state: GameState, actor: Entity, x = 0): AmountValu
     power: actor.power,
     energy: isPlayer ? state.energy : 0,
     hand: isPlayer ? state.hand.length : 0,
-    fires: firesNear(state, entityCell(actor)),
+    auras: aurasNear(state, entityCell(actor)),
     allies: isPlayer ? allies(state).length : 0,
     moved: isPlayer ? state.moved : 0,
   };
 }
 
-/** Burning tiles within `FIRES_WITHIN` steps, whoever lit them. */
-function firesNear(state: GameState, here: Cell): number {
-  let count = 0;
+/** For each aura type, its tiles within `AURAS_WITHIN` steps, whoever
+ *  laid them: a tile with two marks of one type counts once. */
+function aurasNear(state: GameState, here: Cell): Record<string, number> {
+  const counts: Record<string, number> = {};
   for (const [key, layers] of Object.entries(state.auras)) {
-    if (!layers.some((layer) => isFireType(layer.type))) continue;
     const [row, col] = key.split(',').map(Number);
-    if (cellDistance({ row: row!, col: col! }, here) <= FIRES_WITHIN) count += 1;
+    if (cellDistance({ row: row!, col: col! }, here) > AURAS_WITHIN) continue;
+    for (const type of new Set(layers.map((layer) => layer.type))) {
+      if (type) counts[type] = (counts[type] ?? 0) + 1;
+    }
   }
-  return count;
+  return counts;
 }
 
 /** The player's values as a card's effects will read them: after paying
@@ -727,9 +731,8 @@ function markTile(game: Game, effect: AuraEffect, play: Play): void {
   if (!world.walkable(cell.row, cell.col)) return;
 
   const values = amountValues(state, actor, play.x);
-  // Every fire lit burns `fireRounds` longer, whoever lights it.
-  const lit = isFireType(effect.type);
-  const rounds = amountOf(effect.rounds, values) + (lit ? stat(state, 'fireRounds') : 0);
+  // Every mark of a type lasts its `auraRounds` longer, whoever lays it.
+  const rounds = amountOf(effect.rounds, values) + stat(state, 'auraRounds', effect.type);
   if (rounds <= 0) return;
   // A gem's multiplier reaches the fire the card lights, too.
   const fix = (list: AuraEffect['effects']) => list.map((tile) => {
@@ -929,68 +932,71 @@ function applyTile(game: Game, entity: Entity, layers: readonly AuraLayer[]): vo
 }
 
 /** Is this creature kept out of this mark's damage — the player, by
- *  `fireWard`, from a fire? */
+ *  `auraWard` for its type? */
 const warded = (state: GameState, entity: Entity, layer: AuraLayer): boolean =>
-  isFireType(layer.type) && entity.id === state.playerId && stat(state, 'fireWard') >= 1;
+  !!layer.type && entity.id === state.playerId && stat(state, 'auraWard', layer.type) >= 1;
 
-/** Every fire on the floor, by tile. */
-function fires(state: GameState): Array<{ cell: Cell; layers: AuraLayer[] }> {
+/** Every mark of one aura type on the floor, by tile. */
+function marksOf(state: GameState, type: string | undefined): Array<{ cell: Cell; layers: AuraLayer[] }> {
   return Object.entries(state.auras).flatMap(([key, layers]) => {
-    const burning = layers.filter((layer) => isFireType(layer.type));
-    if (!burning.length) return [];
+    const found = layers.filter((layer) => !!type && layer.type === type);
+    if (!found.length) return [];
     const [row, col] = key.split(',').map(Number);
-    return [{ cell: { row: row!, col: col! }, layers: burning }];
+    return [{ cell: { row: row!, col: col! }, layers: found }];
   });
 }
 
-/** How a flare is drawn: a ring on every fire. */
-const FLARE_COLOUR = '#feae34';
+/** How a pulse is drawn: a ring on every mark it reaches. */
+const PULSE_COLOUR = '#feae34';
 
-/* Rekindle: every fire on the floor burns `rounds` longer. Fire has no
-   side, so the Whelp's lasts longer too. */
-function rekindle(game: Game, actor: Entity, rounds: number): void {
+/* Prolong: every mark of one aura type on the floor lasts `rounds` longer.
+   An aura has no side, so an enemy's marks last longer too. */
+function prolong(game: Game, actor: Entity, type: string | undefined, rounds: number): void {
   const { state } = game;
-  const burning = fires(state);
-  if (rounds <= 0 || !burning.length) return;
-  for (const { layers } of burning) for (const layer of layers) layer.rounds += rounds;
-  cue(state, { type: 'mark', cells: burning.map((item) => item.cell), colour: FLARE_COLOUR });
-  noteNear(state, actor, `Every fire burns ${rounds} round${rounds === 1 ? '' : 's'} longer.`);
+  const marks = marksOf(state, type);
+  if (rounds <= 0 || !marks.length) return;
+  for (const { layers } of marks) for (const layer of layers) layer.rounds += rounds;
+  cue(state, { type: 'mark', cells: marks.map((item) => item.cell), colour: PULSE_COLOUR });
+  noteNear(state, actor, `Every ${auraNameOf(type)} lasts ${rounds} round${rounds === 1 ? '' : 's'} longer.`);
 }
 
-/* Flare: every fire hits whoever stands in it now, for its damage plus
-   `extra`, heated by the fire stats — and credited to whoever lit it. It
-   is a hit on top of the round's: it neither uses that up nor needs it. */
-function flare(game: Game, actor: Entity, extra: number): void {
+/* Pulse: every mark of one aura type hits whoever stands in it now, for
+   its damage plus `extra`, through that type's aura stats — and credited
+   to whoever laid it. It is a hit on top of the round's: it neither uses
+   that up nor needs it. */
+function pulse(game: Game, actor: Entity, type: string | undefined, extra: number): void {
   const { state } = game;
-  const burning = fires(state);
-  if (!burning.length) return;
-  cue(state, { type: 'mark', cells: burning.map((item) => item.cell), colour: FLARE_COLOUR });
-  for (const { cell, layers } of burning) {
+  const marks = marksOf(state, type);
+  if (!marks.length) return;
+  cue(state, { type: 'mark', cells: marks.map((item) => item.cell), colour: PULSE_COLOUR });
+  for (const { cell, layers } of marks) {
     for (const layer of layers) {
       const victim = entityAt(state, cell.row, cell.col);
       if (!victim || victim.dead || warded(state, victim, layer)) continue;
       const owner = state.entities.find((item) => item.id === layer.ownerId);
       const hits = layer.effects
         .filter((effect) => effect.kind === 'damage')
-        .map((effect) => ({ kind: 'damage' as const, amount: fireHit(state, effect.amount, extra) }));
+        .map((effect) => ({ kind: 'damage' as const, amount: auraHit(state, layer.type, effect.amount, extra) }));
       applyTo(game, victim, hits, 'tile', owner);
     }
   }
-  noteNear(state, actor, 'Every fire flares.');
+  noteNear(state, actor, `Every ${auraNameOf(type)} pulses.`);
 }
 
-/** What a fire's hit of `amount` comes to now: (it + `fireDamage` + any
- *  `extra`) × `fireMultiplier`. Worked out as it hits, not when it was lit,
- *  so heat reaches fires already burning — every fire, whoever lit it. */
-export const fireHit = (state: GameState, amount: number, extra = 0): number =>
-  (amount + stat(state, 'fireDamage') + extra) * stat(state, 'fireMultiplier');
+/** What a mark's hit of `amount` comes to now: (it + its type's
+ *  `auraDamage` + any `extra`) × its type's `auraMultiplier`. Worked out as
+ *  it hits, not when it was laid, so a boon reaches marks already down —
+ *  every mark of the type, whoever laid it. At the base stats it is the
+ *  amount itself. */
+export const auraHit = (state: GameState, type: string | undefined, amount: number, extra = 0): number =>
+  (amount + stat(state, 'auraDamage', type) + extra) * stat(state, 'auraMultiplier', type);
 
-/** A mark's effects as they would land now — a fire's damage heated by the
- *  fire stats. `list` is which of its lists: its effects, enter or exit.
+/** A mark's effects as they would land now — its damage through its type's
+ *  aura stats. `list` is which of its lists: its effects, enter or exit.
  *  For the rules, the tile's tooltip and the bot alike. */
 export function layerEffects(state: GameState, layer: AuraLayer, list: readonly TileEffect[] = layer.effects): TileEffect[] {
-  if (!isFireType(layer.type)) return [...list];
-  return list.map((effect) => (effect.kind === 'damage' ? { kind: 'damage', amount: fireHit(state, effect.amount) } : effect));
+  if (!layer.type) return [...list];
+  return list.map((effect) => (effect.kind === 'damage' ? { kind: 'damage', amount: auraHit(state, layer.type, effect.amount) } : effect));
 }
 
 /* Effects landing on a creature as if it had played them on itself: Damage
@@ -1321,8 +1327,8 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
       if (moved) play.target = moved;
       break;
     }
-    case 'rekindle':
-      rekindle(game, actor, amount);
+    case 'prolong':
+      prolong(game, actor, effect.aura, amount);
       break;
     case 'echo':
       if (isPlayer) state.echo += amount;
@@ -1337,8 +1343,8 @@ function resolveEffect(game: Game, effect: Effect, play: Play): void {
       note(state, `${entityDef(ally.defId).name} acts at your command.`);
       break;
     }
-    case 'flare':
-      flare(game, actor, amount);
+    case 'pulse':
+      pulse(game, actor, effect.aura, amount);
       break;
     case 'movement':
       if (isPlayer) state.movement += amount;

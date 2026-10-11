@@ -121,7 +121,8 @@
     "icon": "flame",
     "modifiers": [
       {
-        "stat": "fireDamage",
+        "stat": "auraDamage",
+        "aura": "fire",
         "add": 1
       }
     ]
@@ -134,7 +135,8 @@
     "icon": "flame",
     "modifiers": [
       {
-        "stat": "fireRounds",
+        "stat": "auraRounds",
+        "aura": "fire",
         "add": 1
       }
     ]
@@ -147,7 +149,8 @@
     "icon": "shield",
     "modifiers": [
       {
-        "stat": "fireWard",
+        "stat": "auraWard",
+        "aura": "fire",
         "add": 1
       }
     ]

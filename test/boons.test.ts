@@ -41,13 +41,13 @@ function nextTurn(game: Game): void {
 describe('boons', () => {
   it('raise a stat for this round and the next, then go', () => {
     const game = quiet();
-    define('stoke_t', [{ kind: 'boon', stat: 'fireDamage', add: 2, rounds: 2 }]);
+    define('stoke_t', [{ kind: 'boon', stat: 'auraDamage', aura: 'fire', add: 2, rounds: 2 }]);
     play(game, 'stoke_t');
-    expect(stat(game.state, 'fireDamage')).toBe(2);
+    expect(stat(game.state, 'auraDamage', 'fire')).toBe(2);
     nextTurn(game);
-    expect(stat(game.state, 'fireDamage')).toBe(2);
+    expect(stat(game.state, 'auraDamage', 'fire')).toBe(2);
     nextTurn(game);
-    expect(stat(game.state, 'fireDamage')).toBe(0);
+    expect(stat(game.state, 'auraDamage', 'fire')).toBe(0);
     expect(game.state.boons).toEqual([]);
   });
 
@@ -64,10 +64,10 @@ describe('boons', () => {
     const game = quiet();
     const self = player(game.state);
     self.power = 3;
-    define('fury_t', [{ kind: 'boon', stat: 'fireDamage', add: { of: 'power' }, rounds: 2 }]);
+    define('fury_t', [{ kind: 'boon', stat: 'auraDamage', aura: 'fire', add: { of: 'power' }, rounds: 2 }]);
     play(game, 'fury_t');
     self.power = 0;
-    expect(stat(game.state, 'fireDamage')).toBe(3);
+    expect(stat(game.state, 'auraDamage', 'fire')).toBe(3);
   });
 
   it('are counted down before the refresh reads them', () => {
@@ -97,12 +97,12 @@ describe('boons', () => {
   it('show their amount through a {1} token, live in hand', () => {
     const game = quiet();
     player(game.state).power = 4;
-    const def = CARDS[define('fury_t', [{ kind: 'boon', stat: 'fireDamage', add: { of: 'power' }, rounds: 2 }], { text: 'Fire deals {1} more.' })]!;
+    const def = CARDS[define('fury_t', [{ kind: 'boon', stat: 'auraDamage', aura: 'fire', add: { of: 'power' }, rounds: 2 }], { text: 'Fire deals {1} more.' })]!;
     expect(joinText(handText(game.state, def))).toBe('Fire deals 4 more.');
   });
 
   it('read well from the editor\'s "write it for me"', () => {
-    expect(writeCardText([{ kind: 'boon', stat: 'fireDamage', add: 2, rounds: 2 }, { kind: 'draw', amount: 1 }], 0, 'player', 'self'))
+    expect(writeCardText([{ kind: 'boon', stat: 'auraDamage', aura: 'fire', add: 2, rounds: 2 }, { kind: 'draw', amount: 1 }], 0, 'player', 'self'))
       .toBe('For 2 rounds, every fire deals 2 more damage and draw a card.');
   });
 });
@@ -112,13 +112,13 @@ describe('boons in content', () => {
 
   it('need something to add or multiply by', () => {
     const content = draft();
-    content.cards[0]!.effects = [{ kind: 'boon', stat: 'fireDamage', rounds: 2 }];
+    content.cards[0]!.effects = [{ kind: 'boon', stat: 'auraDamage', aura: 'fire', rounds: 2 }];
     expect(validateContent(content as never).issues.some((issue) => issue.level === 'error' && /boon needs/.test(issue.message))).toBe(true);
   });
 
   it('warn on an enemy card, which has no stats to raise', () => {
     const content = draft();
-    content['enemy-cards'][0]!.effects.push({ kind: 'boon', stat: 'fireDamage', add: 1, rounds: 2 });
+    content['enemy-cards'][0]!.effects.push({ kind: 'boon', stat: 'auraDamage', aura: 'fire', add: 1, rounds: 2 });
     expect(validateContent(content as never).issues.some((issue) => issue.level === 'warning' && /Boon does nothing/.test(issue.message))).toBe(true);
   });
 });

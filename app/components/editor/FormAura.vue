@@ -2,7 +2,8 @@
 /* An aura type: what a marked tile is — Fire, Oil, a Spring. Defined
    once here and named by every card, gem, talisman or enemy that marks a
    tile with it. The card says what the tile does and for how long; this
-   says what it is called, whether it counts as fire, and how it looks. */
+   says what it is called, how it reacts to other types, and how it looks.
+   What heats or wards it lives on the cards and talismans that name it. */
 import { computed } from 'vue';
 import type { ContentIssue, AuraTypeData } from '~/game/content';
 import { MARK_SHAPES, REACTION_KINDS, REACTION_TEXT, type ReactionKind } from '~/game/auras';
@@ -61,20 +62,9 @@ function setText(value: string): void {
   if (value.trim()) props.item.text = value;
   else delete props.item.text;
 }
-function setFire(on: boolean): void {
-  if (on) props.item.fire = true;
-  else delete props.item.fire;
-}
 </script>
 
 <template>
-  <EditorField label="Counts as fire" hint="Heated, lengthened, warded, flared and counted by the fire cards and stats, whoever lit it.">
-    <span class="inline">
-      <input type="checkbox" :checked="!!item.fire" @change="setFire(($event.target as HTMLInputElement).checked)">
-      <span>{{ item.fire ? 'Fire' : 'Not fire' }}</span>
-    </span>
-  </EditorField>
-
   <EditorField label="What it is for" hint="Shown on the tile's tooltip when a mark of it does nothing by itself, like oil. Lets a card lay it with no effects." :problems="at('text')">
     <input :value="item.text ?? ''" type="text" placeholder="nothing — its effects say it" @input="setText(($event.target as HTMLInputElement).value)">
   </EditorField>

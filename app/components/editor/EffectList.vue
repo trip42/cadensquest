@@ -14,7 +14,8 @@ import {
   AREA_INFO, BOON_INFO, EFFECT_INFO, EFFECT_KINDS, type EffectKind, LATER_INFO, laterVerb, SUMMON_INFO, AURA_INFO,
   TRAIL_INFO,
 } from '~/game/effects';
-import { STAT_KEYS, STAT_NAMES } from '~/game/stats';
+import { isAuraStat, STAT_KEYS, STAT_NAMES, type StatKey } from '~/game/stats';
+import EditorAuraPicker from './AuraPicker.vue';
 import { useEditorStore } from '~/stores/editor';
 
 const props = defineProps<{
@@ -61,6 +62,19 @@ const editor = useEditorStore();
 const summonable = computed(() => (editor.draft?.enemies ?? []).filter((enemy) => !enemy.guardian));
 /** The aura types a mark can be, from the Auras tab. */
 const auraTypes = computed(() => editor.draft?.auras ?? []);
+const firstAura = () => auraTypes.value[0]?.id ?? 'fire';
+/** A verb about one aura type (Prolong, Pulse) names it; no other verb does. */
+const auraVerb = (effect: { kind: string }) => effect.kind in EFFECT_INFO && !!EFFECT_INFO[effect.kind as EffectKind].aura;
+function syncAura(effect: { kind: string; aura?: string }): void {
+  if (auraVerb(effect)) effect.aura ??= firstAura();
+  else delete effect.aura;
+}
+/** A boon of an aura stat names its aura; one of any other stat does not. */
+function setBoonStat(effect: { stat: string; aura?: string }, stat: string): void {
+  effect.stat = stat;
+  if (isAuraStat(stat as StatKey)) effect.aura ??= firstAura();
+  else delete effect.aura;
+}
 const colourOf = (type: string) => auraTypes.value.find((item) => item.id === type)?.look.colour ?? '#ffffff';
 
 /** An aura's radius is optional: 0 or left out is the one tile. */
@@ -109,13 +123,15 @@ function setKind(index: number, kind: string): void {
       kind: 'trail', rounds: 3, mark: { kind: 'aura', rounds: 2, type: 'fire', effects: [{ kind: 'damage', amount: 1 }] },
     };
   } else if (kind === 'boon') {
-    props.effects[index] = { kind: 'boon', stat: 'fireDamage', add: 2, rounds: 2 };
+    props.effects[index] = { kind: 'boon', stat: 'auraDamage', aura: firstAura(), add: 2, rounds: 2 };
   } else if (
     ['aura', 'summon', 'area', 'later', 'boon', 'trail'].includes(current.kind)
   ) {
     props.effects[index] = { kind: kind as EffectKind, amount: 3 };
+    syncAura(props.effects[index] as { kind: string; aura?: string });
   } else {
     current.kind = kind as EffectKind;
+    syncAura(current as { kind: string; aura?: string });
   }
 }
 
@@ -171,9 +187,13 @@ function move(index: number, by: number): void {
       </template>
       <template v-else-if="effect.kind === 'boon'">
         <span class="aura-head">
-          <select v-model="effect.stat" aria-label="Stat">
+          <select :value="effect.stat" aria-label="Stat" @change="setBoonStat(effect, ($event.target as HTMLSelectElement).value)">
             <option v-for="key in STAT_KEYS" :key="key" :value="key">{{ STAT_NAMES[key] }}</option>
           </select>
+          <template v-if="isAuraStat(effect.stat)">
+            <span class="op">of</span>
+            <EditorAuraPicker :target="effect" />
+          </template>
           <select :value="effect.mul === undefined ? 'add' : 'mul'" aria-label="How" @change="setBoonMode(effect, ($event.target as HTMLSelectElement).value)">
             <option value="add">raised by</option>
             <option value="mul">multiplied by</option>
@@ -241,6 +261,10 @@ function move(index: number, by: number): void {
       </template>
       <EditorAmountInput v-else-if="effect.kind !== 'step'" :effect="effect" :side="side" />
       <span v-else class="effect-note">uses the card's range</span>
+      <template v-if="auraVerb(effect)">
+        <span class="op">every</span>
+        <EditorAuraPicker :target="effect as { aura?: string }" />
+      </template>
 
       <span class="effect-help">{{ info(effect.kind).help }}</span>
       <span class="effect-tools">

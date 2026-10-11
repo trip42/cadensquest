@@ -2,7 +2,6 @@
   {
     "id": "fire",
     "name": "Fire",
-    "fire": true,
     "reactions": [
       {
         "does": "spreadsThrough",

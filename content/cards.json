@@ -854,7 +854,8 @@
     "effects": [
       {
         "kind": "boon",
-        "stat": "fireDamage",
+        "stat": "auraDamage",
+        "aura": "fire",
         "add": 2,
         "rounds": 2
       },
@@ -877,7 +878,8 @@
     "effects": [
       {
         "kind": "boon",
-        "stat": "fireMultiplier",
+        "stat": "auraMultiplier",
+        "aura": "fire",
         "mul": 2,
         "rounds": 2
       }
@@ -895,10 +897,11 @@
     "text": "Every fire burns {1} rounds longer.",
     "effects": [
       {
-        "kind": "rekindle",
+        "kind": "prolong",
         "amount": {
           "of": "x"
-        }
+        },
+        "aura": "fire"
       }
     ]
   },
@@ -914,8 +917,9 @@
     "text": "Every fire flares: whoever stands in one is burned again now.",
     "effects": [
       {
-        "kind": "flare",
-        "amount": 0
+        "kind": "pulse",
+        "amount": 0,
+        "aura": "fire"
       }
     ]
   },
@@ -961,7 +965,8 @@
       {
         "kind": "block",
         "amount": {
-          "of": "fires",
+          "of": "auras",
+          "aura": "fire",
           "times": 2
         }
       }
@@ -1236,7 +1241,8 @@
     "effects": [
       {
         "kind": "boon",
-        "stat": "fireDamage",
+        "stat": "auraDamage",
+        "aura": "fire",
         "add": {
           "of": "power"
         },

@@ -646,7 +646,7 @@ card is data; a new verb or shape is code (checklists at the end).
 **Seven shapes.** A **simple** effect is `{ kind, amount }` with a verb
 from `EFFECT_INFO`: `damage`, `block`, `loseBlock`, `heal`, `power`,
 `losePower`, `thorns`, `movement`, `energy`, `draw`, `step` (Leap),
-`advance`, `tame`, `mend`, `push` (Knockback), `pull`, `rekindle`, `flare`,
+`advance`, `tame`, `mend`, `push` (Knockback), `pull`, `prolong`, `pulse`,
 `echo`, `command`.
 **Aura** is `{ kind: "aura", rounds, type, effects: [simple...],
 enter?, exit?, radius? }`, `type` naming an aura type (see **Aura
@@ -675,8 +675,9 @@ belongs to the verb (Block gains, Lose block spends), which is why there is
 no negative block. Deliberately data, not a formula string — content may
 come from a server one day, and an evaluated string is code; a test pins
 that a string is refused. Sources: `block`, `health`, `missingHealth`,
-`power`, `energy`, `hand`, `x`, `fires` (burning tiles within
-`FIRES_WITHIN`, 3, of the actor, whoever lit them) and `allies` (the
+`power`, `energy`, `hand`, `x`, `auras` (tiles of the amount's `aura`
+type within `AURAS_WITHIN`, 3, of the actor, whoever laid them; the
+values hold a count per type) and `allies` (the
 player's living allies; 0 for anyone else) and `moved` (tiles the player
 has walked this turn — not leapt or shoved — counted in `movePlayerTo` and
 reset by the refresh). For a played card, `energy` and `hand` are
@@ -785,12 +786,14 @@ once-a-round guard, so pair a gain with an exit that takes it back:
 Rallying Ground is +1 power on entering and Lose 1 power on leaving, which
 the card text reads as "whoever stands on it deals 1 more damage".
 
-**Fire.** An aura type may count as fire (`"fire": true`), and so may
-every mark of it (`isFireType`). Fire, Wildfire and the Whelp's Scorch
-are the type Fire.
-Fire has no side: anything that heats, lengthens or counts fire works on
-every burning tile, whoever lit it — the Whelp's under you as much as yours
-under them — and a death by fire is still credited to whoever lit it.
+**No aura is special in code.** There is no "counts as fire": what heats,
+lengthens, wards, prolongs, pulses or counts the marks of a type *names*
+that type, and Fire is simply the type those cards and talismans name
+(Fire, Wildfire and the Whelp's Scorch lay it). The user asked for this so
+that Poison, or anything new, can have its own talismans and boons as
+content. An aura has no side: anything that does any of that works on
+every mark of its type, whoever laid it — the Whelp's under you as much as
+yours under them — and a death by a mark is credited to whoever laid it.
 
 - **Oil** (the type `oil`) does nothing alone, and may be a mark with
   no effects (its type has `text`). Fire lit on an oiled tile spreads
@@ -799,17 +802,29 @@ under them — and a death by fire is still credited to whoever lit it.
   the whole slick it now touches, old oil included, as a copy of the fire
   it met: its damage, its rounds left, and whoever lit it, for the kill
   credit. All of it is the one reaction above, not code.
-- **The fire stats** are `fireDamage` (0), `fireMultiplier` (1),
-  `fireRounds` (0) and `fireWard` (0), read from the player's stat table
-  (talismans and boons) and applied to *every* fire. A fire's hit is (its
-  damage + `fireDamage`) × `fireMultiplier`, **worked out as it hits** by
-  `fireHit`, so heat reaches fires already burning. `fireRounds` is added
-  as a fire is lit. At `fireWard` 1 or more fire does not hurt the player.
-- **`rekindle` and `flare`** are verbs for either side. Rekindle: every
-  fire on the floor burns N rounds longer. Flare: every fire hits whoever
-  stands in it now, for (its damage + `fireDamage` + N) × `fireMultiplier`,
-  credited to whoever lit it — a hit on top of the round's, which it neither
-  uses up nor needs. Neither can go on a tile.
+- **The aura stats** (`AURA_STATS`) are `auraDamage` (0),
+  `auraMultiplier` (1), `auraRounds` (0) and `auraWard` (0), **kept per aura
+  type**: a talisman modifier or a boon of one names its type (`{ "stat":
+  "auraDamage", "aura": "fire", "add": 1 }`), and `stat(state, key, aura)`
+  counts only the modifiers that name that type. A mark's hit is (its damage
+  + its type's `auraDamage`) × its type's `auraMultiplier`, **worked out as
+  it hits** by `auraHit`, so heat reaches marks already down; at the base
+  stats it is the damage itself. `auraRounds` is added as a mark of the type
+  is laid. At `auraWard` 1 or more that type's damage does not hurt the
+  player (only the player: allies and enemies still take it). They read in
+  the aura's own name (`statName`): "+2 FIRE DAMAGE", "protection from
+  poison".
+- **`prolong` and `pulse`** are verbs for either side, each naming an aura
+  (`aura` on the effect; `EFFECT_INFO[kind].aura`). Prolong: every mark of
+  the type on the floor lasts N rounds longer. Pulse: every mark of the type
+  hits whoever stands in it now, through `auraHit` plus N, credited to
+  whoever laid it — a hit on top of the round's, which it neither uses up
+  nor needs. Neither can go on a tile. (They were Rekindle and Flare, fire
+  only.)
+- **Naming an aura is checked.** The validator wants an existing aura type
+  on Prolong, Pulse, an `auras` amount and an aura stat, and refuses one on
+  anything else (`checkAuraNames`, walking every effect however deep). The
+  editor shows an aura picker (`AuraPicker`) in exactly those places.
 - **`layerEffects(state, layer)`** is a mark's effects as they would land
   now. The rules (`applyTile`), the tile tooltip and the bot all read
   through it, so what the tooltip says is what the tile does.
@@ -867,7 +882,7 @@ checked by the validator and offered by the editor's `in-later` list):
 
 - **Verbs that happen to a creature on its own tile** (`EFFECT_INFO.tile`:
   damage to itself, block, thorns, heal, power, energy, draw…) go through
-  `applyTo`, like a mark under its feet. So do rekindle and flare, which
+  `applyTo`, like a mark under its feet. So do Prolong and Pulse, which
   need nobody (`laterVerb`).
 - **Shapes that need no aim:** a summon (stands beside the maker, as a
   summon with no target does), a mark (under the maker), a burst (around
@@ -1710,7 +1725,7 @@ minutes); `npm run sim -- sim/final.sim.ts` runs one. Reports land in
     about 27% to 38%, and costs about 2.6× the time.
   - **It picks cards for the deck it has** (`sim/synergy.ts`, the default;
     `SIM_PICK=rarity` is the old rarest-first pick). Each card's effects
-    say what it gives (fire, power, an ally, a shove) and needs; a payoff
+    say what it gives (an aura type it lays, power, an ally, a shove) and needs; a payoff
     with no setup in the deck is worth less than nothing and is skipped,
     and a setup with payoffs waiting is worth more. It goes for rewards,
     the shop, and a marking gem only onto a card aimed somewhere. It lifted

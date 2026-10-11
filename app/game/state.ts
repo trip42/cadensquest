@@ -322,8 +322,8 @@ export function createGame(seed: number): Game {
 export const modifiersOf = (state: GameState): StatModifier[] =>
   [...talismanModifiers(state.talismans), ...state.boons];
 
-export const stat = (state: GameState, key: StatKey): number =>
-  resolveStat(key, modifiersOf(state));
+export const stat = (state: GameState, key: StatKey, aura?: string): number =>
+  resolveStat(key, modifiersOf(state), aura);
 
 /** Keep derived pools in step after the talismans change. Raising maximum
  *  health hands over the difference rather than leaving a dent. */

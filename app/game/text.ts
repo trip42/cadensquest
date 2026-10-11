@@ -40,7 +40,7 @@ import type { StatKey } from './stats';
 
 /** What a boon's number measures, by the stat it raises. */
 const STAT_UNITS: Partial<Record<StatKey, string>> = {
-  damageBonus: 'damage', fireDamage: 'damage', slamDamage: 'damage', highGround: 'damage',
+  damageBonus: 'damage', auraDamage: 'damage', slamDamage: 'damage', highGround: 'damage',
   blockBonus: 'block', blockPerRefresh: 'block',
   maxHp: 'health', healPerRefresh: 'health',
   maxEnergy: 'energy',

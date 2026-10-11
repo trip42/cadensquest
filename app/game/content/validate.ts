@@ -12,6 +12,7 @@
 
 import type { ZodError } from 'zod';
 import { AMOUNT_SOURCES, type AmountSource, BOON_INFO, canGoInLater, EFFECT_INFO, type Effect, type EffectKind } from '../effects';
+import { isAuraStat, STAT_NAMES, type StatKey } from '../stats';
 import { tokenProblems } from '../text';
 import { type AmountData, CONTENT_FILES, type Content, type ContentFile, type EffectData, FILE_SCHEMAS } from './schema';
 
@@ -248,6 +249,41 @@ function crossCheck(content: Content): ContentIssue[] {
   for (const gem of content.gems) checkBoons('gems', gem.id, gem.effects);
   for (const talisman of content.talismans) {
     talisman.triggers?.forEach((trigger, t) => checkBoons('talismans', talisman.id, trigger.effects, `triggers[${t}].effects`));
+  }
+
+  /* What names an aura type names one that exists — and only what is about
+     one: Prolong and Pulse, an `auras` amount, a boon or talisman modifier
+     of an aura stat. Walks everything, however deep: a Later, a burst, a
+     trail's mark, a mark's enter and exit. */
+  const checkAuraNames = (file: ContentFile, id: string, value: unknown, field: string): void => {
+    if (Array.isArray(value)) {
+      value.forEach((item, i) => checkAuraNames(file, id, item, `${field}[${i}]`));
+      return;
+    }
+    if (!value || typeof value !== 'object') return;
+    const item = value as { kind?: string; stat?: string; of?: string; aura?: string };
+    const wants = item.of !== undefined ? item.of === 'auras'
+      : item.stat !== undefined ? isAuraStat(item.stat as StatKey)
+      : item.kind !== undefined && item.kind in EFFECT_INFO ? !!EFFECT_INFO[item.kind as EffectKind].aura
+      : undefined;
+    if (wants === true && !item.aura) {
+      const what = item.of !== undefined ? 'counting aura tiles' : item.stat !== undefined ? `${STAT_NAMES[item.stat as StatKey]}` : labelOf(item.kind!);
+      error(file, id, `${what} needs an aura type: which aura it is about`, `${field}.aura`);
+    } else if (wants === false && item.aura) {
+      error(file, id, 'only Prolong, Pulse, counting aura tiles and the aura stats name an aura', `${field}.aura`);
+    }
+    if (item.aura && !auraTypes.has(item.aura)) error(file, id, `"${item.aura}" is not an aura type`, `${field}.aura`);
+    for (const [key, inner] of Object.entries(value)) {
+      if (inner && typeof inner === 'object') checkAuraNames(file, id, inner, `${field}.${key}`);
+    }
+  };
+  for (const card of content.cards) checkAuraNames('cards', card.id, card.effects, 'effects');
+  for (const card of content['enemy-cards']) checkAuraNames('enemy-cards', card.id, card.effects, 'effects');
+  for (const gem of content.gems) checkAuraNames('gems', gem.id, gem.effects, 'effects');
+  for (const enemy of content.enemies) if (enemy.onDeath) checkAuraNames('enemies', enemy.id, enemy.onDeath, 'onDeath');
+  for (const talisman of content.talismans) {
+    if (talisman.modifiers) checkAuraNames('talismans', talisman.id, talisman.modifiers, 'modifiers');
+    if (talisman.triggers) checkAuraNames('talismans', talisman.id, talisman.triggers, 'triggers');
   }
 
   for (const card of content.cards) checkTiles('cards', card.id, card.effects);

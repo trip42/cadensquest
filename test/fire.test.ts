@@ -11,7 +11,6 @@ import { createGame, type Game, makeCard, makeEntity, player, resetUids } from '
 import { GEMS } from '~/game/gems';
 import { type TalismanDefinition, TALISMANS } from '~/game/talismans';
 import { readContentFiles } from './setup';
-import { isFireType } from '~/game/auras';
 
 afterEach(() => loadContent(readContentFiles()));
 
@@ -61,7 +60,6 @@ describe('fire', () => {
     play(game, 'fire_t', cell);
     play(game, 'mark_t', cell);
     expect(aurasAt(game.state, cell).map((layer) => layer.type)).toEqual(['fire', 'spring']);
-    expect(aurasAt(game.state, cell).map((layer) => isFireType(layer.type))).toEqual([true, false]);
   });
 
   it('is what Fire, Wildfire and the Whelp\'s Scorch make', () => {
@@ -84,7 +82,7 @@ describe('the fire stats', () => {
     define('fire_t', [fire(3)]);
     play(game, 'fire_t', cell);
     const enemy = dummy(game, cell);
-    hold(game, [{ stat: 'fireDamage', add: 2 }, { stat: 'fireMultiplier', mul: 2 }]);
+    hold(game, [{ stat: 'auraDamage', aura: 'fire', add: 2 }, { stat: 'auraMultiplier', aura: 'fire', mul: 2 }]);
     endPlayerPhase(game);
     expect(enemy.hp).toBe(99 - (3 + 2) * 2);
   });
@@ -95,7 +93,7 @@ describe('the fire stats', () => {
     const whelp = dummy(game, cellAt(game, 2));
     INTENTS.scorch_t = { id: 'scorch_t', name: 'Scorch', cost: 0, rarity: 'normal', targeting: 'enemy', range: 3, text: '', effects: [fire(3)] };
     whelp.intent = { cardId: 'scorch_t', label: 'Scorch' };
-    hold(game, [{ stat: 'fireDamage', add: 1 }]);
+    hold(game, [{ stat: 'auraDamage', aura: 'fire', add: 1 }]);
     self.block = 0;
     const hp = self.hp;
     // Lit by the whelp, under the player's feet: it hits him at once.
@@ -109,26 +107,26 @@ describe('the fire stats', () => {
     const game = quiet();
     const cell = cellAt(game, 2);
     define('mark_t', [{ kind: 'aura', rounds: 3, type: 'spring', effects: [{ kind: 'damage', amount: 3 }] }]);
-    hold(game, [{ stat: 'fireDamage', add: 5 }]);
+    hold(game, [{ stat: 'auraDamage', aura: 'fire', add: 5 }]);
     const enemy = dummy(game, cell);
     play(game, 'mark_t', cell);
     expect(enemy.hp).toBe(96);
   });
 
-  it('make every fire lit burn fireRounds longer', () => {
+  it('make every fire lit burn auraRounds longer', () => {
     const game = quiet();
     const cell = cellAt(game, 2);
     define('fire_t', [fire(3, 2)]);
-    hold(game, [{ stat: 'fireRounds', add: 1 }]);
+    hold(game, [{ stat: 'auraRounds', aura: 'fire', add: 1 }]);
     play(game, 'fire_t', cell);
     expect(aurasAt(game.state, cell)[0]!.rounds).toBe(3);
   });
 
-  it('keep the player out of the fire with fireWard, but not the enemies', () => {
+  it('keep the player out of the fire with auraWard, but not the enemies', () => {
     const game = quiet();
     const self = player(game.state);
     define('fire_self', [fire(3)], { targeting: 'self', range: 0 });
-    hold(game, [{ stat: 'fireWard', add: 1 }]);
+    hold(game, [{ stat: 'auraWard', aura: 'fire', add: 1 }]);
     const hp = self.hp;
     play(game, 'fire_self');
     expect(self.hp).toBe(hp);
@@ -143,14 +141,14 @@ describe('the fire stats', () => {
     const cell = cellAt(game, 2);
     define('fire_t', [fire(3)]);
     play(game, 'fire_t', cell);
-    hold(game, [{ stat: 'fireDamage', add: 2 }]);
+    hold(game, [{ stat: 'auraDamage', aura: 'fire', add: 2 }]);
     const [layer] = aurasAt(game.state, cell);
     expect(layerEffects(game.state, layer!)).toEqual([{ kind: 'damage', amount: 5 }]);
   });
 });
 
-describe('Rekindle and Flare', () => {
-  it('Rekindle makes every fire burn longer, whoever lit it', () => {
+describe('Prolong and Pulse', () => {
+  it('Prolong makes every fire burn longer, whoever lit it', () => {
     const game = quiet();
     const mine = cellAt(game, 2);
     const theirs = cellAt(game, 2, 1);
@@ -160,52 +158,52 @@ describe('Rekindle and Flare', () => {
     aurasAt(game.state, theirs)[0]!.ownerId = 'someone_else';
     define('spring_t', [{ kind: 'aura', rounds: 2, type: 'spring', effects: [{ kind: 'heal', amount: 1 }] }]);
     play(game, 'spring_t', mine);
-    define('rekindle_t', [{ kind: 'rekindle', amount: 3 }], { targeting: 'self', range: 0 });
-    play(game, 'rekindle_t');
+    define('prolong_t', [{ kind: 'prolong', amount: 3, aura: 'fire' }], { targeting: 'self', range: 0 });
+    play(game, 'prolong_t');
     expect(aurasAt(game.state, mine).map((layer) => layer.rounds)).toEqual([5, 2]);
     expect(aurasAt(game.state, theirs)[0]!.rounds).toBe(5);
   });
 
-  it('Flare burns whoever stands in a fire again, without using up its hit for the round', () => {
+  it('Pulse burns whoever stands in a fire again, without using up its hit for the round', () => {
     const game = quiet();
     const cell = cellAt(game, 2);
     define('fire_t', [fire(3)]);
     play(game, 'fire_t', cell);
     const enemy = dummy(game, cell);
-    define('flare_t', [{ kind: 'flare', amount: 1 }], { targeting: 'self', range: 0 });
-    play(game, 'flare_t');
+    define('pulse_t', [{ kind: 'pulse', amount: 1, aura: 'fire' }], { targeting: 'self', range: 0 });
+    play(game, 'pulse_t');
     expect(enemy.hp).toBe(99 - 4);
     // Its turn begins in the fire: burned as usual.
     endPlayerPhase(game);
     expect(enemy.hp).toBe(99 - 4 - 3);
   });
 
-  it('Flare is heated by the fire stats, and credits whoever lit the fire', () => {
+  it('Pulse is heated by the aura stats for fire, and credits whoever lit the fire', () => {
     const game = quiet();
     const cell = cellAt(game, 2);
     define('fire_t', [fire(3)]);
     play(game, 'fire_t', cell);
     const enemy = dummy(game, cell);
     enemy.hp = 7;
-    TALISMANS.test_charm = { id: 'test_charm', name: 'Charm', text: '', icon: 'gem', modifiers: [{ stat: 'fireMultiplier', mul: 2 }] };
+    TALISMANS.test_charm = { id: 'test_charm', name: 'Charm', text: '', icon: 'gem', modifiers: [{ stat: 'auraMultiplier', aura: 'fire', mul: 2 }] };
     game.state.talismans.push('test_charm');
-    define('flare_t', [{ kind: 'flare', amount: 1 }], { targeting: 'self', range: 0 });
-    play(game, 'flare_t');
+    define('pulse_t', [{ kind: 'pulse', amount: 1, aura: 'fire' }], { targeting: 'self', range: 0 });
+    play(game, 'pulse_t');
     expect(enemy.dead).toBe(true);
     const kill = game.state.events.find((event) => event.type === 'enemy_killed');
     expect(kill && 'by' in kill ? kill.by : null).toBe('caden');
   });
 
-  it('Flare leaves the player alone under fireWard', () => {
+  it('Pulse leaves the player alone under auraWard', () => {
     const game = quiet();
     const self = player(game.state);
     define('fire_self', [fire(3)], { targeting: 'self', range: 0 });
     play(game, 'fire_self');
-    TALISMANS.test_charm = { id: 'test_charm', name: 'Charm', text: '', icon: 'gem', modifiers: [{ stat: 'fireWard', add: 1 }] };
+    TALISMANS.test_charm = { id: 'test_charm', name: 'Charm', text: '', icon: 'gem', modifiers: [{ stat: 'auraWard', aura: 'fire', add: 1 }] };
     game.state.talismans.push('test_charm');
     const hp = self.hp;
-    define('flare_t', [{ kind: 'flare', amount: 0 }], { targeting: 'self', range: 0 });
-    play(game, 'flare_t');
+    define('pulse_t', [{ kind: 'pulse', amount: 0, aura: 'fire' }], { targeting: 'self', range: 0 });
+    play(game, 'pulse_t');
     expect(self.hp).toBe(hp);
   });
 });
@@ -221,7 +219,7 @@ describe('counting fires and allies', () => {
     play(game, 'spring_t', cellAt(game, 2));
     // Far off: out of reach.
     game.state.auras[`${self.row + 9},${self.col}`] = [{ ...aurasAt(game.state, cellAt(game, 1))[0]!, id: 'far' }];
-    define('shield_t', [{ kind: 'block', amount: { of: 'fires', times: 2 } }], { targeting: 'self', range: 0 });
+    define('shield_t', [{ kind: 'block', amount: { of: 'auras', aura: 'fire', times: 2 } }], { targeting: 'self', range: 0 });
     self.block = 0;
     play(game, 'shield_t');
     expect(self.block).toBe(4);

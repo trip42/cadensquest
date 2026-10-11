@@ -3,11 +3,21 @@
    as it is held, fire effects at a moment in the turn, or both. */
 import type { ContentIssue, TalismanData } from '~/game/content';
 import { TRIGGER_INFO, TRIGGER_POINTS } from '~/game/effects';
-import { STAT_KEYS, STAT_NAMES } from '~/game/stats';
+import { isAuraStat, STAT_KEYS, STAT_NAMES, type StatKey } from '~/game/stats';
+import { useEditorStore } from '~/stores/editor';
+import EditorAuraPicker from './AuraPicker.vue';
 import { problemsAt } from '~/utils/editorProblems';
 
 const props = defineProps<{ item: TalismanData; issues: ContentIssue[] }>();
 const at = (field: string) => problemsAt(props.issues, field);
+
+const editor = useEditorStore();
+/** A modifier of an aura stat names its aura; one of any other stat does not. */
+function setStat(modifier: { stat: string; aura?: string }, stat: string): void {
+  modifier.stat = stat;
+  if (isAuraStat(stat as StatKey)) modifier.aura ??= editor.draft?.auras[0]?.id ?? 'fire';
+  else delete modifier.aura;
+}
 
 function addModifier(): void {
   (props.item.modifiers ??= []).push({ stat: 'maxHp', add: 5 });
@@ -42,9 +52,10 @@ function removeTrigger(index: number): void {
     <legend>While held</legend>
     <p class="sub">Changes a number for the rest of the run. Add is applied first, then multiply.</p>
     <div v-for="(modifier, index) in item.modifiers ?? []" :key="index" class="row">
-      <select v-model="modifier.stat" aria-label="Stat">
+      <select :value="modifier.stat" aria-label="Stat" @change="setStat(modifier, ($event.target as HTMLSelectElement).value)">
         <option v-for="key in STAT_KEYS" :key="key" :value="key">{{ STAT_NAMES[key] }}</option>
       </select>
+      <EditorAuraPicker v-if="isAuraStat(modifier.stat as StatKey)" :target="modifier" />
       <label class="inline">Add <input v-model.number="modifier.add" type="number" class="num"></label>
       <label class="inline">× <input :value="modifier.mul ?? ''" type="number" step="0.1" class="num" placeholder="1" @input="setMul(modifier, ($event.target as HTMLInputElement).value)"></label>
       <button type="button" class="icon-btn" aria-label="Remove" @click="removeModifier(index)">✕</button>

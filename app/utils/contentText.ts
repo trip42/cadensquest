@@ -13,29 +13,36 @@ type SimpleData = Exclude<
 type BoonData = Extract<EffectData, { kind: 'boon' }>;
 
 /* What a boon does, said to the player: "for 2 rounds, every fire deals 2
-   more damage". The stats cards raise most have their own wording; the rest
-   read as the stat table names them. */
+   more damage" — an aura stat in its aura's own name. The stats cards raise
+   most have their own wording; the rest read as the stat table names them. */
 function boonPhrase(effect: BoonData): string {
   const rounds = describeAmount(effect.rounds as Amount);
   const add = effect.add === undefined ? null : describeAmount(effect.add as Amount, 'your');
   const scaled = effect.add !== undefined && isScaled(effect.add as Amount);
   const times = effect.mul === 2 ? 'double' : effect.mul === 3 ? 'triple' : `${effect.mul}×`;
   const what: string[] = [];
+  const aura = auraNameOf(effect.aura);
   switch (effect.stat) {
-    case 'fireDamage':
-      if (add) what.push(scaled ? `every fire deals extra damage equal to ${add}` : `every fire deals ${add} more damage`);
-      if (effect.mul) what.push(`every fire's damage is multiplied by ${effect.mul}`);
+    case 'auraDamage':
+      if (add) what.push(scaled ? `every ${aura} deals extra damage equal to ${add}` : `every ${aura} deals ${add} more damage`);
+      if (effect.mul) what.push(`every ${aura}'s damage is multiplied by ${effect.mul}`);
       break;
-    case 'fireMultiplier':
-      if (effect.mul) what.push(`every fire deals ${times} damage`);
+    case 'auraMultiplier':
+      if (effect.mul) what.push(`every ${aura} deals ${times} damage`);
+      break;
+    case 'auraRounds':
+      if (add) what.push(`every ${aura} laid lasts ${add} more round${add === '1' ? '' : 's'}`);
+      break;
+    case 'auraWard':
+      if (add) what.push(`${aura} does not hurt you`);
       break;
     case 'slamDamage':
       if (add) what.push(`knockback slams deal ${add} more`);
       if (effect.mul) what.push(effect.mul === 2 ? 'knockback slams hit twice as hard' : `knockback slams deal ${times} damage`);
       break;
     default:
-      if (add) what.push(`gain ${add} ${STAT_NAMES[effect.stat]}`);
-      if (effect.mul) what.push(`your ${STAT_NAMES[effect.stat]} is ×${effect.mul}`);
+      if (add) what.push(`gain ${add} ${statName(effect.stat, effect.aura)}`);
+      if (effect.mul) what.push(`your ${statName(effect.stat, effect.aura)} is ×${effect.mul}`);
   }
   return `for ${rounds} round${rounds === '1' ? '' : 's'}, ${what.join(' and ')}`;
 }
@@ -92,8 +99,8 @@ function summonedPhrase(effect: SummonData, nameOf: NameOf, where = ''): string 
   return `${article(nameOf(effect.entity))}${where} with ${health} health${rounds}`;
 }
 type AuraData = Extract<EffectData, { kind: 'aura' }>;
-import { type Amount, describeAmount, EFFECT_INFO, isScaled } from '~/game/effects';
-import { STAT_NAMES } from '~/game/stats';
+import { type Amount, auraNameOf, describeAmount, EFFECT_INFO, isScaled } from '~/game/effects';
+import { statName } from '~/game/stats';
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
@@ -260,9 +267,9 @@ function simplePlayerPhrase(effect: SimpleData, range: number): string {
       case 'draw': return `draw ${n} cards`;
       case 'step': return `leap to a cell within ${range}`;
       case 'command': return range <= 1 ? 'an adjacent ally plays its card now' : `an ally within ${range} plays its card now`;
-      case 'rekindle': return `every fire burns ${n} rounds longer`;
+      case 'prolong': return `every ${auraNameOf(effect.aura)} lasts ${n} rounds longer`;
       case 'echo': return `the next ${n} cards you play this turn each happen twice`;
-      case 'flare': return `every fire flares, burning whoever stands in one again for ${n} more`;
+      case 'pulse': return `every ${auraNameOf(effect.aura)} pulses, hitting whoever stands in one again for ${n} more`;
       default: return `${effect.kind} ${n}`;
     }
   }
@@ -280,9 +287,9 @@ function simplePlayerPhrase(effect: SimpleData, range: number): string {
       case 'draw': return `draw cards equal to ${n}`;
       case 'step': return `leap to a cell within ${range}`;
       case 'command': return range <= 1 ? 'an adjacent ally plays its card now' : `an ally within ${range} plays its card now`;
-      case 'rekindle': return `every fire burns longer by rounds equal to ${n}`;
+      case 'prolong': return `every ${auraNameOf(effect.aura)} lasts longer by rounds equal to ${n}`;
       case 'echo': return `the next cards you play this turn happen twice, as many as ${n}`;
-      case 'flare': return `every fire flares, burning whoever stands in one again for ${n} more`;
+      case 'pulse': return `every ${auraNameOf(effect.aura)} pulses, hitting whoever stands in one again for ${n} more`;
       default: return `${effect.kind} ${n}`;
     }
   }
@@ -299,9 +306,9 @@ function simplePlayerPhrase(effect: SimpleData, range: number): string {
     case 'draw': return n === 1 ? 'draw a card' : `draw ${n} cards`;
     case 'step': return `leap to a cell within ${range}`;
     case 'command': return range <= 1 ? 'an adjacent ally plays its card now' : `an ally within ${range} plays its card now`;
-    case 'rekindle': return `every fire burns ${plural(n, 'round')} longer`;
+    case 'prolong': return `every ${auraNameOf(effect.aura)} lasts ${plural(n, 'round')} longer`;
     case 'echo': return n === 1 ? 'the next card you play this turn happens twice' : `the next ${n} cards you play this turn each happen twice`;
-    case 'flare': return n ? `every fire flares, burning whoever stands in one again for ${n} more` : 'every fire flares, burning whoever stands in one again now';
+    case 'pulse': return n ? `every ${auraNameOf(effect.aura)} pulses, hitting whoever stands in one again for ${n} more` : `every ${auraNameOf(effect.aura)} pulses, hitting whoever stands in one again now`;
     default: return `${effect.kind} ${n}`;
   }
 }
@@ -351,8 +358,8 @@ function enemyPhrase(effect: EffectData, range: number, nameOf: NameOf = byId): 
     case 'losePower': return isAllOf(amount, 'power') ? 'loses all its power' : `loses ${n} power`;
     case 'push': return `knocks its target back ${n}`;
     case 'pull': return `drags its target up to ${n} closer`;
-    case 'rekindle': return `makes every fire burn ${n} rounds longer`;
-    case 'flare': return `makes every fire flare${scaled || n !== '0' ? `, ${n} hotter` : ''}`;
+    case 'prolong': return `makes every ${auraNameOf(effect.aura)} last ${n} rounds longer`;
+    case 'pulse': return `makes every ${auraNameOf(effect.aura)} pulse${scaled || n !== '0' ? `, ${n} harder` : ''}`;
     default: return `${effect.kind} ${n}`;
   }
 }

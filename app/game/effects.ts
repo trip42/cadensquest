@@ -15,7 +15,11 @@
    knows what any of them mean, so a new gem or talisman is data unless it
    needs a genuinely new verb. */
 
-import { STAT_NAMES, type StatKey } from './stats';
+import { auraType } from './auras';
+import { statName, type StatKey } from './stats';
+
+/** An aura type's name, for a sentence: "fire", "poison". */
+export const auraNameOf = (id: string | undefined): string => (auraType(id)?.name ?? id ?? 'aura').toLowerCase();
 
 export type EffectKind =
   | 'damage'
@@ -48,11 +52,13 @@ export type EffectKind =
   /** Drag the targeted creature up to this many tiles toward the actor,
    *  stopping beside it. */
   | 'pull'
-  /** Every fire on the floor burns this many rounds longer, whoever lit it. */
-  | 'rekindle'
-  /** Every fire hits whoever stands in it now, for its damage plus this
-   *  much, without using up that tile's hit for the round. */
-  | 'flare'
+  /** Every mark of the named aura (`aura`) on the floor lasts this many
+   *  rounds longer, whoever laid it. */
+  | 'prolong'
+  /** Every mark of the named aura (`aura`) hits whoever stands in it now,
+   *  for its damage plus this much, without using up that tile's hit for
+   *  the round. */
+  | 'pulse'
   /** The next this-many cards the player plays this turn each happen
    *  twice: effects and gems, with X spent and read once. */
   | 'echo'
@@ -70,14 +76,17 @@ export type EffectKind =
    Deliberately a small data shape rather than a formula string: content
    may one day come from a server, and a string that is evaluated is code.
    This can be validated field by field, and cannot do anything else. */
-export type AmountSource = 'block' | 'health' | 'missingHealth' | 'energy' | 'hand' | 'power' | 'x' | 'fires' | 'allies' | 'moved';
+export type AmountSource = 'block' | 'health' | 'missingHealth' | 'energy' | 'hand' | 'power' | 'x' | 'auras' | 'allies' | 'moved';
 
-/** How far `fires` looks: burning tiles within this many steps of the
- *  actor count. A dial — too far, and it counts fires long left behind. */
-export const FIRES_WITHIN = 3;
+/** How far `auras` looks: tiles of the named aura within this many steps
+ *  of the actor count. A dial — too far, and it counts marks long left
+ *  behind. */
+export const AURAS_WITHIN = 3;
 
 export interface ScaledAmount {
   of: AmountSource;
+  /** For `auras`: which aura type's tiles to count. */
+  aura?: string;
   /** Multiplier; 1 when left out. */
   times?: number;
   /** Added after multiplying; 0 when left out. */
@@ -90,6 +99,8 @@ export type Amount = number | ScaledAmount;
 export interface SimpleEffect {
   kind: EffectKind;
   amount: Amount;
+  /** For a verb about one aura type (Prolong, Pulse): which. */
+  aura?: string;
 }
 
 /* Aura: mark a tile so that whoever is on it gets these effects, for a
@@ -210,6 +221,8 @@ export interface LaterEffect {
 export interface BoonEffect {
   kind: 'boon';
   stat: StatKey;
+  /** For an aura stat (`AURA_STATS`): which aura type it raises. */
+  aura?: string;
   /** Added to the stat. */
   add?: Amount;
   /** Multiplies the stat, after every `add`. */
@@ -245,13 +258,13 @@ export const isSimple = (effect: Effect): effect is SimpleEffect =>
    card being played and nothing aimed at — so only what makes sense for a
    creature acting on itself:
      - a verb that can happen to a creature on its own tile (EFFECT_INFO's
-       `tile`), plus fire's rekindle and flare, which need nobody
+       `tile`), plus Prolong and Pulse, which need nobody
      - a summon (beside the summoner), a mark (under it), a burst (around
        it), a boon, a trail, or another Later
    Never a verb that aims (damage at a foe, knockback, tame, mend), moves
    (leap, advance) or is about cards being played (echo, command). */
 export const laterVerb = (kind: EffectKind): boolean =>
-  EFFECT_INFO[kind].tile || kind === 'rekindle' || kind === 'flare';
+  EFFECT_INFO[kind].tile || kind === 'prolong' || kind === 'pulse';
 export const LATER_SHAPES = ['aura', 'summon', 'area', 'later', 'boon', 'trail'] as const;
 export const canGoInLater = (kind: string): boolean =>
   (LATER_SHAPES as readonly string[]).includes(kind) || (kind in EFFECT_INFO && laterVerb(kind as EffectKind));
@@ -303,8 +316,9 @@ export const AMOUNT_SOURCES: Record<AmountSource, { label: string; phrase: strin
   /* The energy an X card spent. Not "energy": by the time a card's effects
      happen its cost is paid, so an X card always leaves you on 0. */
   x: { label: 'X (energy spent)', phrase: 'X', enemy: false },
-  /* Burning tiles near the actor, whoever lit them: fire has no side. */
-  fires: { label: `Fires within ${FIRES_WITHIN}`, phrase: `burning tiles within ${FIRES_WITHIN}`, enemy: true },
+  /* Tiles of one aura type near the actor, whoever laid them: an aura has
+     no side. Which type is the amount's `aura`. */
+  auras: { label: `Aura tiles within ${AURAS_WITHIN}`, phrase: `tiles within ${AURAS_WITHIN}`, enemy: true },
   /* The player's living allies, tamed or summoned. */
   allies: { label: 'Allies', phrase: 'allies', enemy: false },
   /* Tiles the player has walked this turn — not leapt, not shoved. */
@@ -313,8 +327,11 @@ export const AMOUNT_SOURCES: Record<AmountSource, { label: string; phrase: strin
 
 export const AMOUNT_SOURCE_KEYS = Object.keys(AMOUNT_SOURCES) as AmountSource[];
 
-/** The actor's values an amount can be worked out from. */
-export type AmountValues = Record<AmountSource, number>;
+/** The actor's values an amount can be worked out from — and, for
+ *  `auras`, a count for each aura type. */
+export type AmountValues = Record<Exclude<AmountSource, 'auras'>, number> & {
+  auras: Record<string, number>;
+};
 
 export const isScaled = (amount: Amount): amount is ScaledAmount => typeof amount === 'object';
 
@@ -325,7 +342,8 @@ export const readsPower = (amount: Amount): boolean => isScaled(amount) && amoun
 /** An amount's value for these values: rounded down, never negative. */
 export function amountOf(amount: Amount, values: AmountValues): number {
   if (!isScaled(amount)) return amount;
-  const raw = values[amount.of] * (amount.times ?? 1) + (amount.plus ?? 0);
+  const base = amount.of === 'auras' ? values.auras[amount.aura ?? ''] ?? 0 : values[amount.of];
+  const raw = base * (amount.times ?? 1) + (amount.plus ?? 0);
   return Math.max(0, Math.floor(raw));
 }
 
@@ -377,7 +395,7 @@ export function previewAmounts(effects: readonly Effect[], start: AmountValues):
 /* Two wordings: `full` for tooltips ("8 damage, −8 block") and `short`
    for the band across a card's art, which has room for about sixteen
    capitals ("8 DMG −8 BLK"). */
-const NOW_SHORT: Partial<Record<EffectKind, (n: number) => string>> = {
+const NOW_SHORT: Partial<Record<EffectKind, (n: number, aura?: string) => string>> = {
   damage: (n) => `${n} DMG`,
   block: (n) => `+${n} BLK`,
   loseBlock: (n) => `−${n} BLK`,
@@ -393,12 +411,12 @@ const NOW_SHORT: Partial<Record<EffectKind, (n: number) => string>> = {
   mend: (n) => `MEND ${n}`,
   push: (n) => `PUSH ${n}`,
   pull: (n) => `PULL ${n}`,
-  rekindle: (n) => `FIRE +${n} RND`,
-  flare: (n) => `FLARE +${n}`,
+  prolong: (n, aura = 'aura') => `${aura.toUpperCase()} +${n} RND`,
+  pulse: (n, aura = 'aura') => `${aura.toUpperCase()} PULSE +${n}`,
   echo: (n) => `ECHO ${n}`,
 };
 
-const NOW_LABELS: Partial<Record<EffectKind, (n: number) => string>> = {
+const NOW_LABELS: Partial<Record<EffectKind, (n: number, aura?: string) => string>> = {
   damage: (n) => `${n} damage`,
   block: (n) => `+${n} block`,
   loseBlock: (n) => `−${n} block`,
@@ -414,8 +432,8 @@ const NOW_LABELS: Partial<Record<EffectKind, (n: number) => string>> = {
   mend: (n) => `mends ${n}`,
   push: (n) => `knocks back ${n}`,
   pull: (n) => `pulls in ${n}`,
-  rekindle: (n) => `every fire +${n} rounds`,
-  flare: (n) => `every fire flares +${n}`,
+  prolong: (n, aura = 'aura') => `every ${aura} +${n} rounds`,
+  pulse: (n, aura = 'aura') => `every ${aura} pulses +${n}`,
   echo: (n) => `next ${n} card${n === 1 ? '' : 's'} twice`,
 };
 
@@ -450,7 +468,7 @@ export function nowText(effects: readonly Effect[], values: AmountValues, style:
       }
       if (isBoon(effect)) {
         const add = effect.add !== undefined && isScaled(effect.add)
-          ? [style === 'short' ? `+${amounts[i]} ${STAT_NAMES[effect.stat].toUpperCase()}` : `+${amounts[i]} ${STAT_NAMES[effect.stat]}`]
+          ? [style === 'short' ? `+${amounts[i]} ${statName(effect.stat, effect.aura).toUpperCase()}` : `+${amounts[i]} ${statName(effect.stat, effect.aura)}`]
           : [];
         const rounds = isScaled(effect.rounds) ? [style === 'short' ? `${amountOf(effect.rounds, values)} RND` : `${amountOf(effect.rounds, values)} rounds`] : [];
         return [...add, ...rounds];
@@ -459,10 +477,10 @@ export function nowText(effects: readonly Effect[], values: AmountValues, style:
         const rounds = isScaled(effect.rounds) ? [style === 'short' ? `IN ${amounts[i]}` : `in ${amounts[i]} rounds`] : [];
         const inner = effect.effects
           .filter((later): later is SimpleEffect => isSimple(later) && isScaled(later.amount))
-          .map((later) => `${style === 'short' ? 'LATER' : 'later'} ${labels[later.kind]?.(amountOf(later.amount, values))}`);
+          .map((later) => `${style === 'short' ? 'LATER' : 'later'} ${labels[later.kind]?.(amountOf(later.amount, values), auraNameOf(later.aura))}`);
         return [...rounds, ...inner];
       }
-      if (!isAura(effect)) return isScaled(effect.amount) ? [labels[effect.kind]?.(amounts[i]!)] : [];
+      if (!isAura(effect)) return isScaled(effect.amount) ? [labels[effect.kind]?.(amounts[i]!, auraNameOf(effect.aura))] : [];
       // A mark: how long, and what its tile will do, fixed from now.
       const rounds = isScaled(effect.rounds) ? [style === 'short' ? `${amounts[i]} RND` : `${amounts[i]} rounds`] : [];
       const inner = markEffects(effect)
@@ -498,7 +516,9 @@ export const hasScaledAmount = (effects: readonly Effect[]): boolean =>
    certainly a mistake in the content, so the validator warns. */
 /* `tile` says whether a verb can go on a marked tile. Leap and Advance
    are about the actor moving itself, which means nothing for a tile. */
-export const EFFECT_INFO: Record<EffectKind, { label: string; help: string; player: boolean; enemy: boolean; tile: boolean }> = {
+/* `aura` marks a verb about one aura type: it names which (`aura` on the
+   effect), and the editor offers the aura types. */
+export const EFFECT_INFO: Record<EffectKind, { label: string; help: string; player: boolean; enemy: boolean; tile: boolean; aura?: true }> = {
   damage: { label: 'Damage', help: 'Hit the target for this much.', player: true, enemy: true, tile: true },
   block: { label: 'Block', help: 'Absorbs this much damage until the next turn.', player: true, enemy: true, tile: true },
   loseBlock: { label: 'Lose block', help: 'Spend this much of your own block.', player: true, enemy: true, tile: true },
@@ -515,8 +535,8 @@ export const EFFECT_INFO: Record<EffectKind, { label: string; help: string; play
   mend: { label: 'Mend', help: 'Heal the targeted creature this much — an ally, or one this card just tamed.', player: true, enemy: false, tile: false },
   push: { label: 'Knockback', help: 'Knock the target this many tiles straight back. If a wall or another creature stops it, both take damage for each tile it had left. Guardians hold their ground.', player: true, enemy: true, tile: false },
   pull: { label: 'Pull', help: 'Drag the target up to this many tiles toward you, stopping beside you. Guardians hold their ground.', player: true, enemy: true, tile: false },
-  rekindle: { label: 'Rekindle', help: 'Every fire on the floor burns this many rounds longer — whoever lit it.', player: true, enemy: true, tile: false },
-  flare: { label: 'Flare', help: 'Every fire on the floor hits whoever stands in it now, for its damage plus this much — whoever lit it. It does not use up that fire\'s hit for the round.', player: true, enemy: true, tile: false },
+  prolong: { label: 'Prolong', help: 'Every mark of the chosen aura on the floor lasts this many rounds longer — whoever laid it.', player: true, enemy: true, tile: false, aura: true },
+  pulse: { label: 'Pulse', help: 'Every mark of the chosen aura on the floor hits whoever stands in it now, for its damage plus this much — whoever laid it. It does not use up that tile\'s hit for the round.', player: true, enemy: true, tile: false, aura: true },
   echo: { label: 'Echo', help: 'The next this-many cards you play this turn each happen twice — their gems too. X is spent and read once.', player: true, enemy: false, tile: false },
   command: { label: 'Command', help: 'The targeted ally plays the card it is showing now, then draws another to play in the enemy phase. The number is unused.', player: true, enemy: false, tile: false },
 };
@@ -590,8 +610,8 @@ export function describeAmount(amount: Amount, owner = 'your'): string {
     const x = times === 1 ? 'X' : `${times}X`;
     return plus > 0 ? `${x} + ${plus}` : plus < 0 ? `${x} − ${-plus}` : x;
   }
-  // Fire has no side: they are nobody's fires, just the ones nearby.
-  const base = amount.of === 'fires' ? `the ${AMOUNT_SOURCES.fires.phrase}` : `${owner} ${AMOUNT_SOURCES[amount.of].phrase}`;
+  // An aura has no side: they are nobody's tiles, just the ones nearby.
+  const base = amount.of === 'auras' ? `the ${auraNameOf(amount.aura)} ${AMOUNT_SOURCES.auras.phrase}` : `${owner} ${AMOUNT_SOURCES[amount.of].phrase}`;
   const scaled = times === 1 ? base : times === 0.5 ? `half ${base}` : times === 2 ? `twice ${base}` : `${times} × ${base}`;
   return plus > 0 ? `${scaled} + ${plus}` : plus < 0 ? `${scaled} − ${-plus}` : scaled;
 }
@@ -634,8 +654,8 @@ export function describeEffect(effect: Effect): string {
   if (isBoon(effect)) {
     const rounds = describeAmount(effect.rounds);
     const what = [
-      effect.add === undefined ? '' : `+${describeAmount(effect.add)} ${STAT_NAMES[effect.stat]}`,
-      effect.mul === undefined ? '' : `${STAT_NAMES[effect.stat]} ×${effect.mul}`,
+      effect.add === undefined ? '' : `+${describeAmount(effect.add)} ${statName(effect.stat, effect.aura)}`,
+      effect.mul === undefined ? '' : `${statName(effect.stat, effect.aura)} ×${effect.mul}`,
     ].filter(Boolean).join(', ');
     return `for ${rounds} round${rounds === '1' ? '' : 's'}: ${what}`;
   }
@@ -680,9 +700,9 @@ export function describeEffect(effect: Effect): string {
     case 'mend': return scaled ? `heal the target equal to ${n}` : `heal the target ${n}`;
     case 'push': return scaled ? `knock the target back equal to ${n}` : `knock the target back ${n}`;
     case 'pull': return scaled ? `pull the target in equal to ${n}` : `pull the target in ${n}`;
-    case 'rekindle': return scaled ? `every fire burns longer by ${n} rounds` : `every fire burns ${n} rounds longer`;
+    case 'prolong': return scaled ? `every ${auraNameOf(effect.aura)} lasts longer by ${n} rounds` : `every ${auraNameOf(effect.aura)} lasts ${n} rounds longer`;
     case 'command': return 'the targeted ally plays its card now';
     case 'echo': return `the next ${n} card${n === '1' ? '' : 's'} played this turn happen twice`;
-    case 'flare': return scaled ? `every fire flares, ${n} hotter` : `every fire flares${n === '0' ? '' : `, ${n} hotter`}`;
+    case 'pulse': return scaled ? `every ${auraNameOf(effect.aura)} pulses, ${n} harder` : `every ${auraNameOf(effect.aura)} pulses${n === '0' ? '' : `, ${n} harder`}`;
   }
 }

@@ -10,18 +10,21 @@ const role = (id: string) => {
 
 describe('the bot\'s reading of what a card combines with', () => {
   it('reads setups and payoffs from the effects', () => {
-    expect(role('fire')).toEqual({ gives: ['fire'], needs: [] });
-    expect(role('stoke')).toEqual({ gives: [], needs: ['fire'] });
-    expect(role('flame_trail')).toEqual({ gives: ['fire'], needs: [] });
-    expect(role('oil_flask')).toEqual({ gives: [], needs: ['fire'] });
+    // A tag for each aura type, from what the card names: Fire lays fire,
+    // Stoke heats it, and oil — nothing by itself — needs what spreads
+    // through it.
+    expect(role('fire')).toEqual({ gives: ['aura:fire'], needs: [] });
+    expect(role('stoke')).toEqual({ gives: [], needs: ['aura:fire'] });
+    expect(role('flame_trail')).toEqual({ gives: ['aura:fire'], needs: [] });
+    expect(role('oil_flask')).toEqual({ gives: ['aura:oil'], needs: ['aura:fire'] });
     expect(role('focus')).toEqual({ gives: ['power'], needs: [] });
     expect(role('unleash')).toEqual({ gives: [], needs: ['power'] });
     expect(role('battle_cry')).toEqual({ gives: ['power'], needs: [] });
-    expect(role('rallying_ground')).toEqual({ gives: ['power'], needs: [] });
+    expect(role('rallying_ground')).toEqual({ gives: ['aura:rallying_ground', 'power'], needs: [] });
     expect(role('call_wolf')).toEqual({ gives: ['ally'], needs: [] });
     expect(role('pack_tactics')).toEqual({ gives: [], needs: ['ally'] });
     expect(role('juggernaut')).toEqual({ gives: [], needs: ['shove'] });
-    expect(role('brand')).toEqual({ gives: ['fire', 'shove'], needs: [] });
+    expect(role('brand')).toEqual({ gives: ['aura:fire', 'shove'], needs: [] });
   });
 
   it('prices a payoff by the setups in the deck', () => {

@@ -1,15 +1,15 @@
 /* Aura types: what a marked tile is — Fire, Oil, a healing Spring.
 
    Each is content (`content/auras.json`), defined once and named by every
-   card, gem, talisman or enemy that marks a tile with it (`type` on a
+   card, gem, talisman or enemy that marks a tile with it (`type` on an
    aura effect). The card says what the tile does and for how long — one
    fire hurts for 2, another for 3 — and the type says what it is: its name,
-   how it looks, and whether it counts as fire.
+   how it looks, and what it does when it meets other types.
 
-   `fire` is what the fire cards and stats look for: heat (`fireDamage`,
-   `fireMultiplier`), longer burning (`fireRounds`), the ward, Rekindle,
-   Flare, and the `fires` amount all act on every mark whose type counts as
-   fire, whoever made it. A new kind of flame is a new type with the flag.
+   Nothing about any type is written in code. What heats, lengthens, wards,
+   pulses or counts the marks of a type names that type: the aura stats
+   (`auraDamage` and the rest, with an `aura`), Prolong and Pulse, and the
+   `auras` amount. Fire is simply the type those cards name.
 
    The look is plain data for the renderer (`render/marks.ts`), like a
    sprite's footprint: no drawing happens here. */
@@ -91,9 +91,6 @@ export interface AuraType {
   /** For the tile's tooltip when the mark itself does nothing to whoever
    *  stands there — oil, say: what it is for. */
   text?: string;
-  /** Counts as fire: heated, lengthened, warded, flared and counted by the
-   *  fire cards and stats. */
-  fire?: boolean;
   /** What it does when it meets other types on a tile. */
   reactions?: Reaction[];
   /** Each round, the chance it creeps onto each neighbouring tile — a copy
@@ -107,10 +104,7 @@ export interface AuraType {
 export const AURAS: Record<string, AuraType> = {};
 
 /** A type by id. A mark naming one that is not there (a test's own card,
- *  say) is drawn plain and is not fire. */
+ *  say) is drawn plain. */
 export function auraType(id: string | undefined): AuraType | undefined {
   return id ? AURAS[id] : undefined;
 }
-
-/** Does a mark of this type count as fire? */
-export const isFireType = (id: string | undefined): boolean => !!auraType(id)?.fire;
