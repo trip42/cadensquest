@@ -15,14 +15,15 @@
     "look": {
       "colour": "#e43b44",
       "shape": "circle",
-      "size": 0.62,
-      "height": 11,
-      "spin": 0,
-      "bounceSpeed": 2,
+      "size": 0.64,
+      "height": 3,
+      "spin": -0.2,
+      "bounceSpeed": 0,
       "bounceHeight": 2,
-      "particles": 9,
-      "particleHeight": 38,
-      "border": 1.5
+      "particles": 27,
+      "particleHeight": 54,
+      "particleColour": "#961319",
+      "border": 0
     }
   },
   {
@@ -31,13 +32,13 @@
     "text": "does nothing by itself; fire lit on it spreads across the whole slick at once, and oil poured on fire catches",
     "look": {
       "colour": "#3e2731",
-      "shape": "circle",
-      "size": 0.62,
-      "height": 11,
-      "spin": 0,
-      "bounceSpeed": 2,
-      "bounceHeight": 2,
-      "particles": 9,
+      "shape": "hexagon",
+      "size": 0.68,
+      "height": 4,
+      "spin": 0.2,
+      "bounceSpeed": 0,
+      "bounceHeight": 0.5,
+      "particles": 0,
       "particleHeight": 38,
       "border": 1.5
     }
@@ -47,13 +48,13 @@
     "name": "Spring",
     "look": {
       "colour": "#63c74d",
-      "shape": "circle",
+      "shape": "star",
       "size": 0.62,
-      "height": 11,
+      "height": 24,
       "spin": 0,
       "bounceSpeed": 2,
-      "bounceHeight": 2,
-      "particles": 9,
+      "bounceHeight": 10,
+      "particles": 0,
       "particleHeight": 38,
       "border": 1.5
     }
@@ -79,10 +80,10 @@
     "name": "Poison",
     "spread": 0.25,
     "look": {
-      "colour": "#a052c4",
+      "colour": "#1c2e1a",
       "shape": "hexagon",
-      "size": 0.6,
-      "height": 6,
+      "size": 0.66,
+      "height": 3,
       "spin": 0.08,
       "bounceSpeed": 3,
       "bounceHeight": 1.5,
@@ -90,7 +91,7 @@
       "particleHeight": 24,
       "particleColour": "#b6d53c",
       "border": 1.5,
-      "borderColour": "#b6d53c"
+      "borderColour": "#083607"
     }
   }
 ]

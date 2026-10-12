@@ -8,10 +8,10 @@
       "col": 0,
       "row": 0,
       "footprint": {
-        "width": 124,
-        "height": 110
+        "width": 74,
+        "height": 74
       },
-      "offsetY": 6
+      "offsetY": 17
     }
   },
   {
@@ -24,9 +24,9 @@
       "row": 0,
       "footprint": {
         "width": 124,
-        "height": 110
+        "height": 76
       },
-      "offsetY": 6
+      "offsetY": 19
     }
   },
   {
@@ -38,10 +38,10 @@
       "col": 2,
       "row": 0,
       "footprint": {
-        "width": 108,
-        "height": 120
+        "width": 63,
+        "height": 90
       },
-      "offsetY": 6
+      "offsetY": 7
     }
   },
   {
@@ -53,8 +53,8 @@
       "col": 3,
       "row": 0,
       "footprint": {
-        "width": 90,
-        "height": 132
+        "width": 63,
+        "height": 90
       },
       "offsetY": 6
     }
@@ -68,10 +68,10 @@
       "col": 4,
       "row": 0,
       "footprint": {
-        "width": 96,
-        "height": 124
+        "width": 73,
+        "height": 90
       },
-      "offsetY": 6
+      "offsetY": 7
     }
   },
   {
@@ -83,10 +83,10 @@
       "col": 0,
       "row": 1,
       "footprint": {
-        "width": 108,
-        "height": 120
+        "width": 85,
+        "height": 90
       },
-      "offsetY": 6
+      "offsetY": 8
     }
   },
   {
@@ -98,10 +98,10 @@
       "col": 1,
       "row": 1,
       "footprint": {
-        "width": 108,
-        "height": 120
+        "width": 83,
+        "height": 90
       },
-      "offsetY": 6
+      "offsetY": 7
     }
   },
   {
@@ -113,10 +113,10 @@
       "col": 2,
       "row": 1,
       "footprint": {
-        "width": 90,
-        "height": 132
+        "width": 79,
+        "height": 90
       },
-      "offsetY": 6
+      "offsetY": 7
     }
   },
   {
@@ -128,10 +128,10 @@
       "col": 3,
       "row": 1,
       "footprint": {
-        "width": 96,
-        "height": 124
+        "width": 81,
+        "height": 90
       },
-      "offsetY": 6
+      "offsetY": 7
     }
   },
   {
@@ -143,8 +143,8 @@
       "col": 4,
       "row": 1,
       "footprint": {
-        "width": 108,
-        "height": 120
+        "width": 83,
+        "height": 90
       },
       "offsetY": 6
     }
